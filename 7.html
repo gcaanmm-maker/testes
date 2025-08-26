@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Leitura de Energia → Planilha Google</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; max-width: 400px; }
+    label { font-weight: bold; margin-top: 10px; display: block; }
+    select, input, button { width: 100%; padding: 8px; margin-top: 5px; font-size: 16px; }
+    button { background-color: #1a73e8; color: white; border: none; cursor: pointer; }
+    button:hover { opacity: 0.9; }
+    .dados { margin-top: 20px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+    #reader { width: 300px; margin: 20px auto; }
+  </style>
+</head>
+<body>
+  <h2>Leitura de Energia → Google Sheets</h2>
+
+  <label>Escolher Loja:</label>
+  <select id="selectLoja" onchange="selecionarLoja()">
+    <option value="">-- Selecione --</option>
+    <option value="371">Açai Tropical</option>
+    <option value="320">Condomínio VI</option>
+    <option value="358">Anacapri</option>
+  </select>
+
+  <p>Ou escaneie o QR Code do medidor:</p>
+  <div id="reader"></div>
+
+  <div id="dados" class="dados" style="display:none;">
+    <p><strong>Loja:</strong> <span id="loja"></span></p>
+    <p><strong>Nº Medidor:</strong> <span id="numero"></span></p>
+    <p><strong>Leitura Anterior:</strong> <span id="leituraAnterior"></span></p>
+
+    <label>Leitura Atual:</label>
+    <input type="number" id="leituraAtual" placeholder="Informe a leitura atual">
+
+    <button onclick="salvarLeitura()">Salvar na Planilha</button>
+  </div>
+
+  <script>
+    const medidores = [
+      { loja: "Açai Tropical", numero: 371, leituraAnterior: 11434 },
+      { loja: "Condomínio VI", numero: 320, leituraAnterior: 11093 },
+      { loja: "Anacapri", numero: 358, leituraAnterior: 35758.15 }
+    ];
+
+    let medidorAtual = null;
+
+    function selecionarLoja() {
+      const numero = parseInt(document.getElementById("selectLoja").value);
+      exibirMedidor(numero);
+    }
+
+    function exibirMedidor(numero) {
+      medidorAtual = medidores.find(m => m.numero === numero);
+      if (medidorAtual) {
+        document.getElementById("dados").style.display = "block";
+        document.getElementById("loja").innerText = medidorAtual.loja;
+        document.getElementById("numero").innerText = medidorAtual.numero;
+        document.getElementById("leituraAnterior").innerText = medidorAtual.leituraAnterior;
+      }
+    }
+
+    function onScanSuccess(decodedText) {
+      const numero = parseInt(decodedText);
+      exibirMedidor(numero);
+    }
+
+    new Html5QrcodeScanner("reader", { fps: 10, qrbox: 200 }).render(onScanSuccess);
+
+    async function salvarLeitura() {
+      if (!medidorAtual) {
+        alert("Selecione ou escaneie um medidor primeiro!");
+        return;
+      }
+
+      const val = parseFloat(document.getElementById("leituraAtual").value);
+      if (isNaN(val) || val <= medidorAtual.leituraAnterior) {
+        alert("Informe uma leitura válida (maior que a anterior).");
+        return;
+      }
+
+      const dados = {
+        loja: medidorAtual.loja,
+        numero: medidorAtual.numero,
+        leituraAnterior: medidorAtual.leituraAnterior,
+        leituraAtual: val
+      };
+
+      const url = "https://script.google.com/macros/s/AKfycbxTkzd6UPIZLbwBxtRNTvmoHK-k99xbAyUyFyZ3hvA/dev";
+
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dados)
+        });
+        if (resp.ok) {
+          alert("Leitura enviada com sucesso!");
+          medidorAtual.leituraAnterior = val;
+          document.getElementById("leituraAnterior").innerText = val;
+          document.getElementById("leituraAtual").value = "";
+        } else {
+          alert("Erro ao enviar para o Sheets. Verifique o script.");
+        }
+      } catch (e) {
+        alert("Falha de conexão com o Google Sheets.");
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>
