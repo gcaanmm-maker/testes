@@ -1,1 +1,91 @@
-gjg
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Leituras</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #007bff;
+      color: white;
+      padding: 40px 20px 30px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    a {
+      display: block;
+      width: 90%;
+      max-width: 300px;
+      padding: 20px;
+      margin: 15px 0;
+      text-decoration: none;
+      background: #007bff;
+      color: white;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    a:hover {
+      background: #0056b3;
+      transform: translateY(-2px);
+    }
+
+    footer {
+      padding: 20px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    @media (max-width: 400px) {
+      header h1 {
+        font-size: 1.5rem;
+      }
+
+      a {
+        padding: 18px;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sistema de Leituras de Energia</h1>
+  </header>
+
+  <main>
+    <a href="leitura.html">📊 Registrar Leituras</a>
+    <a href="lojas.html">🏪 Gerenciar Lojas</a>
+  </main>
+
+  <footer>
+    &copy; 2025 Sua Empresa
+  </footer>
+</body>
+</html>
