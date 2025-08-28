@@ -3,46 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <title>Gerenciar Lojas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    form { padding: 15px; border: 1px solid #ccc; border-radius: 8px; max-width: 400px; margin-bottom: 20px; }
-    h2 { margin-top: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #007bff;
+      color: white;
+      padding: 40px 20px 30px;
+    }
+    header h1 { margin: 0; font-size: 1.8rem; }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 100%;
+      margin: 15px 0;
+      text-align: left;
+    }
+    h2 { margin-top: 0; text-align: center; }
     label { display: block; margin: 8px 0 4px; }
-    input, select, button { width: 100%; padding: 6px; margin-bottom: 10px; }
-    button { cursor: pointer; }
-    #msg { margin-top: 10px; font-weight: bold; }
-    .remover { background: #d9534f; color: white; }
-    a { display: inline-block; margin-top: 20px; }
+    input, select, button {
+      width: 100%; padding: 10px; margin-bottom: 12px;
+      border-radius: 8px; border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff; color: white; border: none;
+      font-size: 1rem; cursor: pointer; transition: background 0.3s;
+    }
+    button:hover { background: #0056b3; }
+    .remover { background: #d9534f !important; }
+    #msg { margin-top: 10px; font-weight: bold; text-align: center; }
+    a {
+      display: inline-block; margin-top: 20px;
+      text-decoration: none; color: #007bff;
+    }
+    footer {
+      padding: 20px; font-size: 0.9rem; color: #555;
+    }
   </style>
 </head>
 <body>
-  <h1>Gerenciar Lojas</h1>
+  <header>
+    <h1>Gerenciar Lojas</h1>
+  </header>
 
-  <!-- Adicionar loja -->
-  <form id="formAdicionar">
-    <h2>Adicionar Loja</h2>
-    <label for="novaLoja">Nome da loja:</label>
-    <input type="text" id="novaLoja" required>
+  <main>
+    <!-- Adicionar loja -->
+    <form id="formAdicionar">
+      <h2>Adicionar Loja</h2>
+      <label for="novaLoja">Nome da loja:</label>
+      <input type="text" id="novaLoja" required>
 
-    <label for="medidor">Número do medidor:</label>
-    <input type="text" id="medidor" required>
+      <label for="medidor">Número do medidor:</label>
+      <input type="text" id="medidor" required>
 
-    <button type="submit">Adicionar Loja</button>
-  </form>
+      <button type="submit">Adicionar Loja</button>
+    </form>
 
-  <!-- Remover loja -->
-  <form id="formRemover">
-    <h2>Remover Loja</h2>
-    <label for="removerLoja">Selecione a loja:</label>
-    <select id="removerLoja" required>
-      <option value="">Carregando...</option>
-    </select>
+    <!-- Remover loja -->
+    <form id="formRemover">
+      <h2>Remover Loja</h2>
+      <label for="removerLoja">Selecione a loja:</label>
+      <select id="removerLoja" required>
+        <option value="">Carregando...</option>
+      </select>
 
-    <button type="submit" class="remover">Remover Loja</button>
-  </form>
+      <button type="submit" class="remover">Remover Loja</button>
+    </form>
 
-  <div id="msg"></div>
-  <a href="index.html">⬅ Voltar ao menu</a>
+    <div id="msg"></div>
+    <a href="index.html">⬅ Voltar ao menu</a>
+  </main>
+
+  <footer>&copy; 2025 Sua Empresa</footer>
 
   <script>
     const URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
