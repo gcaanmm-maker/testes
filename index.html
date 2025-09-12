@@ -49,6 +49,7 @@
     button:hover { background: #0056b3; }
     #reader { width: 300px; margin: 20px auto; }
     #msg { margin-top: 10px; font-weight: bold; }
+    #cameraSelect { width: 200px; margin-bottom: 15px; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
     a {
       display: inline-block; margin-top: 20px;
       text-decoration: none; color: #007bff;
@@ -64,6 +65,9 @@
   </header>
 
   <main>
+    <label for="cameraSelect">Selecionar câmera:</label>
+    <select id="cameraSelect"></select>
+
     <div id="reader"></div>
     <p>Leia o QR Code do produto ou selecione da lista</p>
 
@@ -89,7 +93,10 @@
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw-ruZpifHI8POPg98c0-vy6R0eJJfJtI4PseDAtkzOfX39UpN4PWMbtIEg7Yv3_XJ-0Q/exec";
     const selectProduto = document.getElementById("produto");
+    const cameraSelect = document.getElementById("cameraSelect");
     const msg = document.getElementById("msg");
+    let html5QrcodeScanner = null;
+    let currentCameraId = null;
 
     // Carrega produtos da planilha
     async function carregarProdutos() {
@@ -109,73 +116,4 @@
         msg.style.color = "red";
       }
     }
-    carregarProdutos();
-
-    // QR Code Scanner
-    function iniciarScanner() {
-      const html5QrcodeScanner = new Html5Qrcode("reader");
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          html5QrcodeScanner.start(
-            devices[0].id,
-            { fps: 10, qrbox: 250 },
-            qrCodeMessage => {
-              let encontrado = false;
-              for (let i = 0; i < selectProduto.options.length; i++) {
-                if (selectProduto.options[i].value === qrCodeMessage) {
-                  selectProduto.selectedIndex = i;
-                  msg.textContent = "Produto selecionado: " + qrCodeMessage;
-                  msg.style.color = "blue";
-                  encontrado = true;
-                  break;
-                }
-              }
-              if (!encontrado) {
-                msg.textContent = "QR Code não corresponde a nenhum produto!";
-                msg.style.color = "red";
-              }
-            }
-          );
-        }
-      }).catch(err => {
-        msg.textContent = "Erro ao iniciar câmera: " + err;
-        msg.style.color = "red";
-      });
-    }
-    iniciarScanner();
-
-    // Registrar saída
-    document.getElementById("formSaida").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const codigo = selectProduto.value;
-      const quantidade = document.getElementById("quantidade").value;
-
-      if (!codigo || !quantidade) {
-        msg.textContent = "Selecione um produto e informe a quantidade!";
-        msg.style.color = "red";
-        return;
-      }
-
-      try {
-        const params = new URLSearchParams();
-        params.append("codigo", codigo);
-        params.append("retirada", quantidade);
-
-        const resp = await fetch(SCRIPT_URL, { method: "POST", body: params });
-        const texto = await resp.text();
-
-        msg.textContent = texto.includes("⚠️") ? texto : "Saída registrada com sucesso!";
-        msg.style.color = texto.includes("⚠️") ? "red" : "green";
-
-        document.getElementById("formSaida").reset();
-        selectProduto.innerHTML = "<option>Carregando...</option>";
-        carregarProdutos();
-      } catch (err) {
-        msg.textContent = "Erro ao registrar saída!";
-        msg.style.color = "red";
-        console.error(err);
-      }
-    });
-  </script>
-</body>
-</html>
+    carregarProdutos(
