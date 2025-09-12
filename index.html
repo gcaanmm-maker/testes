@@ -2,103 +2,38 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Controle de Saída de Estoque</title>
+  <title>Teste Produtos e Câmeras</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    header {
-      background: #007bff;
-      color: white;
-      padding: 40px 20px 30px;
-    }
-    header h1 { margin: 0; font-size: 1.8rem; }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-    }
-    form {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 400px;
-      width: 100%;
-      margin-top: 15px;
-    }
-    label { display: block; margin: 8px 0 4px; text-align: left; }
-    input, select, button {
-      width: 100%; padding: 10px; margin-bottom: 12px;
-      border-radius: 8px; border: 1px solid #ccc;
-    }
-    button {
-      background: #007bff; color: white; border: none;
-      font-size: 1rem; cursor: pointer; transition: background 0.3s;
-    }
-    button:hover { background: #0056b3; }
-    #reader { width: 300px; margin: 20px auto; }
-    #msg { margin-top: 10px; font-weight: bold; }
-    #cameraSelect { width: 200px; margin-bottom: 15px; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
-    a {
-      display: inline-block; margin-top: 20px;
-      text-decoration: none; color: #007bff;
-    }
-    footer {
-      padding: 20px; font-size: 0.9rem; color: #555;
-    }
+    body { font-family: Arial; padding: 20px; }
+    select { padding: 10px; margin-bottom: 10px; width: 100%; max-width: 400px; }
+    #reader { width: 300px; margin: 20px auto; border: 1px solid #ccc; }
+    #msg { font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Controle de Saída de Estoque</h1>
-  </header>
+  <h2>Teste Produtos e Câmeras</h2>
 
-  <main>
-    <label for="cameraSelect">Selecionar câmera:</label>
-    <select id="cameraSelect"></select>
+  <label for="produto">Produtos:</label>
+  <select id="produto">
+    <option>Carregando...</option>
+  </select>
 
-    <div id="reader"></div>
-    <p>Leia o QR Code do produto ou selecione da lista</p>
+  <label for="camera">Câmeras:</label>
+  <select id="camera"></select>
 
-    <form id="formSaida">
-      <label for="produto">Produto:</label>
-      <select id="produto" required>
-        <option value="">Carregando...</option>
-      </select>
-
-      <label for="quantidade">Quantidade retirada:</label>
-      <input type="number" id="quantidade" required min="1">
-
-      <button type="submit">Registrar Saída</button>
-    </form>
-
-    <div id="msg">Aguardando ação...</div>
-    <a href="index.html">⬅ Voltar ao menu</a>
-  </main>
-
-  <footer>&copy; 2025 Sua Empresa</footer>
+  <div id="reader"></div>
+  <div id="msg">Aguardando...</div>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw-ruZpifHI8POPg98c0-vy6R0eJJfJtI4PseDAtkzOfX39UpN4PWMbtIEg7Yv3_XJ-0Q/exec";
     const selectProduto = document.getElementById("produto");
-    const cameraSelect = document.getElementById("cameraSelect");
+    const selectCamera = document.getElementById("camera");
     const msg = document.getElementById("msg");
-    let html5QrcodeScanner = null;
-    let currentCameraId = null;
+    let scanner = null;
 
-    // Carrega produtos da planilha
+    // Carregar produtos da planilha
     async function carregarProdutos() {
       try {
         const resp = await fetch(SCRIPT_URL);
@@ -110,10 +45,59 @@
           opt.textContent = `${p.codigo} - ${p.produto} (Atual: ${p.estoque_atual})`;
           selectProduto.appendChild(opt);
         });
-      } catch {
+        msg.textContent = "Produtos carregados com sucesso!";
+        msg.style.color = "green";
+      } catch (err) {
         selectProduto.innerHTML = "<option>Erro ao carregar</option>";
-        msg.textContent = "Falha ao carregar produtos!";
+        msg.textContent = "Erro ao carregar produtos!";
         msg.style.color = "red";
+        console.error(err);
       }
     }
-    carregarProdutos(
+
+    carregarProdutos();
+
+    // Listar câmeras disponíveis
+    Html5Qrcode.getCameras().then(cameras => {
+      if (cameras && cameras.length) {
+        cameras.forEach(cam => {
+          const opt = document.createElement("option");
+          opt.value = cam.id;
+          opt.textContent = cam.label || cam.id;
+          selectCamera.appendChild(opt);
+        });
+        iniciarScanner(cameras[0].id);
+      } else {
+        msg.textContent = "Nenhuma câmera encontrada!";
+        msg.style.color = "red";
+      }
+    }).catch(err => {
+      msg.textContent = "Erro ao listar câmeras!";
+      msg.style.color = "red";
+      console.error(err);
+    });
+
+    function iniciarScanner(cameraId) {
+      if (scanner) {
+        scanner.stop().catch(() => {});
+      }
+      scanner = new Html5Qrcode("reader");
+      scanner.start(
+        { deviceId: { exact: cameraId } },
+        { fps: 10, qrbox: 250 },
+        qr => {
+          msg.textContent = "QR Code lido: " + qr;
+          msg.style.color = "blue";
+        }
+      ).catch(err => {
+        msg.textContent = "Erro ao iniciar scanner: " + err;
+        msg.style.color = "red";
+      });
+    }
+
+    selectCamera.addEventListener("change", () => {
+      iniciarScanner(selectCamera.value);
+    });
+  </script>
+</body>
+</html>
