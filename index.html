@@ -2,28 +2,76 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Teste Produtos e Câmeras</title>
+  <title>Controle de Saída de Estoque</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial; padding: 20px; }
-    select { padding: 10px; margin-bottom: 10px; width: 100%; max-width: 400px; }
-    #reader { width: 300px; margin: 20px auto; border: 1px solid #ccc; }
-    #msg { font-weight: bold; margin-top: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #007bff;
+      color: white;
+      padding: 40px 20px 30px;
+    }
+    header h1 { margin: 0; font-size: 1.8rem; }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    select, button {
+      width: 100%; max-width: 400px; padding: 10px; margin-bottom: 12px;
+      border-radius: 8px; border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+    button {
+      background: #007bff; color: white; border: none;
+      cursor: pointer; transition: background 0.3s;
+    }
+    button:hover { background: #0056b3; }
+    #reader { width: 300px; margin: 20px auto; border: 1px solid #ccc; border-radius: 12px; }
+    #msg { margin-top: 10px; font-weight: bold; }
+    footer {
+      padding: 20px; font-size: 0.9rem; color: #555;
+    }
+    label {
+      display: block;
+      text-align: left;
+      max-width: 400px;
+      margin-bottom: 4px;
+      margin-top: 12px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <h2>Teste Produtos e Câmeras</h2>
+  <header>
+    <h1>Controle de Saída de Estoque</h1>
+  </header>
 
-  <label for="produto">Produtos:</label>
-  <select id="produto">
-    <option>Carregando...</option>
-  </select>
+  <main>
+    <label for="produto">Produtos:</label>
+    <select id="produto">
+      <option>Carregando...</option>
+    </select>
 
-  <label for="camera">Câmeras:</label>
-  <select id="camera"></select>
+    <label for="camera">Selecionar câmera:</label>
+    <select id="camera"></select>
 
-  <div id="reader"></div>
-  <div id="msg">Aguardando...</div>
+    <div id="reader"></div>
+    <div id="msg">Aguardando...</div>
+  </main>
+
+  <footer>&copy; 2025 Sua Empresa</footer>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
