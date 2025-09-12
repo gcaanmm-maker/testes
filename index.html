@@ -2,90 +2,109 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema de Leituras</title>
+  <title>Controle de Saída de Estoque</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    header {
-      background: #007bff;
-      color: white;
-      padding: 40px 20px 30px;
-    }
-
-    header h1 {
-      margin: 0;
-      font-size: 1.8rem;
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    a {
-      display: block;
-      width: 90%;
-      max-width: 300px;
-      padding: 20px;
-      margin: 15px 0;
-      text-decoration: none;
-      background: #007bff;
-      color: white;
-      border-radius: 12px;
-      font-size: 1.2rem;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      transition: background 0.3s, transform 0.2s;
-    }
-
-    a:hover {
-      background: #0056b3;
-      transform: translateY(-2px);
-    }
-
-    footer {
-      padding: 20px;
-      font-size: 0.9rem;
-      color: #555;
-    }
-
-    @media (max-width: 400px) {
-      header h1 {
-        font-size: 1.5rem;
-      }
-
-      a {
-        padding: 18px;
-        font-size: 1rem;
-      }
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    label { display: block; margin-top: 10px; }
+    select, input, button { padding: 8px; margin-top: 5px; }
+    #msg { margin-top: 20px; font-weight: bold; }
+    video { width: 100%; max-width: 400px; border: 1px solid #ccc; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Sistema de Leituras de Energia</h1>
-  </header>
+  <h2>Controle de Saída</h2>
 
-  <main>
-    <a href="leitura.html">📊 Registrar Leituras</a>
-    <a href="lojas.html">🏪 Gerenciar Lojas</a>
-  </main>
+  <label for="produtoSelect">Selecione o produto:</label>
+  <select id="produtoSelect"></select>
 
-  <footer>
-    &copy; 2025 Sua Empresa
-  </footer>
+  <label for="retirada">Quantidade retirada:</label>
+  <input type="number" id="retirada" min="1">
+
+  <button onclick="registrarSaida()">Registrar</button>
+
+  <h3>Ou ler QR Code:</h3>
+  <video id="preview"></video>
+
+  <div id="msg"></div>
+
+  <!-- Biblioteca para QR Code -->
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+
+  <script>
+    // URL do seu WebApp
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw-ruZpifHI8POPg98c0-vy6R0eJJfJtI4PseDAtkzOfX39UpN4PWMbtIEg7Yv3_XJ-0Q/exec";
+
+    // Carrega lista de produtos
+    async function carregarProdutos() {
+      try {
+        const res = await fetch(SCRIPT_URL);
+        const produtos = await res.json();
+        const select = document.getElementById("produtoSelect");
+
+        produtos.forEach(p => {
+          const option = document.createElement("option");
+          option.value = p.codigo;
+          option.textContent = `${p.codigo} - ${p.produto} (Atual: ${p.estoque_atual})`;
+          select.appendChild(option);
+        });
+      } catch (err) {
+        document.getElementById("msg").innerText = "Erro ao carregar produtos!";
+        console.error(err);
+      }
+    }
+
+    carregarProdutos();
+
+    // Registrar retirada
+    async function registrarSaida() {
+      const codigo = document.getElementById("produtoSelect").value;
+      const retirada = document.getElementById("retirada").value;
+
+      if (!codigo || !retirada) {
+        alert("Selecione um produto e informe a quantidade!");
+        return;
+      }
+
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: new URLSearchParams({ codigo, retirada })
+        });
+
+        const msg = await res.text();
+        document.getElementById("msg").innerText = msg;
+        document.getElementById("retirada").value = "";
+
+        // Atualiza lista após registrar
+        document.getElementById("produtoSelect").innerHTML = "";
+        carregarProdutos();
+
+      } catch (err) {
+        document.getElementById("msg").innerText = "Erro ao registrar saída!";
+        console.error(err);
+      }
+    }
+
+    // QR Code Scanner
+    function iniciarQrCode() {
+      const html5QrCode = new Html5Qrcode("preview");
+
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          html5QrCode.start(
+            devices[0].id,
+            { fps: 10, qrbox: 250 },
+            (decodedText) => {
+              document.getElementById("produtoSelect").value = decodedText;
+              html5QrCode.stop();
+              alert("Produto selecionado: " + decodedText);
+            }
+          );
+        }
+      });
+    }
+
+    iniciarQrCode();
+  </script>
 </body>
 </html>
