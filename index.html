@@ -3,108 +3,179 @@
 <head>
   <meta charset="UTF-8">
   <title>Controle de Saída de Estoque</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    label { display: block; margin-top: 10px; }
-    select, input, button { padding: 8px; margin-top: 5px; }
-    #msg { margin-top: 20px; font-weight: bold; }
-    video { width: 100%; max-width: 400px; border: 1px solid #ccc; margin-top: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #007bff;
+      color: white;
+      padding: 40px 20px 30px;
+    }
+    header h1 { margin: 0; font-size: 1.8rem; }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 100%;
+      margin-top: 15px;
+    }
+    label { display: block; margin: 8px 0 4px; text-align: left; }
+    input, select, button {
+      width: 100%; padding: 10px; margin-bottom: 12px;
+      border-radius: 8px; border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff; color: white; border: none;
+      font-size: 1rem; cursor: pointer; transition: background 0.3s;
+    }
+    button:hover { background: #0056b3; }
+    #reader { width: 300px; margin: 20px auto; }
+    #msg { margin-top: 10px; font-weight: bold; }
+    a {
+      display: inline-block; margin-top: 20px;
+      text-decoration: none; color: #007bff;
+    }
+    footer {
+      padding: 20px; font-size: 0.9rem; color: #555;
+    }
   </style>
 </head>
 <body>
-  <h2>Controle de Saída</h2>
+  <header>
+    <h1>Controle de Saída de Estoque</h1>
+  </header>
 
-  <label for="produtoSelect">Selecione o produto:</label>
-  <select id="produtoSelect"></select>
+  <main>
+    <div id="reader"></div>
+    <p>Leia o QR Code do produto ou selecione da lista</p>
 
-  <label for="retirada">Quantidade retirada:</label>
-  <input type="number" id="retirada" min="1">
+    <form id="formSaida">
+      <label for="produto">Produto:</label>
+      <select id="produto" required>
+        <option value="">Carregando...</option>
+      </select>
 
-  <button onclick="registrarSaida()">Registrar</button>
+      <label for="quantidade">Quantidade retirada:</label>
+      <input type="number" id="quantidade" required min="1">
 
-  <h3>Ou ler QR Code:</h3>
-  <video id="preview"></video>
+      <button type="submit">Registrar Saída</button>
+    </form>
 
-  <div id="msg"></div>
+    <div id="msg">Aguardando ação...</div>
+    <a href="index.html">⬅ Voltar ao menu</a>
+  </main>
 
-  <!-- Biblioteca para QR Code -->
-  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <footer>&copy; 2025 Sua Empresa</footer>
 
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    // URL do seu WebApp
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw-ruZpifHI8POPg98c0-vy6R0eJJfJtI4PseDAtkzOfX39UpN4PWMbtIEg7Yv3_XJ-0Q/exec";
+    const selectProduto = document.getElementById("produto");
+    const msg = document.getElementById("msg");
 
-    // Carrega lista de produtos
+    // Carrega produtos da planilha
     async function carregarProdutos() {
       try {
-        const res = await fetch(SCRIPT_URL);
-        const produtos = await res.json();
-        const select = document.getElementById("produtoSelect");
-
+        const resp = await fetch(SCRIPT_URL);
+        const produtos = await resp.json();
+        selectProduto.innerHTML = "<option value=''>Selecione...</option>";
         produtos.forEach(p => {
-          const option = document.createElement("option");
-          option.value = p.codigo;
-          option.textContent = `${p.codigo} - ${p.produto} (Atual: ${p.estoque_atual})`;
-          select.appendChild(option);
+          const opt = document.createElement("option");
+          opt.value = p.codigo;
+          opt.textContent = `${p.codigo} - ${p.produto} (Atual: ${p.estoque_atual})`;
+          selectProduto.appendChild(opt);
         });
-      } catch (err) {
-        document.getElementById("msg").innerText = "Erro ao carregar produtos!";
-        console.error(err);
+      } catch {
+        selectProduto.innerHTML = "<option>Erro ao carregar</option>";
+        msg.textContent = "Falha ao carregar produtos!";
+        msg.style.color = "red";
       }
     }
-
     carregarProdutos();
 
-    // Registrar retirada
-    async function registrarSaida() {
-      const codigo = document.getElementById("produtoSelect").value;
-      const retirada = document.getElementById("retirada").value;
+    // QR Code Scanner
+    function iniciarScanner() {
+      const html5QrcodeScanner = new Html5Qrcode("reader");
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length) {
+          html5QrcodeScanner.start(
+            devices[0].id,
+            { fps: 10, qrbox: 250 },
+            qrCodeMessage => {
+              let encontrado = false;
+              for (let i = 0; i < selectProduto.options.length; i++) {
+                if (selectProduto.options[i].value === qrCodeMessage) {
+                  selectProduto.selectedIndex = i;
+                  msg.textContent = "Produto selecionado: " + qrCodeMessage;
+                  msg.style.color = "blue";
+                  encontrado = true;
+                  break;
+                }
+              }
+              if (!encontrado) {
+                msg.textContent = "QR Code não corresponde a nenhum produto!";
+                msg.style.color = "red";
+              }
+            }
+          );
+        }
+      }).catch(err => {
+        msg.textContent = "Erro ao iniciar câmera: " + err;
+        msg.style.color = "red";
+      });
+    }
+    iniciarScanner();
 
-      if (!codigo || !retirada) {
-        alert("Selecione um produto e informe a quantidade!");
+    // Registrar saída
+    document.getElementById("formSaida").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const codigo = selectProduto.value;
+      const quantidade = document.getElementById("quantidade").value;
+
+      if (!codigo || !quantidade) {
+        msg.textContent = "Selecione um produto e informe a quantidade!";
+        msg.style.color = "red";
         return;
       }
 
       try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: new URLSearchParams({ codigo, retirada })
-        });
+        const params = new URLSearchParams();
+        params.append("codigo", codigo);
+        params.append("retirada", quantidade);
 
-        const msg = await res.text();
-        document.getElementById("msg").innerText = msg;
-        document.getElementById("retirada").value = "";
+        const resp = await fetch(SCRIPT_URL, { method: "POST", body: params });
+        const texto = await resp.text();
 
-        // Atualiza lista após registrar
-        document.getElementById("produtoSelect").innerHTML = "";
+        msg.textContent = texto.includes("⚠️") ? texto : "Saída registrada com sucesso!";
+        msg.style.color = texto.includes("⚠️") ? "red" : "green";
+
+        document.getElementById("formSaida").reset();
+        selectProduto.innerHTML = "<option>Carregando...</option>";
         carregarProdutos();
-
       } catch (err) {
-        document.getElementById("msg").innerText = "Erro ao registrar saída!";
+        msg.textContent = "Erro ao registrar saída!";
+        msg.style.color = "red";
         console.error(err);
       }
-    }
-
-    // QR Code Scanner
-    function iniciarQrCode() {
-      const html5QrCode = new Html5Qrcode("preview");
-
-      Html5Qrcode.getCameras().then(devices => {
-        if (devices && devices.length) {
-          html5QrCode.start(
-            devices[0].id,
-            { fps: 10, qrbox: 250 },
-            (decodedText) => {
-              document.getElementById("produtoSelect").value = decodedText;
-              html5QrCode.stop();
-              alert("Produto selecionado: " + decodedText);
-            }
-          );
-        }
-      });
-    }
-
-    iniciarQrCode();
+    });
   </script>
 </body>
 </html>
