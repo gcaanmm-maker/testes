@@ -31,6 +31,9 @@
   <p>Leia o QR Code da loja</p>
 
   <form id="formLeitura">
+    <label for="buscaLoja">Buscar loja ou medidor:</label>
+    <input type="text" id="buscaLoja" placeholder="Digite o nome ou medidor...">
+
     <label for="loja">Loja:</label>
     <select id="loja" required>
       <option value="">Carregando...</option>
@@ -52,7 +55,10 @@
 <script>
 const URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
 const selectLoja = document.getElementById("loja");
+const buscaLoja = document.getElementById("buscaLoja");
 const msg = document.getElementById("msg");
+
+let todasLojas = [];
 
 // =======================
 // Carregar lojas no select
@@ -61,19 +67,32 @@ async function carregarLojas() {
   try {
     const resp = await fetch(URL);
     const dados = await resp.json();
-    selectLoja.innerHTML = "<option value=''>Selecione...</option>";
-    dados.forEach(item => {
-      if(item.Loja){
-        const opt = document.createElement("option");
-        opt.value = item.Loja;
-        opt.textContent = item.Loja;
-        selectLoja.appendChild(opt);
-      }
-    });
+    todasLojas = dados.filter(item => item.Loja); // só itens válidos
+    atualizarSelect(todasLojas);
   } catch {
     selectLoja.innerHTML = "<option>Erro ao carregar</option>";
   }
 }
+
+// Atualiza o <select> com base em um array filtrado
+function atualizarSelect(lista){
+  selectLoja.innerHTML = "<option value=''>Selecione...</option>";
+  lista.forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item.Loja;
+    opt.textContent = `${item.Loja} (${item.Medidor})`;
+    selectLoja.appendChild(opt);
+  });
+}
+
+// Filtrar conforme digita
+buscaLoja.addEventListener('input', ()=>{
+  const t = buscaLoja.value.toLowerCase();
+  const filtradas = todasLojas.filter(item =>
+    item.Loja.toLowerCase().includes(t) || item.Medidor.toLowerCase().includes(t)
+  );
+  atualizarSelect(filtradas);
+});
 
 carregarLojas();
 
