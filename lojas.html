@@ -105,11 +105,13 @@
       try {
         const resp = await fetch(URL);
         const lojas = await resp.json();
+
         selectRemover.innerHTML = "<option value=''>Selecione...</option>";
-        lojas.forEach(loja => {
+
+        lojas.forEach(item => {
           let opt = document.createElement("option");
-          opt.value = loja;
-          opt.textContent = loja;
+          opt.value = item.loja; // mantém o nome da loja como valor principal
+          opt.textContent = `${item.loja} (Medidor: ${item.medidor})`;
           selectRemover.appendChild(opt);
         });
       } catch {
