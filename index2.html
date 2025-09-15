@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrar Leitura</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f2f2; margin:0; padding:0; display:flex; flex-direction:column; min-height:100vh; text-align:center; }
+    header { background:#007bff; color:white; padding:40px 20px 30px; }
+    header h1 { margin:0; font-size:1.8rem; }
+    main { flex:1; display:flex; flex-direction:column; align-items:center; padding:20px; }
+    form { background:white; padding:20px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); max-width:400px; width:100%; margin-top:15px; }
+    label { display:block; margin:8px 0 4px; text-align:left; }
+    input, select, button { width:100%; padding:10px; margin-bottom:12px; border-radius:8px; border:1px solid #ccc; }
+    button { background:#007bff; color:white; border:none; font-size:1rem; cursor:pointer; transition:background 0.3s; }
+    button:hover { background:#0056b3; }
+    #reader { width:300px; margin:20px auto; }
+    #msg { margin-top:10px; font-weight:bold; }
+    a { margin-top:20px; text-decoration:none; color:#007bff; }
+    footer { padding:20px; font-size:0.9rem; color:#555; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Registrar Leitura</h1>
+  </header>
+
+  <main>
+    <div id="reader"></div>
+    <p>Leia o QR Code da loja</p>
+
+    <form id="formLeitura">
+      <label for="busca">🔎 Buscar Loja ou Medidor:</label>
+      <input type="text" id="busca" placeholder="Digite o nome ou medidor...">
+
+      <label for="loja">Selecione:</label>
+      <select id="loja" required>
+        <option value="">Carregando...</option>
+      </select>
+
+      <label for="leitura">Leitura atual:</label>
+      <input type="number" id="leitura" required>
+
+      <button type="submit">Registrar</button>
+    </form>
+
+    <div id="msg">Aguardando leitura...</div>
+    <a href="index.html">⬅ Voltar ao menu</a>
+  </main>
+
+  <footer>&copy; 2025 Sua Empresa</footer>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    const URL = "COLE_AQUI_A_URL_DO_SEU_WEBAPP"; // URL publicada do Apps Script
+    const selectLoja = document.getElementById("loja");
+    const campoBusca = document.getElementById("busca");
+    const msg = document.getElementById("msg");
+    let listaCompleta = [];
+
+    async function carregarLojas() {
+      try {
+        const resp = await fetch(URL);
+        listaCompleta = await resp.json();
+        atualizarSelect(listaCompleta);
+      } catch {
+        selectLoja.innerHTML = "<option>Erro ao carregar</option>";
+      }
+    }
+
+    function atualizarSelect(lista) {
+      selectLoja.innerHTML = "<option value=''>Selecione...</option>";
+      lista.forEach(loja => {
+        let opt = document.createElement("option");
+        opt.value = loja;
+        opt.textContent = loja;
+        selectLoja.appendChild(opt);
+      });
+    }
+
+    // 🔎 Filtro conforme digita
+    campoBusca.addEventListener("input", () => {
+      const termo = campoBusca.value.toLowerCase();
+      const filtradas = listaCompleta.filter(item => item.toLowerCase().includes(termo));
+      atualizarSelect(filtradas);
+    });
+
+    carregarLojas();
+
+    // Scanner QR Code
+    function iniciarScanner() {
+      const html5QrcodeScanner = new Html5Qrcode("reader");
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          let encontrado = false;
+          for (let i = 0; i < selectLoja.options.length; i++) {
+            if (selectLoja.options[i].value === qrCodeMessage) {
+              selectLoja.selectedIndex = i;
+              msg.textContent = "Selecionado via QR Code: " + qrCodeMessage;
+              msg.style.color = "blue";
+              encontrado = true;
+              break;
+            }
+          }
+          if (!encontrado) {
+            msg.textContent = "QR Code não corresponde!";
+            msg.style.color = "red";
+          }
+        },
+        errorMessage => {}
+      ).catch(err => {
+        msg.textContent = "Erro ao iniciar câmera: " + err;
+        msg.style.color = "red";
+      });
+    }
+    iniciarScanner();
+
+    // Registrar leitura
+    document.getElementById("formLeitura").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const loja = selectLoja.value;
+      const leitura = document.getElementById("leitura").value;
+
+      if (!loja) {
+        msg.textContent = "Selecione uma loja!";
+        msg.style.color = "red";
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.append("loja", loja);
+      params.append("leitura", leitura);
+
+      const resp = await fetch(URL, { method: "POST", body: params });
+      const data = await resp.json();
+      msg.textContent = data.msg;
+      msg.style.color = data.ok ? "green" : "red";
+
+      if (data.ok) document.getElementById("formLeitura").reset();
+    });
+  </script>
+</body>
+</html>
