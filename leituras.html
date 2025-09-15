@@ -1,52 +1,52 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Registrar Leitura2</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: Arial, sans-serif; text-align:center; margin:0; padding:0; background:#f2f2f2; display:flex; flex-direction:column; min-height:100vh; }
-    header { background:#007bff; color:white; padding:40px 20px 30px; }
-    header h1 { margin:0; font-size:1.8rem; }
-    main { flex:1; display:flex; flex-direction:column; align-items:center; padding:20px; }
-    form { background:white; padding:20px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); max-width:400px; width:100%; margin-top:15px; text-align:left; }
-    label { display:block; margin:8px 0 4px; }
-    input, select, button { width:100%; padding:10px; margin-bottom:12px; border-radius:8px; border:1px solid #ccc; }
-    button { background:#007bff; color:white; border:none; font-size:1rem; cursor:pointer; transition: background 0.3s; }
-    button:hover { background:#0056b3; }
-    #reader { width:300px; margin:20px auto; }
-    #msg { margin-top:10px; font-weight:bold; text-align:center; }
-    a { display:inline-block; margin-top:20px; text-decoration:none; color:#007bff; }
-    footer { padding:20px; font-size:0.9rem; color:#555; }
-  </style>
+<meta charset="UTF-8">
+<title>Registrar Leitura</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial, sans-serif; text-align:center; margin:0; padding:0; background:#f2f2f2; display:flex; flex-direction:column; min-height:100vh; }
+header { background:#007bff; color:white; padding:40px 20px 30px; }
+header h1 { margin:0; font-size:1.8rem; }
+main { flex:1; display:flex; flex-direction:column; align-items:center; padding:20px; }
+form { background:white; padding:20px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1); max-width:400px; width:100%; margin-top:15px; text-align:left; }
+label { display:block; margin:8px 0 4px; }
+input, select, button { width:100%; padding:10px; margin-bottom:12px; border-radius:8px; border:1px solid #ccc; }
+button { background:#007bff; color:white; border:none; font-size:1rem; cursor:pointer; transition: background 0.3s; }
+button:hover { background:#0056b3; }
+#reader { width:300px; margin:20px auto; }
+#msg { margin-top:10px; font-weight:bold; text-align:center; }
+a { display:inline-block; margin-top:20px; text-decoration:none; color:#007bff; }
+footer { padding:20px; font-size:0.9rem; color:#555; }
+</style>
 </head>
 <body>
 
 <header>
-  <h1>Registrar Leitura</h1>
+<h1>Registrar Leitura</h1>
 </header>
 
 <main>
-  <div id="reader"></div>
-  <p>Leia o QR Code da loja</p>
+<div id="reader"></div>
+<p>Leia o QR Code da loja</p>
 
-  <form id="formLeitura">
-    <label for="buscaLoja">Buscar loja ou medidor:</label>
-    <input type="text" id="buscaLoja" placeholder="Digite o nome ou número do medidor...">
+<form id="formLeitura">
+<label for="buscaLoja">Buscar loja ou medidor:</label>
+<input type="text" id="buscaLoja" placeholder="Digite nome ou número do medidor...">
 
-    <label for="loja">Loja:</label>
-    <select id="loja" required>
-      <option value="">Carregando...</option>
-    </select>
+<label for="loja">Loja:</label>
+<select id="loja" required>
+<option value="">Carregando...</option>
+</select>
 
-    <label for="leitura">Leitura atual:</label>
-    <input type="number" id="leitura" required>
+<label for="leitura">Leitura atual:</label>
+<input type="number" id="leitura" required>
 
-    <button type="submit">Registrar</button>
-  </form>
+<button type="submit">Registrar</button>
+</form>
 
-  <div id="msg">Aguardando leitura...</div>
-  <a href="index.html">⬅ Voltar ao menu</a>
+<div id="msg">Aguardando leitura...</div>
+<a href="index.html">⬅ Voltar ao menu</a>
 </main>
 
 <footer>&copy; 2025 Sua Empresa</footer>
@@ -58,105 +58,92 @@ const selectLoja = document.getElementById("loja");
 const buscaLoja = document.getElementById("buscaLoja");
 const msg = document.getElementById("msg");
 
-let todasLojas = []; // armazena todas as lojas do servidor
+let todasLojas = [];
 
-// =======================
-// Carregar lojas no select
-// =======================
-async function carregarLojas() {
-  try {
-    const resp = await fetch(URL);
-    const dados = await resp.json();
-    todasLojas = dados.filter(item => item.Loja && item.Medidor); // só itens válidos
-    atualizarSelect(todasLojas);
-  } catch {
-    selectLoja.innerHTML = "<option>Erro ao carregar</option>";
-  }
+// Carregar lojas
+async function carregarLojas(){
+    try{
+        const resp = await fetch(URL);
+        const dados = await resp.json();
+        todasLojas = dados.filter(i=>i.Loja && i.Medidor);
+        atualizarSelect(todasLojas);
+    }catch{
+        selectLoja.innerHTML = "<option>Erro ao carregar</option>";
+    }
 }
 
-// Atualiza o <select> com base em um array filtrado
+// Atualiza o select com lista fornecida
 function atualizarSelect(lista){
-  selectLoja.innerHTML = "<option value=''>Selecione...</option>";
-  lista.forEach(item => {
-    const opt = document.createElement("option");
-    opt.value = item.Loja; // valor real usado no POST
-    // Mostra nome e medidor no texto
-    opt.textContent = `${item.Loja} (${item.Medidor})`;
-    selectLoja.appendChild(opt);
-  });
+    selectLoja.innerHTML = "<option value=''>Selecione...</option>";
+    lista.forEach(item=>{
+        const opt = document.createElement("option");
+        opt.value = item.Loja; // valor enviado no POST
+        opt.textContent = `${item.Loja} (${item.Medidor})`;
+        selectLoja.appendChild(opt);
+    });
 }
 
-// Filtrar conforme digita
+// Filtrar lojas
 buscaLoja.addEventListener('input', ()=>{
-  const termo = buscaLoja.value.toLowerCase();
-  const filtradas = todasLojas.filter(item =>
-    item.Loja.toLowerCase().includes(termo) || item.Medidor.toLowerCase().includes(termo)
-  );
-  atualizarSelect(filtradas);
+    const termo = buscaLoja.value.toLowerCase();
+    const filtradas = todasLojas.filter(i=>
+        i.Loja.toLowerCase().includes(termo) ||
+        i.Medidor.toLowerCase().includes(termo)
+    );
+    atualizarSelect(filtradas);
 });
 
 carregarLojas();
 
-// =======================
 // Scanner QR Code
-// =======================
-function iniciarScanner() {
-  const html5QrcodeScanner = new Html5Qrcode("reader");
-  html5QrcodeScanner.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
-    qrCodeMessage => {
-      let encontrado = false;
-      for (let i = 0; i < selectLoja.options.length; i++) {
-        if (selectLoja.options[i].value === qrCodeMessage) {
-          selectLoja.selectedIndex = i;
-          msg.textContent = "Loja selecionada: " + qrCodeMessage;
-          msg.style.color = "blue";
-          encontrado = true;
-          break;
+function iniciarScanner(){
+    const scanner = new Html5Qrcode("reader");
+    scanner.start({facingMode:"environment"},{fps:10,qrbox:250}, qr=>{
+        let encontrado = false;
+        for(let i=0;i<selectLoja.options.length;i++){
+            if(selectLoja.options[i].value===qr){
+                selectLoja.selectedIndex = i;
+                msg.textContent = "Loja selecionada: "+qr;
+                msg.style.color="blue";
+                encontrado=true;
+                break;
+            }
         }
-      }
-      if(!encontrado){
-        msg.textContent = "QR Code não corresponde a nenhuma loja!";
-        msg.style.color = "red";
-      }
-    },
-    errorMessage => {}
-  ).catch(err => {
-    msg.textContent = "Erro ao iniciar câmera: " + err;
-    msg.style.color = "red";
-  });
+        if(!encontrado){
+            msg.textContent="QR Code não corresponde a nenhuma loja!";
+            msg.style.color="red";
+        }
+    }).catch(err=>{
+        msg.textContent="Erro ao iniciar câmera: "+err;
+        msg.style.color="red";
+    });
 }
-
 iniciarScanner();
 
-// =======================
 // Registrar leitura
-// =======================
-document.getElementById("formLeitura").addEventListener("submit", async (e)=>{
-  e.preventDefault();
-  const loja = selectLoja.value;
-  const leitura = document.getElementById("leitura").value;
-  if(!loja){
-    msg.textContent = "Selecione uma loja!";
-    msg.style.color = "red";
-    return;
-  }
+document.getElementById("formLeitura").addEventListener("submit", async e=>{
+    e.preventDefault();
+    const loja = selectLoja.value;
+    const leitura = document.getElementById("leitura").value;
+    if(!loja){
+        msg.textContent="Selecione uma loja!";
+        msg.style.color="red";
+        return;
+    }
+    const params = new URLSearchParams();
+    params.append("loja",loja);
+    params.append("leitura",leitura);
 
-  const params = new URLSearchParams();
-  params.append("loja", loja);
-  params.append("leitura", leitura);
-
-  try{
-    const resp = await fetch(URL, { method:"POST", body:params });
-    const data = await resp.json();
-    msg.textContent = data.msg;
-    msg.style.color = data.ok ? "green" : "red";
-    if(data.ok) document.getElementById("formLeitura").reset();
-  } catch(err){
-    msg.textContent = "Erro ao registrar leitura: " + err;
-    msg.style.color = "red";
-  }
+    try{
+        const resp = await fetch(URL,{method:"POST",body:params});
+        const data = await resp.json();
+        msg.textContent = data.msg;
+        msg.style.color = data.ok ? "green":"red";
+        if(data.ok) document.getElementById("formLeitura").reset();
+    }catch(err){
+        msg.textContent="Erro ao registrar leitura: "+err;
+        msg.style.color="red";
+    }
 });
 </script>
 
