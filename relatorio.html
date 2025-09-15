@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Exportar Lojas e Leituras</title>
-
 <style>
 body{font-family:Arial,Helvetica,sans-serif;background:#f7f9fb;margin:0;padding:20px;color:#222}
 header{background:#0d6efd;color:#fff;padding:16px;border-radius:8px}
@@ -21,7 +20,6 @@ button.secondary{background:#6c757d}
 @media (max-width:800px){ th,td{font-size:0.85rem;padding:8px} .controls{flex-direction:column;align-items:stretch} }
 </style>
 
-<!-- libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -31,7 +29,7 @@ button.secondary{background:#6c757d}
 
 <div class="container">
   <div class="controls">
-    <input id="filter" placeholder="Filtrar por loja, medidor ou leitura..." style="flex:1;padding:8px;border-radius:6px;border:1px solid #ccc" />
+    <input id="filter" placeholder="Filtrar..." style="flex:1;padding:8px;border-radius:6px;border:1px solid #ccc" />
     <button id="btnRefresh">Atualizar</button>
     <button id="btnCSV">Baixar CSV</button>
     <button id="btnPDF">Baixar PDF</button>
@@ -42,14 +40,15 @@ button.secondary{background:#6c757d}
   <div id="msg" class="msg small">Aguardando atualização...</div>
 
   <div style="margin-top:12px;overflow:auto">
-    <table id="tbl" aria-live="polite">
+    <table id="tbl">
       <thead>
         <tr>
           <th>#</th>
           <th>Loja</th>
           <th>Medidor</th>
-          <th>Última leitura</th>
-          <th>Data / Hora</th>
+          <th>Leitura anterior</th>
+          <th>Leitura atual</th>
+          <th>Data/Hora</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -60,7 +59,6 @@ button.secondary{background:#6c757d}
 <script>
 (async () => {
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
-
   const tbody = document.getElementById('tbody');
   const msg = document.getElementById('msg');
   const filter = document.getElementById('filter');
@@ -70,119 +68,96 @@ button.secondary{background:#6c757d}
   const btnXLSX = document.getElementById('btnXLSX');
   const btnPrint = document.getElementById('btnPrint');
 
-  let rawData = [];
   let data = [];
 
   function normalizeItem(item) {
-    if (!item) return null;
-    const loja = (item.loja || item.nome || item.name || item.store || "").toString().trim();
-    const medidor = (item.medidor || item.medidor_num || item.meter || "").toString().trim();
-    const leitura = (item.leitura_atual || item.leituraAtual || item.leitura || "").toString().trim();
-    const data_hora = (item.data_hora || item.dataHora || item.data || "").toString().trim();
-    return { loja, medidor, leitura_atual: leitura, data_hora };
+    return {
+      "Loja": item["Loja"] || item["loja"] || "",
+      "Medidor": item["Medidor"] || item["medidor"] || "",
+      "Leitura anterior": item["Leitura anterior"] || item["leitura_anterior"] || "",
+      "Leitura atual": item["Leitura atual"] || item["leitura_atual"] || "",
+      "Data/Hora": item["Data/Hora"] || item["data_hora"] || ""
+    };
   }
 
   async function fetchData() {
     msg.textContent = "Carregando dados...";
     try {
-      const r = await fetch(WEB_APP_URL, { method: 'GET', cache: 'no-store' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const r = await fetch(WEB_APP_URL);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
       const json = await r.json();
-      rawData = json;
-      if (Array.isArray(json) && json.length && typeof json[0] === 'string') {
-        data = json.map(s => ({ loja: s, medidor: "", leitura_atual: "", data_hora: "" }));
-      } else if (Array.isArray(json)) {
-        data = json.map(normalizeItem).filter(Boolean);
-      } else {
-        data = [];
-      }
+      data = json.map(normalizeItem);
       renderTable(data);
-      msg.textContent = `Dados carregados (${data.length} registros).`;
-    } catch (err) {
+      msg.textContent = `Dados carregados (${data.length})`;
+    } catch(err) {
       console.error(err);
-      msg.textContent = 'Erro ao carregar dados: ' + err.message;
-      tbody.innerHTML = '';
+      msg.textContent = "Erro ao carregar dados: "+err.message;
+      tbody.innerHTML="";
     }
   }
 
   function renderTable(list) {
-    tbody.innerHTML = '';
-    list.forEach((row, idx) => {
+    tbody.innerHTML = "";
+    list.forEach((r,i)=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${idx+1}</td>
-        <td>${escapeHtml(row.loja)}</td>
-        <td>${escapeHtml(row.medidor)}</td>
-        <td>${escapeHtml(row.leitura_atual)}</td>
-        <td>${escapeHtml(row.data_hora)}</td>
-      `;
+      tr.innerHTML = `<td>${i+1}</td>
+        <td>${r["Loja"]}</td>
+        <td>${r["Medidor"]}</td>
+        <td>${r["Leitura anterior"]}</td>
+        <td>${r["Leitura atual"]}</td>
+        <td>${r["Data/Hora"]}</td>`;
       tbody.appendChild(tr);
     });
   }
 
-  filter.addEventListener('input', () => {
-    const t = filter.value.trim().toLowerCase();
-    if (!t) renderTable(data);
-    else {
-      const filtered = data.filter(it =>
-        (it.loja||'').toLowerCase().includes(t) ||
-        (it.medidor||'').toLowerCase().includes(t) ||
-        (it.leitura_atual||'').toLowerCase().includes(t) ||
-        (it.data_hora||'').toLowerCase().includes(t)
-      );
-      renderTable(filtered);
-    }
+  filter.addEventListener('input',()=>{
+    const t = filter.value.toLowerCase();
+    renderTable(data.filter(r=>Object.values(r).some(v=>v.toLowerCase().includes(t))));
   });
 
   btnRefresh.addEventListener('click', fetchData);
 
-  btnCSV.addEventListener('click', () => {
-    if (!data.length) return alert('Sem dados para exportar.');
-    const header = ['Loja','Medidor','Última leitura','Data/Hora'];
-    const rows = data.map(r => [r.loja, r.medidor, r.leitura_atual, r.data_hora]);
-    const csv = [header, ...rows].map(r => r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const name = 'leituras_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
+  btnCSV.addEventListener('click',()=>{
+    if(!data.length)return alert("Sem dados para exportar");
+    const header = ["Loja","Medidor","Leitura anterior","Leitura atual","Data/Hora"];
+    const rows = data.map(r=>[r["Loja"],r["Medidor"],r["Leitura anterior"],r["Leitura atual"],r["Data/Hora"]]);
+    const csv = [header,...rows].map(r=>r.map(v=>`"${v}"`).join(",")).join("\r\n");
+    const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = name;
+    link.download = "leituras.csv";
     document.body.appendChild(link);
     link.click();
     link.remove();
   });
 
-  btnPDF.addEventListener('click', () => {
-    if (!data.length) return alert('Sem dados para exportar.');
-    msg.textContent = 'Gerando PDF...';
+  btnPDF.addEventListener('click',()=>{
+    if(!data.length)return alert("Sem dados para exportar");
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:'mm', format:'a4' });
-    doc.text("Lista de Lojas - Última Leitura",14,14);
-    doc.setFontSize(9);
-    const rows = data.map((r,i)=>[i+1,r.loja,r.medidor,r.leitura_atual,r.data_hora]);
-    doc.autoTable({ head:[['#','Loja','Medidor','Última leitura','Data/Hora']], body:rows, startY:20, theme:'grid', styles:{ fontSize:9 }});
-    const name = 'leituras_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.pdf';
-    doc.save(name);
-    msg.textContent = 'PDF gerado!';
+    const doc = new jsPDF({unit:"mm",format:"a4"});
+    doc.text("Lista de Lojas e Leituras",14,14);
+    const rows = data.map((r,i)=>[i+1,r["Loja"],r["Medidor"],r["Leitura anterior"],r["Leitura atual"],r["Data/Hora"]]);
+    doc.autoTable({head:[["#","Loja","Medidor","Leitura anterior","Leitura atual","Data/Hora"]],body:rows,startY:20,theme:"grid",styles:{fontSize:9}});
+    doc.save("leituras.pdf");
   });
 
-  btnXLSX.addEventListener('click', () => {
-    if (!data.length) return alert('Sem dados para exportar.');
+  btnXLSX.addEventListener('click',()=>{
+    if(!data.length)return alert("Sem dados para exportar");
     const ws = XLSX.utils.json_to_sheet(data.map((r,i)=>({
       "#": i+1,
-      "Loja": r.loja,
-      "Medidor": r.medidor,
-      "Última leitura": r.leitura_atual,
-      "Data/Hora": r.data_hora
+      "Loja": r["Loja"],
+      "Medidor": r["Medidor"],
+      "Leitura anterior": r["Leitura anterior"],
+      "Leitura atual": r["Leitura atual"],
+      "Data/Hora": r["Data/Hora"]
     })));
-    ws['!cols'] = [{wch:5},{wch:30},{wch:15},{wch:15},{wch:20}];
+    ws['!cols']=[{wch:5},{wch:30},{wch:15},{wch:15},{wch:15},{wch:20}];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Leituras");
-    XLSX.writeFile(wb, 'leituras.xlsx');
+    XLSX.utils.book_append_sheet(wb,ws,"Leituras");
+    XLSX.writeFile(wb,"leituras.xlsx");
   });
 
-  btnPrint.addEventListener('click', () => window.print());
-
-  function escapeHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):""; }
+  btnPrint.addEventListener('click',()=>window.print());
 
   await fetchData();
 })();
