@@ -32,7 +32,7 @@
 
   <form id="formLeitura">
     <label for="buscaLoja">Buscar loja ou medidor:</label>
-    <input type="text" id="buscaLoja" placeholder="Digite o nome ou medidor...">
+    <input type="text" id="buscaLoja" placeholder="Digite o nome ou número do medidor...">
 
     <label for="loja">Loja:</label>
     <select id="loja" required>
@@ -58,7 +58,7 @@ const selectLoja = document.getElementById("loja");
 const buscaLoja = document.getElementById("buscaLoja");
 const msg = document.getElementById("msg");
 
-let todasLojas = [];
+let todasLojas = []; // armazena todas as lojas do servidor
 
 // =======================
 // Carregar lojas no select
@@ -67,7 +67,7 @@ async function carregarLojas() {
   try {
     const resp = await fetch(URL);
     const dados = await resp.json();
-    todasLojas = dados.filter(item => item.Loja); // só itens válidos
+    todasLojas = dados.filter(item => item.Loja && item.Medidor); // só itens válidos
     atualizarSelect(todasLojas);
   } catch {
     selectLoja.innerHTML = "<option>Erro ao carregar</option>";
@@ -79,7 +79,8 @@ function atualizarSelect(lista){
   selectLoja.innerHTML = "<option value=''>Selecione...</option>";
   lista.forEach(item => {
     const opt = document.createElement("option");
-    opt.value = item.Loja;
+    opt.value = item.Loja; // valor real usado no POST
+    // Mostra nome e medidor no texto
     opt.textContent = `${item.Loja} (${item.Medidor})`;
     selectLoja.appendChild(opt);
   });
@@ -87,9 +88,9 @@ function atualizarSelect(lista){
 
 // Filtrar conforme digita
 buscaLoja.addEventListener('input', ()=>{
-  const t = buscaLoja.value.toLowerCase();
+  const termo = buscaLoja.value.toLowerCase();
   const filtradas = todasLojas.filter(item =>
-    item.Loja.toLowerCase().includes(t) || item.Medidor.toLowerCase().includes(t)
+    item.Loja.toLowerCase().includes(termo) || item.Medidor.toLowerCase().includes(termo)
   );
   atualizarSelect(filtradas);
 });
