@@ -27,8 +27,9 @@
   <main>
     <div id="reader"></div>
     <p>Leia o QR Code da loja</p>
+
     <form id="formLeitura">
-      <!-- 🔍 Campo de busca acima do select -->
+      <!-- 🔍 Campo de busca -->
       <label for="busca">Buscar loja ou medidor:</label>
       <input type="text" id="busca" placeholder="Digite parte do nome ou número do medidor...">
 
@@ -38,10 +39,11 @@
       </select>
 
       <label for="leitura">Leitura atual:</label>
-      <input type="number" id="leitura" required>
+      <input type="text" id="leitura" required placeholder="Ex: 3254,25">
 
       <button type="submit">Registrar</button>
     </form>
+
     <div id="msg">Aguardando leitura...</div>
     <a href="index.html">⬅ Voltar ao menu</a>
   </main>
@@ -55,6 +57,7 @@
     const msg = document.getElementById("msg");
     let lojas = [];
 
+    // 🔹 Carregar lojas
     async function carregarLojas() {
       try {
         const resp = await fetch(URL);
@@ -116,12 +119,23 @@
     document.getElementById("formLeitura").addEventListener("submit", async (e) => {
       e.preventDefault();
       const loja = selectLoja.value;
-      const leitura = document.getElementById("leitura").value;
+      let leitura = document.getElementById("leitura").value.trim();
+
       if (!loja) {
         msg.textContent = "Selecione uma loja!";
         msg.style.color = "red";
         return;
       }
+
+      // Aceita vírgula ou ponto
+      leitura = leitura.replace(",", ".");
+
+      if (isNaN(leitura) || leitura === "") {
+        msg.textContent = "Digite um número válido!";
+        msg.style.color = "red";
+        return;
+      }
+
       const params = new URLSearchParams();
       params.append("loja", loja);
       params.append("leitura", leitura);
@@ -130,6 +144,7 @@
       const data = await resp.json();
       msg.textContent = data.msg;
       msg.style.color = data.ok ? "green" : "red";
+
       if (data.ok) document.getElementById("formLeitura").reset();
     });
   </script>
