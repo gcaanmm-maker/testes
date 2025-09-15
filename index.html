@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Controle de Saída de Estoque</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Leituras</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -15,137 +15,77 @@
       flex-direction: column;
       min-height: 100vh;
     }
+
     header {
       background: #007bff;
       color: white;
       padding: 40px 20px 30px;
     }
-    header h1 { margin: 0; font-size: 1.8rem; }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
     main {
       flex: 1;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       align-items: center;
       padding: 20px;
     }
-    select, button {
-      width: 100%; max-width: 400px; padding: 10px; margin-bottom: 12px;
-      border-radius: 8px; border: 1px solid #ccc;
-      font-size: 1rem;
-    }
-    button {
-      background: #007bff; color: white; border: none;
-      cursor: pointer; transition: background 0.3s;
-    }
-    button:hover { background: #0056b3; }
-    #reader { width: 300px; margin: 20px auto; border: 1px solid #ccc; border-radius: 12px; }
-    #msg { margin-top: 10px; font-weight: bold; }
-    footer {
-      padding: 20px; font-size: 0.9rem; color: #555;
-    }
-    label {
+
+    a {
       display: block;
-      text-align: left;
-      max-width: 400px;
-      margin-bottom: 4px;
-      margin-top: 12px;
-      font-weight: bold;
+      width: 90%;
+      max-width: 300px;
+      padding: 20px;
+      margin: 15px 0;
+      text-decoration: none;
+      background: #007bff;
+      color: white;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    a:hover {
+      background: #0056b3;
+      transform: translateY(-2px);
+    }
+
+    footer {
+      padding: 20px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    @media (max-width: 400px) {
+      header h1 {
+        font-size: 1.5rem;
+      }
+
+      a {
+        padding: 18px;
+        font-size: 1rem;
+      }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Controle de Saída de Estoque</h1>
+    <h1>Sistema de Leituras de Energia</h1>
   </header>
 
   <main>
-    <label for="produto">Produtos:</label>
-    <select id="produto">
-      <option>Carregando...</option>
-    </select>
-
-    <label for="camera">Selecionar câmera:</label>
-    <select id="camera"></select>
-
-    <div id="reader"></div>
-    <div id="msg">Aguardando...</div>
+    <a href="leitura.html">📊 Registrar Leituras</a>
+    <a href="lojas.html">🏪 Gerenciar Lojas</a>
   </main>
 
-  <footer>&copy; 2025 Sua Empresa</footer>
-
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw-ruZpifHI8POPg98c0-vy6R0eJJfJtI4PseDAtkzOfX39UpN4PWMbtIEg7Yv3_XJ-0Q/exec";
-    const selectProduto = document.getElementById("produto");
-    const selectCamera = document.getElementById("camera");
-    const msg = document.getElementById("msg");
-    let scanner = null;
-
-    // Carregar produtos da planilha
-    async function carregarProdutos() {
-      try {
-        const resp = await fetch(SCRIPT_URL);
-        const produtos = await resp.json();
-        selectProduto.innerHTML = "<option value=''>Selecione...</option>";
-        produtos.forEach(p => {
-          const opt = document.createElement("option");
-          opt.value = p.codigo;
-          opt.textContent = `${p.codigo} - ${p.produto} (Atual: ${p.estoque_atual})`;
-          selectProduto.appendChild(opt);
-        });
-        msg.textContent = "Produtos carregados com sucesso!";
-        msg.style.color = "green";
-      } catch (err) {
-        selectProduto.innerHTML = "<option>Erro ao carregar</option>";
-        msg.textContent = "Erro ao carregar produtos!";
-        msg.style.color = "red";
-        console.error(err);
-      }
-    }
-
-    carregarProdutos();
-
-    // Listar câmeras disponíveis
-    Html5Qrcode.getCameras().then(cameras => {
-      if (cameras && cameras.length) {
-        cameras.forEach(cam => {
-          const opt = document.createElement("option");
-          opt.value = cam.id;
-          opt.textContent = cam.label || cam.id;
-          selectCamera.appendChild(opt);
-        });
-        iniciarScanner(cameras[0].id);
-      } else {
-        msg.textContent = "Nenhuma câmera encontrada!";
-        msg.style.color = "red";
-      }
-    }).catch(err => {
-      msg.textContent = "Erro ao listar câmeras!";
-      msg.style.color = "red";
-      console.error(err);
-    });
-
-    function iniciarScanner(cameraId) {
-      if (scanner) {
-        scanner.stop().catch(() => {});
-      }
-      scanner = new Html5Qrcode("reader");
-      scanner.start(
-        { deviceId: { exact: cameraId } },
-        { fps: 10, qrbox: 250 },
-        qr => {
-          msg.textContent = "QR Code lido: " + qr;
-          msg.style.color = "blue";
-        }
-      ).catch(err => {
-        msg.textContent = "Erro ao iniciar scanner: " + err;
-        msg.style.color = "red";
-      });
-    }
-
-    selectCamera.addEventListener("change", () => {
-      iniciarScanner(selectCamera.value);
-    });
-  </script>
+  <footer>
+    &copy; 2025 Sua Empresa
+  </footer>
 </body>
 </html>
