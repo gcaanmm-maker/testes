@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Registrar Leitura 2</title>
+  <title>Registrar Leitura 3</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -20,10 +20,7 @@
       color: white;
       padding: 40px 20px 30px;
     }
-    header h1 {
-      margin: 0;
-      font-size: 1.8rem;
-    }
+    header h1 { margin: 0; font-size: 1.8rem; }
     main {
       flex: 1;
       display: flex;
@@ -40,11 +37,7 @@
       width: 100%;
       margin-top: 15px;
     }
-    label {
-      display: block;
-      margin: 8px 0 4px;
-      text-align: left;
-    }
+    label { display: block; margin: 8px 0 4px; text-align: left; }
     input, select, button {
       width: 100%;
       padding: 10px;
@@ -60,27 +53,16 @@
       cursor: pointer;
       transition: background 0.3s;
     }
-    button:hover {
-      background: #0056b3;
-    }
-    #reader {
-      width: 300px;
-      margin: 20px auto;
-    }
-    #msg {
-      margin-top: 10px;
-      font-weight: bold;
-    }
-    a {
-      display: inline-block;
-      margin-top: 20px;
-      text-decoration: none;
-      color: #007bff;
-    }
-    footer {
-      padding: 20px;
-      font-size: 0.9rem;
-      color: #555;
+    button:hover { background: #0056b3; }
+    #reader { width: 300px; margin: 20px auto; }
+    #msg { margin-top: 10px; font-weight: bold; }
+    a { display: inline-block; margin-top: 20px; text-decoration: none; color: #007bff; }
+    #qrPreview {
+      margin-top: 15px;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
   </style>
 </head>
@@ -88,18 +70,21 @@
   <header>
     <h1>Registrar Leitura</h1>
   </header>
+
   <main>
     <div id="reader"></div>
     <p>Leia o QR Code da loja</p>
-    
+
     <form id="formLeitura">
-      <label for="busca">Buscar loja/medidor:</label>
-      <input type="text" id="busca" placeholder="Digite para filtrar...">
+      <label for="busca">Buscar loja:</label>
+      <input type="text" id="busca" placeholder="Digite o nome da loja ou medidor">
 
       <label for="loja">Loja:</label>
       <select id="loja" required>
         <option value="">Carregando...</option>
       </select>
+
+      <div id="qrPreview"></div>
 
       <label for="leitura">Leitura atual:</label>
       <input type="number" id="leitura" required>
@@ -110,13 +95,15 @@
     <div id="msg">Aguardando leitura...</div>
     <a href="index.html">⬅ Voltar ao menu</a>
   </main>
+
   <footer>&copy; 2025 Sua Empresa</footer>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    const URL = "SUA_WEB_APP_URL_AQUI"; // substitua pela URL publicada do App Script
+    const URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
     const selectLoja = document.getElementById("loja");
     const inputBusca = document.getElementById("busca");
+    const qrPreview = document.getElementById("qrPreview");
     const msg = document.getElementById("msg");
     let lojas = [];
 
@@ -131,7 +118,7 @@
       }
     }
 
-    // 🔹 Preencher o select
+    // 🔹 Preencher select
     function preencherSelect(lista) {
       selectLoja.innerHTML = "<option value=''>Selecione...</option>";
       lista.forEach(loja => {
@@ -142,17 +129,37 @@
       });
     }
 
-    // 🔹 Filtrar enquanto digita
+    // 🔹 Mostrar QR Code
+    function mostrarQRCode(loja) {
+      if (!loja) {
+        qrPreview.innerHTML = "";
+        return;
+      }
+      const qrUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(loja)}`;
+      qrPreview.innerHTML = `<p><b>QR Code da loja:</b></p><img src="${qrUrl}" alt="QR ${loja}">`;
+    }
+
+    // 🔹 Filtro da busca
     inputBusca.addEventListener("input", () => {
       const termo = inputBusca.value.toLowerCase();
       const filtradas = lojas.filter(loja => loja.toLowerCase().includes(termo));
       preencherSelect(filtradas);
       if (filtradas.length === 1) {
         selectLoja.value = filtradas[0];
+        mostrarQRCode(filtradas[0]);
+      } else {
+        mostrarQRCode("");
       }
     });
 
-    // 🔹 Scanner QRCode
+    // 🔹 Ao trocar a loja manualmente
+    selectLoja.addEventListener("change", () => {
+      mostrarQRCode(selectLoja.value);
+    });
+
+    carregarLojas();
+
+    // 🔹 Scanner QR Code
     function iniciarScanner() {
       const html5QrcodeScanner = new Html5Qrcode("reader");
       html5QrcodeScanner.start(
@@ -163,9 +170,9 @@
           for (let i = 0; i < selectLoja.options.length; i++) {
             if (selectLoja.options[i].value === qrCodeMessage) {
               selectLoja.selectedIndex = i;
-              inputBusca.value = qrCodeMessage;
               msg.textContent = "Loja selecionada: " + qrCodeMessage;
               msg.style.color = "blue";
+              mostrarQRCode(qrCodeMessage);
               encontrado = true;
               break;
             }
@@ -181,17 +188,20 @@
         msg.style.color = "red";
       });
     }
+    iniciarScanner();
 
-    // 🔹 Envio do formulário
+    // 🔹 Submissão
     document.getElementById("formLeitura").addEventListener("submit", async (e) => {
       e.preventDefault();
       const loja = selectLoja.value;
       const leitura = document.getElementById("leitura").value;
+
       if (!loja) {
         msg.textContent = "Selecione uma loja!";
         msg.style.color = "red";
         return;
       }
+
       const params = new URLSearchParams();
       params.append("loja", loja);
       params.append("leitura", leitura);
@@ -201,11 +211,11 @@
 
       msg.textContent = data.msg;
       msg.style.color = data.ok ? "green" : "red";
-      if (data.ok) document.getElementById("formLeitura").reset();
+      if (data.ok) {
+        document.getElementById("formLeitura").reset();
+        qrPreview.innerHTML = "";
+      }
     });
-
-    carregarLojas();
-    iniciarScanner();
   </script>
 </body>
 </html>
