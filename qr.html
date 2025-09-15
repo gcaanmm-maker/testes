@@ -1,221 +1,224 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Registrar Leitura</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    header {
-      background: #007bff;
-      color: white;
-      padding: 40px 20px 30px;
-    }
-    header h1 { margin: 0; font-size: 1.8rem; }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-    }
-    form {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      max-width: 400px;
-      width: 100%;
-      margin-top: 15px;
-    }
-    label { display: block; margin: 8px 0 4px; text-align: left; }
-    input, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 12px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      border: none;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover { background: #0056b3; }
-    #reader { width: 300px; margin: 20px auto; }
-    #msg { margin-top: 10px; font-weight: bold; }
-    a { display: inline-block; margin-top: 20px; text-decoration: none; color: #007bff; }
-    #qrPreview {
-      margin-top: 15px;
-      padding: 10px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gerar QR Codes</title>
+
+<!-- Estilos -->
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;margin:0;padding:20px;color:#222}
+  header{background:#007bff;color:#fff;padding:18px;border-radius:8px}
+  h1{margin:0;font-size:1.2rem}
+  .container{max-width:980px;margin:18px auto}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .shops{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .shopCard{background:#fff;padding:8px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;gap:8px;align-items:center}
+  .preview{width:72px;height:72px;border:3px solid #ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff}
+  .info{flex:1}
+  .info b{display:block}
+  button{background:#007bff;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+  button.secondary{background:#6c757d}
+  .small{font-size:0.9rem;color:#555}
+  #msg{margin-top:8px;font-weight:600}
+  @media (max-width:700px){ .shops{grid-template-columns:repeat(1,1fr)} .preview{width:64px;height:64px} }
+</style>
+
+<!-- libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
-  <header>
-    <h1>Registrar Leitura</h1>
-  </header>
+  <header><h1>Gerar PDF ou ZIP com QR Codes</h1></header>
+  <div class="container">
+    <div class="controls">
+      <input id="filter" placeholder="Filtrar por loja ou medidor..." style="padding:8px;border-radius:8px;border:1px solid #ccc;flex:1" />
+      <button id="selectAll">Selecionar tudo</button>
+      <button id="clearAll" class="secondary">Limpar seleção</button>
+      <button id="gerarPdf">Gerar PDF</button>
+      <button id="gerarZip">Baixar ZIP (PNGs)</button>
+    </div>
 
-  <main>
-    <div id="reader"></div>
-    <p>Leia o QR Code da loja</p>
+    <div id="msg" class="small">Carregando lojas...</div>
 
-    <form id="formLeitura">
-      <label for="busca">Buscar loja:</label>
-      <input type="text" id="busca" placeholder="Digite o nome da loja ou medidor">
+    <div id="shops" class="shops" aria-live="polite"></div>
+  </div>
 
-      <label for="loja">Loja:</label>
-      <select id="loja" required>
-        <option value="">Carregando...</option>
-      </select>
+<script>
+(async () => {
+  // ====== CONFIG ======
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
 
-      <div id="qrPreview"></div>
+  // PDF layout (mm, A4 portrait)
+  const PDF = { width: 210, height: 297, margin: 12 };
+  const cols = 3; // colunas
+  const rows = 4; // linhas
+  const perPage = cols * rows;
+  const boxW = (PDF.width - PDF.margin*2) / cols;
+  const boxH = (PDF.height - PDF.margin*2) / rows;
+  const qrSizeMM = Math.min(boxW, boxH) * 0.65;
 
-      <label for="leitura">Leitura atual:</label>
-      <input type="number" id="leitura" required>
+  // elementos
+  const shopsEl = document.getElementById('shops');
+  const msgEl = document.getElementById('msg');
+  const filterEl = document.getElementById('filter');
+  const btnSelectAll = document.getElementById('selectAll');
+  const btnClearAll = document.getElementById('clearAll');
+  const btnGerar = document.getElementById('gerarPdf');
+  const btnZip = document.getElementById('gerarZip');
 
-      <button type="submit">Registrar</button>
-    </form>
+  let lojas = [];
 
-    <div id="msg">Aguardando leitura...</div>
-    <a href="index.html">⬅ Voltar ao menu</a>
-  </main>
-
-  <footer>&copy; 2025 Sua Empresa</footer>
-
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script>
-    const URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
-    const selectLoja = document.getElementById("loja");
-    const inputBusca = document.getElementById("busca");
-    const qrPreview = document.getElementById("qrPreview");
-    const msg = document.getElementById("msg");
-    let lojas = [];
-
-    // 🔹 Carregar lojas
-    async function carregarLojas() {
-      try {
-        const resp = await fetch(URL);
-        lojas = await resp.json();
-        preencherSelect(lojas);
-      } catch {
-        selectLoja.innerHTML = "<option>Erro ao carregar</option>";
-      }
+  // Carrega lojas
+  async function carregar() {
+    msgEl.textContent = "Carregando lojas...";
+    try {
+      const r = await fetch(WEB_APP_URL);
+      if (!r.ok) throw new Error(`Erro ${r.status}`);
+      const data = await r.json();
+      lojas = Array.isArray(data) ? data : [];
+      msgEl.textContent = lojas.length ? `${lojas.length} lojas carregadas.` : "Nenhuma loja encontrada.";
+      renderList(lojas);
+    } catch (err) {
+      msgEl.textContent = "Erro ao carregar lojas: " + err.message;
     }
+  }
 
-    // 🔹 Preencher select
-    function preencherSelect(lista) {
-      selectLoja.innerHTML = "<option value=''>Selecione...</option>";
-      lista.forEach(loja => {
-        let opt = document.createElement("option");
-        opt.value = loja;
-        opt.textContent = loja;
-        selectLoja.appendChild(opt);
-      });
-    }
+  // Renderiza lista
+  function renderList(list) {
+    shopsEl.innerHTML = '';
+    list.forEach((item, idx) => {
+      const card = document.createElement('div');
+      card.className = 'shopCard';
 
-    // 🔹 Mostrar QR Code
-    function mostrarQRCode(loja) {
-      if (!loja) {
-        qrPreview.innerHTML = "";
-        return;
-      }
-      const qrUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(loja)}`;
-      qrPreview.innerHTML = `<p><b>QR Code da loja:</b></p><img src="${qrUrl}" alt="QR ${loja}">`;
-    }
+      const preview = document.createElement('div');
+      preview.className = 'preview';
+      const qrDiv = document.createElement('div');
+      qrDiv.style.width = '64px';
+      qrDiv.style.height = '64px';
+      preview.appendChild(qrDiv);
 
-    // 🔹 Filtro da busca
-    inputBusca.addEventListener("input", () => {
-      const termo = inputBusca.value.toLowerCase();
-      const filtradas = lojas.filter(loja => loja.toLowerCase().includes(termo));
-      preencherSelect(filtradas);
-      if (filtradas.length === 1) {
-        selectLoja.value = filtradas[0];
-        mostrarQRCode(filtradas[0]);
-      } else {
-        mostrarQRCode("");
-      }
+      const qrContent = item.medidor?.trim() || item.loja;
+      new QRCode(qrDiv, { text: qrContent, width: 64, height: 64 });
+
+      const info = document.createElement('div');
+      info.className = 'info';
+      info.innerHTML = `<b>${item.loja}</b><div class="small">Medidor: ${item.medidor || '-'}</div>`;
+
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.dataset.idx = idx;
+      chk.style.width = '18px';
+      chk.style.height = '18px';
+
+      card.appendChild(preview);
+      card.appendChild(info);
+      card.appendChild(chk);
+      shopsEl.appendChild(card);
+    });
+  }
+
+  // Filtragem
+  filterEl.addEventListener('input', () => {
+    const t = filterEl.value.trim().toLowerCase();
+    const filtered = lojas.filter(it =>
+      it.loja?.toLowerCase().includes(t) || String(it.medidor||'').toLowerCase().includes(t)
+    );
+    renderList(filtered);
+  });
+
+  // Seleção
+  btnSelectAll.addEventListener('click', () => document.querySelectorAll('#shops input[type=checkbox]').forEach(ch => ch.checked = true));
+  btnClearAll.addEventListener('click', () => document.querySelectorAll('#shops input[type=checkbox]').forEach(ch => ch.checked = false));
+
+  // Gera PDF
+  btnGerar.addEventListener('click', async () => {
+    const checked = getChecked();
+    if (!checked.length) return alert("Marque ao menos uma loja.");
+    msgEl.textContent = "Gerando PDF...";
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+    const pngs = await Promise.all(checked.map(generateQRasDataURL));
+
+    pngs.forEach((q, p) => {
+      if (p > 0 && p % perPage === 0) doc.addPage();
+      const posInPage = p % perPage;
+      const col = posInPage % cols;
+      const row = Math.floor(posInPage / cols);
+      const x = PDF.margin + col * boxW;
+      const y = PDF.margin + row * boxH;
+
+      // fundo + borda
+      doc.setFillColor(255,255,255);
+      doc.rect(x+2, y+2, boxW-4, boxH-4, 'F');
+      doc.setDrawColor(0,0,0);
+      doc.rect(x+2, y+2, boxW-4, boxH-4);
+
+      // QR
+      const qrX = x + (boxW - qrSizeMM) / 2;
+      const qrY = y + 6;
+      doc.addImage(q.dataUrl, 'PNG', qrX, qrY, qrSizeMM, qrSizeMM);
+
+      // === Nome da loja (com quebra automática) ===
+      doc.setFontSize(9);
+      const maxWidth = boxW - 6; // margem interna
+      const lojaLines = doc.splitTextToSize(q.item.loja, maxWidth);
+      doc.text(lojaLines, x + boxW/2, qrY + qrSizeMM + 5, { align: 'center' });
+
+      // === Medidor ===
+      doc.setFontSize(8);
+      const medidorText = "Medidor: " + (q.item.medidor || '-');
+      const medidorLines = doc.splitTextToSize(medidorText, maxWidth);
+      doc.text(medidorLines, x + boxW/2, qrY + qrSizeMM + 10 + (lojaLines.length-1)*4, { align: 'center' });
     });
 
-    // 🔹 Ao trocar a loja manualmente
-    selectLoja.addEventListener("change", () => {
-      mostrarQRCode(selectLoja.value);
+    doc.save("qrcodes.pdf");
+    msgEl.textContent = "PDF gerado!";
+  });
+
+  // Gera ZIP
+  btnZip.addEventListener('click', async () => {
+    const checked = getChecked();
+    if (!checked.length) return alert("Marque ao menos uma loja.");
+    msgEl.textContent = "Gerando ZIP...";
+    const zip = new JSZip();
+    const pngs = await Promise.all(checked.map(generateQRasDataURL));
+    pngs.forEach(q => {
+      const base64 = q.dataUrl.split(',')[1];
+      zip.file(`${q.item.loja.replace(/\s+/g,'_')}_${q.item.medidor||''}.png`, base64, { base64:true });
     });
+    const blob = await zip.generateAsync({type:"blob"});
+    saveAs(blob, "qrcodes.zip");
+    msgEl.textContent = "ZIP gerado!";
+  });
 
-    carregarLojas();
+  // Helpers
+  function getChecked(){
+    return Array.from(document.querySelectorAll('#shops input[type=checkbox]'))
+      .filter(ch => ch.checked)
+      .map(ch => lojas[ch.dataset.idx])
+      .filter(Boolean);
+  }
 
-    // 🔹 Scanner QR Code
-    function iniciarScanner() {
-      const html5QrcodeScanner = new Html5Qrcode("reader");
-      html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        qrCodeMessage => {
-          let encontrado = false;
-          for (let i = 0; i < selectLoja.options.length; i++) {
-            if (selectLoja.options[i].value === qrCodeMessage) {
-              selectLoja.selectedIndex = i;
-              msg.textContent = "Loja selecionada: " + qrCodeMessage;
-              msg.style.color = "blue";
-              mostrarQRCode(qrCodeMessage);
-              encontrado = true;
-              break;
-            }
-          }
-          if (!encontrado) {
-            msg.textContent = "QR Code não corresponde a nenhuma loja!";
-            msg.style.color = "red";
-          }
-        },
-        errorMessage => {}
-      ).catch(err => {
-        msg.textContent = "Erro ao iniciar câmera: " + err;
-        msg.style.color = "red";
-      });
-    }
-    iniciarScanner();
-
-    // 🔹 Submissão
-    document.getElementById("formLeitura").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const loja = selectLoja.value;
-      const leitura = document.getElementById("leitura").value;
-
-      if (!loja) {
-        msg.textContent = "Selecione uma loja!";
-        msg.style.color = "red";
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.append("loja", loja);
-      params.append("leitura", leitura);
-
-      const resp = await fetch(URL, { method: "POST", body: params });
-      const data = await resp.json();
-
-      msg.textContent = data.msg;
-      msg.style.color = data.ok ? "green" : "red";
-      if (data.ok) {
-        document.getElementById("formLeitura").reset();
-        qrPreview.innerHTML = "";
-      }
+  async function generateQRasDataURL(item) {
+    return new Promise((resolve) => {
+      const size = 512;
+      const container = document.createElement('div');
+      new QRCode(container, { text: item.medidor?.trim() || item.loja, width: size, height: size });
+      setTimeout(() => {
+        const cvs = container.querySelector('canvas');
+        const dataUrl = cvs.toDataURL('image/png');
+        resolve({ item, dataUrl });
+      }, 200);
     });
-  </script>
+  }
+
+  // Start
+  await carregar();
+})();
+</script>
 </body>
 </html>
