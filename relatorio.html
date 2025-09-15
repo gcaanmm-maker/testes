@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Exportar Lojas e Leituras</title>
+
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#f7f9fb;margin:0;padding:20px;color:#222}
+header{background:#0d6efd;color:#fff;padding:16px;border-radius:8px}
+h1{margin:0;font-size:1.2rem}
+.container{max-width:1100px;margin:18px auto}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:0.95rem}
+th{background:#f1f5f9}
+.small{font-size:0.9rem;color:#555}
+.msg{margin-top:8px;font-weight:600}
+button{background:#0d6efd;color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+button.secondary{background:#6c757d}
+@media (max-width:800px){ th,td{font-size:0.85rem;padding:8px} .controls{flex-direction:column;align-items:stretch} }
+</style>
+
+<!-- libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<header><h1>Exportar Lojas e Leituras</h1></header>
+
+<div class="container">
+  <div class="controls">
+    <input id="filter" placeholder="Filtrar por loja, medidor ou leitura..." style="flex:1;padding:8px;border-radius:6px;border:1px solid #ccc" />
+    <button id="btnRefresh">Atualizar</button>
+    <button id="btnCSV">Baixar CSV</button>
+    <button id="btnPDF">Baixar PDF</button>
+    <button id="btnXLSX">Baixar XLSX</button>
+    <button id="btnPrint" class="secondary">Imprimir</button>
+  </div>
+
+  <div id="msg" class="msg small">Aguardando atualização...</div>
+
+  <div style="margin-top:12px;overflow:auto">
+    <table id="tbl" aria-live="polite">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Loja</th>
+          <th>Medidor</th>
+          <th>Última leitura</th>
+          <th>Data / Hora</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(async () => {
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzDKvWhmf5O8GRlQ_U4WnWpLkRnqX8ahr-tBZ-C_ROypXrPiVAr29wuZg-RhZ5UCVgBYg/exec";
+
+  const tbody = document.getElementById('tbody');
+  const msg = document.getElementById('msg');
+  const filter = document.getElementById('filter');
+  const btnRefresh = document.getElementById('btnRefresh');
+  const btnCSV = document.getElementById('btnCSV');
+  const btnPDF = document.getElementById('btnPDF');
+  const btnXLSX = document.getElementById('btnXLSX');
+  const btnPrint = document.getElementById('btnPrint');
+
+  let rawData = [];
+  let data = [];
+
+  function normalizeItem(item) {
+    if (!item) return null;
+    const loja = (item.loja || item.nome || item.name || item.store || "").toString().trim();
+    const medidor = (item.medidor || item.medidor_num || item.meter || "").toString().trim();
+    const leitura = (item.leitura_atual || item.leituraAtual || item.leitura || "").toString().trim();
+    const data_hora = (item.data_hora || item.dataHora || item.data || "").toString().trim();
+    return { loja, medidor, leitura_atual: leitura, data_hora };
+  }
+
+  async function fetchData() {
+    msg.textContent = "Carregando dados...";
+    try {
+      const r = await fetch(WEB_APP_URL, { method: 'GET', cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const json = await r.json();
+      rawData = json;
+      if (Array.isArray(json) && json.length && typeof json[0] === 'string') {
+        data = json.map(s => ({ loja: s, medidor: "", leitura_atual: "", data_hora: "" }));
+      } else if (Array.isArray(json)) {
+        data = json.map(normalizeItem).filter(Boolean);
+      } else {
+        data = [];
+      }
+      renderTable(data);
+      msg.textContent = `Dados carregados (${data.length} registros).`;
+    } catch (err) {
+      console.error(err);
+      msg.textContent = 'Erro ao carregar dados: ' + err.message;
+      tbody.innerHTML = '';
+    }
+  }
+
+  function renderTable(list) {
+    tbody.innerHTML = '';
+    list.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td>${escapeHtml(row.loja)}</td>
+        <td>${escapeHtml(row.medidor)}</td>
+        <td>${escapeHtml(row.leitura_atual)}</td>
+        <td>${escapeHtml(row.data_hora)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  filter.addEventListener('input', () => {
+    const t = filter.value.trim().toLowerCase();
+    if (!t) renderTable(data);
+    else {
+      const filtered = data.filter(it =>
+        (it.loja||'').toLowerCase().includes(t) ||
+        (it.medidor||'').toLowerCase().includes(t) ||
+        (it.leitura_atual||'').toLowerCase().includes(t) ||
+        (it.data_hora||'').toLowerCase().includes(t)
+      );
+      renderTable(filtered);
+    }
+  });
+
+  btnRefresh.addEventListener('click', fetchData);
+
+  btnCSV.addEventListener('click', () => {
+    if (!data.length) return alert('Sem dados para exportar.');
+    const header = ['Loja','Medidor','Última leitura','Data/Hora'];
+    const rows = data.map(r => [r.loja, r.medidor, r.leitura_atual, r.data_hora]);
+    const csv = [header, ...rows].map(r => r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const name = 'leituras_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  });
+
+  btnPDF.addEventListener('click', () => {
+    if (!data.length) return alert('Sem dados para exportar.');
+    msg.textContent = 'Gerando PDF...';
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    doc.text("Lista de Lojas - Última Leitura",14,14);
+    doc.setFontSize(9);
+    const rows = data.map((r,i)=>[i+1,r.loja,r.medidor,r.leitura_atual,r.data_hora]);
+    doc.autoTable({ head:[['#','Loja','Medidor','Última leitura','Data/Hora']], body:rows, startY:20, theme:'grid', styles:{ fontSize:9 }});
+    const name = 'leituras_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.pdf';
+    doc.save(name);
+    msg.textContent = 'PDF gerado!';
+  });
+
+  btnXLSX.addEventListener('click', () => {
+    if (!data.length) return alert('Sem dados para exportar.');
+    const ws = XLSX.utils.json_to_sheet(data.map((r,i)=>({
+      "#": i+1,
+      "Loja": r.loja,
+      "Medidor": r.medidor,
+      "Última leitura": r.leitura_atual,
+      "Data/Hora": r.data_hora
+    })));
+    ws['!cols'] = [{wch:5},{wch:30},{wch:15},{wch:15},{wch:20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leituras");
+    XLSX.writeFile(wb, 'leituras.xlsx');
+  });
+
+  btnPrint.addEventListener('click', () => window.print());
+
+  function escapeHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):""; }
+
+  await fetchData();
+})();
+</script>
+</body>
+</html>
