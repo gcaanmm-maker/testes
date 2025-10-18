@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Previsão do Tempo — Montes Claros (MG)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --bg:#eef2f7; --panel:#fff; --accent:#0d7fbf; --text:#0b1720; --muted:#6b7280;
+}
+body.dark{
+  --bg:#0f172a; --panel:#1e293b; --accent:#38bdf8; --text:#f1f5f9; --muted:#94a3b8;
+}
+body{margin:0;font-family:Inter,sans-serif;background:var(--bg);color:var(--text);transition:all .3s;}
+header{background:linear-gradient(90deg,#0b3b5b,#0d5c8c);color:#fff;padding:16px;text-align:center;position:relative;}
+header h1{margin:0;font-size:20px}
+#themeBtns{position:absolute;top:10px;right:10px;display:flex;gap:8px;}
+#themeBtns button{border:none;background:transparent;font-size:22px;cursor:pointer;color:#fff;transition:transform .2s;}
+#themeBtns button:hover{transform:scale(1.1);}
+nav{background:#09304d;display:flex;justify-content:center;gap:12px;padding:10px;flex-wrap:wrap;}
+nav button{background:var(--accent);border:none;color:#fff;padding:8px 14px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .18s;}
+nav button.active,nav button:hover{background:#0f98df; transform:translateY(-2px);}
+.wrap{display:grid;grid-template-columns:1fr 420px;gap:18px;padding:18px;max-width:1200px;margin:18px auto;}
+#map{height:68vh;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.08);}
+.panel{background:var(--panel);border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(2,6,23,0.06);overflow:auto;}
+.card{background:#f8fafc;border-radius:10px;padding:10px;margin-bottom:12px;color:#0f1720;}
+body.dark .card{background:#334155;color:#f1f5f9;}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px;border-bottom:1px solid #eef2f6;text-align:left}
+th{background:#f1f7fb}
+body.dark th{background:#1e293b;}
+.hidden{display:none}
+canvas{max-width:100%;height:300px!important}
+footer{font-size:13px;color:var(--muted);text-align:center;margin-top:10px}
+
+/* mascote top-left */
+#mascoteWrap{position:fixed; left:15px; top:15px; width:120px; z-index:9999; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px;}
+#mascoteSVG{width:100px;height:100px;filter: drop-shadow(0 6px 14px rgba(2,6,23,0.25));transition:transform .2s;}
+#mascoteWrap:hover #mascoteSVG{transform:scale(1.08);}
+#fala{background:var(--panel);padding:10px 12px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.18);max-width:260px;font-size:14px;color:var(--text);border:1px solid #ccc;}
+body.dark #fala{border-color:#334155;}
+.rays{transform-origin:center;animation:spin 12s linear infinite;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.drop{stroke:rgba(0,120,200,0.9);stroke-width:2;stroke-linecap:round;opacity:0;animation:dropAnim 1s ease-in-out infinite;}
+@keyframes dropAnim{0%{transform:translateY(-6px);opacity:0}50%{opacity:1}100%{transform:translateY(6px);opacity:0}}
+.sweat{fill:rgba(255,255,255,0.9);opacity:0;transition:opacity .2s}
+.scarf{opacity:0;transition:opacity .2s}
+.tilt{transform:rotate(-12deg)}
+@media(max-width:980px){.wrap{grid-template-columns:1fr} #map{height:50vh} #mascoteWrap{left:10px;top:10px;width:90px} #mascoteSVG{width:80px;height:80px}}
+</style>
+</head>
+<body>
+<header>
+<h1>☀️ Previsão do Tempo — Montes Claros (MG)</h1>
+<div id="themeBtns">
+<button id="btnSun" title="Modo Claro">☀️</button>
+<button id="btnMoon" title="Modo Escuro">🌙</button>
+</div>
+</header>
+
+<nav>
+<button id="btnHome" class="active">🏠 Home</button>
+<button id="btnMax">🌡️ Máximas</button>
+<button id="btnMin">❄️ Mínimas</button>
+<button id="btnVento">💨 Ventos</button>
+<button id="btnUmidade">💧 Umidade</button>
+</nav>
+
+<main class="wrap">
+<div id="map"></div>
+<aside class="panel">
+<section id="secHome">
+<div class="card">
+<strong id="localTitle">Montes Claros, Minas Gerais</strong>
+<div style="color:var(--muted);font-size:13px;margin-top:4px" id="coords">Lat — • Lon —</div>
+</div>
+<div class="card" id="resumoHoje">
+<h3>📅 Hoje — Resumo</h3>
+<div><strong id="dataHoje">—</strong></div>
+<div>🌡️ Temperatura: <span id="tempHoje">--</span></div>
+<div>🌧️ Chuva: <span id="chuvaHoje">--</span></div>
+<div>💨 Vento: <span id="ventoHoje">--</span></div>
+<div>💧 Umidade: <span id="umidadeHoje">--</span></div>
+</div>
+<div class="card">
+<h3>📆 Próximos 7 dias</h3>
+<table>
+<thead><tr><th>Data</th><th>Máx</th><th>Mín</th><th>Chuva</th><th>Vento</th><th>Umidade</th></tr></thead>
+<tbody id="tabela"></tbody>
+</table>
+</div>
+<footer>Dados: Open-Meteo • Mapa: OpenStreetMap</footer>
+</section>
+<section id="secMax" class="hidden"><h3>🌡️ Temperaturas Máximas (7 dias)</h3><canvas id="grafMax"></canvas></section>
+<section id="secMin" class="hidden"><h3>❄️ Temperaturas Mínimas (7 dias)</h3><canvas id="grafMin"></canvas></section>
+<section id="secVento" class="hidden"><h3>💨 Velocidade e Direção do Vento (7 dias)</h3><canvas id="grafVento"></canvas></section>
+<section id="secUmidade" class="hidden"><h3>💧 Umidade Relativa (7 dias)</h3><canvas id="grafUmidade"></canvas></section>
+</aside>
+</main>
+
+<!-- mascote -->
+<div id="mascoteWrap" title="Clique para dicas">
+<svg id="mascoteSVG" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Raios do Sol -->
+ <g id="rays" class="rays">
+      <g transform="translate(100 100)">
+        <g id="raysGroup">
+          <!-- 12 rays -->
+          <g transform="rotate(0)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(30)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(60)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(90)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(120)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(150)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(180)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(210)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(240)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(270)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(300)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(330)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+        </g>
+      </g>
+    </g>
+
+  <!-- Rosto do Sol -->
+  <circle id="core" cx="100" cy="100" r="36" fill="#FFD54A" stroke="#FFB300" stroke-width="3"/>
+  <ellipse id="eyeL" cx="86" cy="95" rx="5" ry="6" fill="#072033"/>
+  <ellipse id="eyeR" cx="114" cy="95" rx="5" ry="6" fill="#072033"/>
+  <path id="mouth" d="M85,110 Q100,120 115,110" stroke="#072033" stroke-width="3" fill="transparent" stroke-linecap="round"/>
+
+  <!-- Gotas de chuva -->
+  <g id="rainGroup" transform="translate(100,120)">
+    <path class="drop" d="M-24,-10 q2,6 4,0"/>
+    <path class="drop" d="M0,-10 q2,6 4,0"/>
+    <path class="drop" d="M24,-10 q2,6 4,0"/>
+  </g>
+
+  <!-- Suor -->
+  <path id="sweat" class="sweat" d="M130,78 q6,8 0,16 q-6,8 -10,2 q6,-10 10,-18"/>
+  
+  <!-- Cachecol -->
+  <g id="scarf" class="scarf" transform="translate(48,126)">
+    <rect x="0" y="0" width="104" height="12" rx="6" fill="#FF6B6B"/>
+    <rect x="68" y="6" width="16" height="24" rx="6" fill="#FF6B6B"/>
+  </g>
+</svg>
+<div id="fala">Olá! Sou o Solzinho ☀️ — clique para dicas rápidas.</div>
+</div>
+
+<script>
+// === MAPA ===
+const LAT=-16.7283,LON=-43.8583,TZ='America/Sao_Paulo';
+const map=L.map('map').setView([LAT,LON],11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+L.marker([LAT,LON]).addTo(map).bindPopup('Montes Claros, MG').openPopup();
+
+// === ELEMENTOS ===
+const tabela=document.getElementById('tabela');
+const tempHoje=document.getElementById('tempHoje'),chuvaHoje=document.getElementById('chuvaHoje'),
+ventoHoje=document.getElementById('ventoHoje'),umidadeHoje=document.getElementById('umidadeHoje'),
+dataHoje=document.getElementById('dataHoje');
+const fala=document.getElementById('fala'),rain=document.getElementById('rainGroup'),
+sweat=document.getElementById('sweat'),scarf=document.getElementById('scarf'),mascot=document.getElementById('mascoteSVG');
+
+let lastData=null;
+const dicas=[
+  'Oi! Sou o Solzinho ☀️ — clique para dicas rápidas.',
+  'Leve sempre água 💧 para se manter hidratado.',
+  'Use guarda-chuva se chover ☔.',
+  'Proteja-se do vento forte 💨.',
+  'Vista roupas leves em dias quentes 🌞.',
+  'Use um casaco se estiver frio 🧣.'
+];
+let dicaIndex=0;
+document.getElementById('mascoteWrap').addEventListener('click',()=>{
+  dicaIndex=(dicaIndex+1)%dicas.length;
+  fala.textContent=dicas[dicaIndex];
+});
+
+// === CARREGAR DADOS ===
+async function carregar(){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant,relative_humidity_2m_max&timezone=${TZ}`;
+  const r=await fetch(url);const j=await r.json();const d=j.daily; lastData=d;
+  const fmt=i=>new Intl.DateTimeFormat('pt-BR',{weekday:'short',day:'2-digit',month:'short'}).format(new Date(i+'T00:00'));
+  tabela.innerHTML='';
+  d.time.forEach((t,i)=>tabela.innerHTML+=`<tr><td>${fmt(t)}</td><td>${d.temperature_2m_max[i]}°C</td><td>${d.temperature_2m_min[i]}°C</td><td>${d.precipitation_sum[i]}mm</td><td>${d.windspeed_10m_max[i]}km/h</td><td>${d.relative_humidity_2m_max[i]}%</td></tr>`);
+  dataHoje.textContent=fmt(d.time[0]);
+  tempHoje.textContent=`${d.temperature_2m_max[0]}°C / ${d.temperature_2m_min[0]}°C`;
+  chuvaHoje.textContent=d.precipitation_sum[0]+' mm';
+  ventoHoje.textContent=d.windspeed_10m_max[0]+' km/h';
+  umidadeHoje.textContent=d.relative_humidity_2m_max[0]+'%';
+  atualizarMascote(d);
+  gerarGraficos(d);
+}
+
+function atualizarMascote(d){
+  const p=d.precipitation_sum[0], t=d.temperature_2m_max[0], w=d.windspeed_10m_max[0], h=d.relative_humidity_2m_max[0];
+  rain.style.opacity=0; sweat.style.opacity=0; scarf.style.opacity=0; mascot.classList.remove('tilt');
+  if(p>5){rain.style.opacity=1; fala.textContent='Vai chover hoje ☔ leve guarda-chuva!';}
+  else if(t>=34){sweat.style.opacity=1; fala.textContent='Muito calor 🌞 hidrate-se bem!';}
+  else if(t<=19){scarf.style.opacity=1; fala.textContent='Fresquinho hoje 🧣 leve uma blusa.';}
+  else if(w>40){mascot.classList.add('tilt'); fala.textContent='Vento forte 💨 cuidado com poeira!';}
+  else if(h<30){fala.textContent='Ar seco 💧 beba bastante água.';}
+  else{fala.textContent='Dia agradável 😎 ótimo para passear.';}
+}
+
+// === TEMA ===
+document.getElementById('btnSun').onclick=()=>document.body.classList.remove('dark');
+document.getElementById('btnMoon').onclick=()=>document.body.classList.add('dark');
+
+// === MENU ===
+const secs={Home:'secHome',Max:'secMax',Min:'secMin',Vento:'secVento',Umidade:'secUmidade'};
+for(const [k,v] of Object.entries(secs))
+document.getElementById('btn'+k).onclick=()=>{
+  for(const [kk,vv] of Object.entries(secs)){
+    document.getElementById(vv).classList.toggle('hidden',kk!==k);
+    document.getElementById('btn'+kk).classList.toggle('active',kk===k);
+  }
+};
+
+// === GRÁFICOS ===
+let g1,g2,g3,g4;
+function gerarGraficos(d){
+  const labels=d.time.map(i=>new Intl.DateTimeFormat('pt-BR',{weekday:'short'}).format(new Date(i+'T00:00')));
+  g1=new Chart(document.getElementById('grafMax'),{type:'line',data:{labels, datasets:[{label:'Máxima °C',data:d.temperature_2m_max,borderColor:'rgba(255,99,71,0.9)',backgroundColor:'rgba(255,99,71,0.2)',fill:true,tension:0.3}]}});
+  g2=new Chart(document.getElementById('grafMin'),{type:'line',data:{labels, datasets:[{label:'Mínima °C',data:d.temperature_2m_min,borderColor:'rgba(66,135,245,0.9)',backgroundColor:'rgba(66,135,245,0.2)',fill:true,tension:0.3}]}});
+  g3=new Chart(document.getElementById('grafVento'),{type:'bar',data:{labels, datasets:[{label:'Velocidade (km/h)',data:d.windspeed_10m_max,backgroundColor:'rgba(0,200,83,0.6)'},{label:'Direção (°)',data:d.winddirection_10m_dominant,backgroundColor:'rgba(100,181,246,0.6)',yAxisID:'y2'}]},options:{scales:{y:{title:{display:true,text:'km/h'}},y2:{position:'right',title:{display:true,text:'Direção (°)'}}}}});
+  g4=new Chart(document.getElementById('grafUmidade'),{type:'line',data:{labels, datasets:[{label:'Umidade %',data:d.relative_humidity_2m_max,borderColor:'rgba(0,150,255,0.9)',backgroundColor:'rgba(0,150,255,0.2)',fill:true,tension:0.3}]},options:{scales:{y:{beginAtZero:true,max:100,title:{display:true,text:'%'}}}}});
+}
+
+carregar();
+</script>
+</body>
+</html>

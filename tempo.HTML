@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Previsão do Tempo — Montes Claros (MG)</title>
+
+<!-- Leaflet e Chart.js -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  background: #eef2f7;
+  color: #0f172a;
+}
+header {
+  background: linear-gradient(90deg, #0b3b5b, #0d5c8c);
+  color: #fff;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+header h1 { margin: 0; font-size: 20px; }
+
+nav {
+  background: #09304d;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  flex-wrap: wrap;
+}
+nav button {
+  background: #0b74b5;
+  border: none;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  font-size: 15px;
+}
+nav button.active, nav button:hover {
+  background: #0d8bda;
+  transform: scale(1.05);
+}
+.wrap {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1200px;
+  margin: auto;
+}
+#map {
+  height: 65vh;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+.panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  overflow: auto;
+}
+.card {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.hidden { display: none; }
+canvas { max-width: 100%; height: 320px !important; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+th, td {
+  padding: 6px;
+  border-bottom: 1px solid #f0f0f0;
+}
+th {
+  background: #f1f5f9;
+  text-align: left;
+}
+@media (max-width: 900px) {
+  .wrap { grid-template-columns: 1fr; }
+  #map { height: 50vh; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>☀️ Previsão do Tempo — Montes Claros (MG)</h1>
+</header>
+
+<nav>
+  <button id="btnHome" class="active">🏠 Home</button>
+  <button id="btnMax">🌡️ Máximas</button>
+  <button id="btnMin">❄️ Mínimas</button>
+  <button id="btnVento">💨 Ventos</button>
+  <button id="btnUmidade">💧 Umidade</button>
+</nav>
+
+<main class="wrap">
+  <div id="map"></div>
+  <aside class="panel">
+    <!-- HOME -->
+    <section id="secHome">
+      <div class="card" id="resumoHoje">
+        <h3>📅 Hoje</h3>
+        <p><strong id="dataHoje">--</strong></p>
+        <p>🌡️ Temperatura Máx/Mín: <span id="tempHoje">--</span></p>
+        <p>🌧️ Chuva: <span id="chuvaHoje">--</span></p>
+        <p>💨 Vento: <span id="ventoHoje">--</span></p>
+        <p>💧 Umidade: <span id="umidadeHoje">--</span></p>
+      </div>
+      <div class="card">
+        <h3>📆 Próximos 7 dias</h3>
+        <table>
+          <thead><tr><th>Data</th><th>Máx</th><th>Mín</th><th>Chuva</th><th>Vento</th><th>Umidade</th></tr></thead>
+          <tbody id="tabela"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- GRÁFICO MÁXIMAS -->
+    <section id="secMax" class="hidden">
+      <h3>🌡️ Temperaturas Máximas (7 dias)</h3>
+      <canvas id="grafMax"></canvas>
+    </section>
+
+    <!-- GRÁFICO MÍNIMAS -->
+    <section id="secMin" class="hidden">
+      <h3>❄️ Temperaturas Mínimas (7 dias)</h3>
+      <canvas id="grafMin"></canvas>
+    </section>
+
+    <!-- GRÁFICO VENTOS -->
+    <section id="secVento" class="hidden">
+      <h3>💨 Velocidade e Direção do Vento (7 dias)</h3>
+      <canvas id="grafVento"></canvas>
+    </section>
+
+    <!-- GRÁFICO UMIDADE -->
+    <section id="secUmidade" class="hidden">
+      <h3>💧 Umidade Relativa do Ar (7 dias)</h3>
+      <canvas id="grafUmidade"></canvas>
+    </section>
+  </aside>
+</main>
+
+<script>
+// Coordenadas de Montes Claros
+const LAT = -16.7283, LON = -43.8583, TZ = "America/Sao_Paulo";
+
+// Mapa Leaflet
+const map = L.map('map').setView([LAT, LON], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+L.marker([LAT, LON]).addTo(map).bindPopup('Montes Claros, MG');
+
+// Dados
+let dados = {};
+async function carregar() {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant,relative_humidity_2m_max&timezone=${TZ}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  dados = json.daily;
+  preencherTabela();
+  gerarGraficos();
+}
+
+function fmtData(d) {
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
+    .format(new Date(d + 'T00:00'));
+}
+
+function preencherTabela() {
+  const t = document.getElementById('tabela');
+  t.innerHTML = "";
+  for (let i = 0; i < dados.time.length; i++) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${fmtData(dados.time[i])}</td>
+    <td>${dados.temperature_2m_max[i]}°C</td>
+    <td>${dados.temperature_2m_min[i]}°C</td>
+    <td>${dados.precipitation_sum[i]} mm</td>
+    <td>${dados.windspeed_10m_max[i]} km/h</td>
+    <td>${dados.relative_humidity_2m_max[i]}%</td>`;
+    t.appendChild(tr);
+  }
+  document.getElementById('dataHoje').textContent = fmtData(dados.time[0]);
+  document.getElementById('tempHoje').textContent = `${dados.temperature_2m_max[0]}°C / ${dados.temperature_2m_min[0]}°C`;
+  document.getElementById('chuvaHoje').textContent = `${dados.precipitation_sum[0]} mm`;
+  document.getElementById('ventoHoje').textContent = `${dados.windspeed_10m_max[0]} km/h (${dados.winddirection_10m_dominant[0]}°)`;
+  document.getElementById('umidadeHoje').textContent = `${dados.relative_humidity_2m_max[0]}%`;
+}
+
+// Gráficos
+let grafMax, grafMin, grafVento, grafUmidade;
+function gerarGraficos() {
+  const labels = dados.time.map(fmtData);
+  const maxT = dados.temperature_2m_max;
+  const minT = dados.temperature_2m_min;
+  const ventos = dados.windspeed_10m_max;
+  const dirs = dados.winddirection_10m_dominant;
+  const umid = dados.relative_humidity_2m_max;
+
+  if (grafMax) grafMax.destroy();
+  if (grafMin) grafMin.destroy();
+  if (grafVento) grafVento.destroy();
+  if (grafUmidade) grafUmidade.destroy();
+
+  grafMax = new Chart(document.getElementById('grafMax'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '☀️ Temperatura Máxima (°C)',
+        data: maxT,
+        borderColor: 'rgba(255,99,71,0.9)',
+        backgroundColor: 'rgba(255,99,71,0.2)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: { scales: { y: { title: { display: true, text: "°C" } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  grafMin = new Chart(document.getElementById('grafMin'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '🌙 Temperatura Mínima (°C)',
+        data: minT,
+        borderColor: 'rgba(66,135,245,0.9)',
+        backgroundColor: 'rgba(66,135,245,0.2)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: { scales: { y: { title: { display: true, text: "°C" } } }, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  grafVento = new Chart(document.getElementById('grafVento'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '💨 Velocidade (km/h)', data: ventos, backgroundColor: 'rgba(0,200,83,0.6)' },
+        { label: '🧭 Direção (°)', data: dirs, backgroundColor: 'rgba(100,181,246,0.6)', yAxisID: 'y2' }
+      ]
+    },
+    options: {
+      scales: {
+        y: { title: { display: true, text: "Velocidade (km/h)" } },
+        y2: { position: 'right', title: { display: true, text: "Direção (°)" } }
+      },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+
+  grafUmidade = new Chart(document.getElementById('grafUmidade'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '💧 Umidade Relativa (%)',
+        data: umid,
+        borderColor: 'rgba(0,150,255,0.9)',
+        backgroundColor: 'rgba(0,150,255,0.2)',
+        fill: true,
+        borderWidth: 2,
+        tension: 0.4
+      }]
+    },
+    options: {
+      scales: { y: { beginAtZero: true, title: { display: true, text: "Umidade (%)" }, max: 100 } },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+}
+
+// Menu
+const secoes = { Home: 'secHome', Max: 'secMax', Min: 'secMin', Vento: 'secVento', Umidade: 'secUmidade' };
+for (const [id, sec] of Object.entries(secoes)) {
+  document.getElementById('btn' + id).addEventListener('click', () => {
+    for (const [k, s] of Object.entries(secoes)) {
+      document.getElementById(s).classList.toggle('hidden', k !== id);
+      document.getElementById('btn' + k).classList.toggle('active', k === id);
+    }
+  });
+}
+
+carregar();
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Previsão — Montes Claros (MG)</title>
+
+  <!-- Leaflet CSS (sem integrity para evitar bloqueios) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    body{ margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#f3f6fb; color:#0f172a; }
+    header{ display:flex; align-items:center; gap:12px; padding:14px 18px; background:linear-gradient(90deg,#06273b,#0b4a6b); color:white; }
+    header h1{ margin:0; font-size:18px; }
+    .wrap{ padding:16px; display:grid; grid-template-columns: 1fr 380px; gap:16px; max-width:1200px; margin:18px auto; }
+    #map{ height:66vh; min-height:420px; border-radius:10px; box-shadow: 0 8px 30px rgba(2,6,23,0.08); overflow:hidden; }
+    .panel{ background:#fff; border-radius:10px; padding:12px; box-shadow: 0 8px 30px rgba(2,6,23,0.04); max-height:66vh; overflow:auto; }
+    .controls{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .btn{ background:#0b74b5; color:#fff; border:none; padding:8px 10px; border-radius:8px; cursor:pointer; }
+    .muted{ color:#6b7280; font-size:13px; }
+    table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:14px; }
+    th, td{ padding:8px 6px; text-align:left; border-bottom:1px solid #f1f5f9; }
+    th{ font-weight:700; background:#fbfdff; font-size:13px; color:#0b3b5b; }
+    .summary-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:8px; margin-top:10px; }
+    .card{ background:#f8fafc; padding:10px; border-radius:8px; }
+    .big{ font-size:28px; font-weight:700; color:#0b3b5b; }
+    .small{ font-size:13px; color:#6b7280; }
+    footer{ text-align:center; font-size:13px; color:#6b7280; padding:10px 0; margin-top:12px; }
+    @media (max-width:980px){
+      .wrap{ grid-template-columns: 1fr; padding:12px; }
+      #map{ min-height:300px; height:50vh; }
+      .panel{ max-height:none; }
+    }
+    .alert { background:#fff4e5; border:1px solid #ffd8a8; padding:8px; border-radius:6px; margin-bottom:8px; color:#6b3e00; }
+    pre.console { background:#0b1220; color:#e6eef8; padding:8px; border-radius:6px; font-size:12px; overflow:auto; max-height:160px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Previsão do Tempo — Montes Claros (MG)</h1>
+    <div style="margin-left:8px; font-size:13px; opacity:0.9">Dados: Open-Meteo • Mapa: OpenStreetMap</div>
+  </header>
+
+  <main class="wrap">
+    <div>
+      <div id="map" aria-label="Mapa de Montes Claros"></div>
+      <div style="max-width:1200px; margin:8px auto; padding:0 4px;">
+        <div class="alert" id="warning" style="display:none;"></div>
+        <details>
+          <summary style="cursor:pointer; padding:6px 0;">Logs de execução (clique para abrir) — abra também o Console (F12)</summary>
+          <pre class="console" id="log"></pre>
+        </details>
+      </div>
+    </div>
+
+    <aside class="panel" id="panel">
+      <div class="controls">
+        <div style="flex:1">
+          <strong>Montes Claros, Minas Gerais</strong><br>
+          <span class="muted" id="coords">Carregando coordenadas...</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn" id="btnAtualizar">Atualizar</button>
+          <button class="btn" id="btnLocalizar" title="Centralizar mapa">Centralizar</button>
+        </div>
+      </div>
+
+      <div id="hoje" class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div class="small" id="dataHoje">—</div>
+            <div class="big" id="tempHoje">--°C</div>
+            <div class="small" id="descHoje">—</div>
+          </div>
+          <div style="text-align:right">
+            <div class="small">Vento (máx)</div>
+            <div id="ventoHoje" class="big">-- km/h</div>
+            <div class="small">Chuva (soma)</div>
+            <div id="chuvaHoje" class="small">-- mm</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-grid" id="miniResumo"></div>
+
+      <h3 style="margin-top:12px; margin-bottom:6px;">Resumo dos próximos dias</h3>
+      <table id="tabela">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Máx / Mín (°C)</th>
+            <th>Chuva (mm)</th>
+            <th>Prob. chuva (%)</th>
+            <th>Vento máx (km/h)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+
+      <footer>
+        Se estiver abrindo o arquivo via `file://` e houver problemas (geolocalização negada ou fetch bloqueado), execute um servidor local:
+        <div style="margin-top:6px; font-size:13px;">
+          No terminal: <code>python -m http.server 8000</code> e depois abra <code>http://localhost:8000/previsao_montes_claros.html</code>
+        </div>
+      </footer>
+    </aside>
+  </main>
+
+  <!-- Leaflet JS (sem integrity) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // util de log visível e console
+    function log(msg){
+      try {
+        const el = document.getElementById('log');
+        el.textContent += msg + "\\n";
+        el.scrollTop = el.scrollHeight;
+      } catch(e){}
+      console.log(msg);
+    }
+
+    (function(){
+      log('Iniciando aplicação — Montes Claros (MG)');
+
+      // Coordenadas de Montes Claros
+      const LAT = -16.7283;
+      const LON = -43.8583;
+      const TIMEZONE = 'America/Sao_Paulo';
+
+      // Inicializar mapa
+      let map;
+      try {
+        map = L.map('map', { zoomControl: true }).setView([LAT, LON], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+      } catch(err){
+        document.getElementById('warning').style.display = 'block';
+        document.getElementById('warning').textContent = 'Falha ao carregar o mapa. Verifique sua conexão e console.';
+        log('Erro ao inicializar Leaflet: ' + err);
+        console.error(err);
+        return;
+      }
+
+      const marker = L.marker([LAT, LON]).addTo(map);
+      marker.bindPopup('<strong>Montes Claros, MG</strong>').openPopup();
+      document.getElementById('coords').textContent = `Lat ${LAT.toFixed(4)} • Lon ${LON.toFixed(4)}`;
+
+      // elementos
+      const tbody = document.getElementById('tbody');
+      const dataHojeEl = document.getElementById('dataHoje');
+      const tempHojeEl = document.getElementById('tempHoje');
+      const descHojeEl = document.getElementById('descHoje');
+      const ventoHojeEl = document.getElementById('ventoHoje');
+      const chuvaHojeEl = document.getElementById('chuvaHoje');
+      const miniResumo = document.getElementById('miniResumo');
+      const warningEl = document.getElementById('warning');
+
+      function buildUrl(lat, lon){
+        const daily = [
+          'temperature_2m_max',
+          'temperature_2m_min',
+          'precipitation_sum',
+          'precipitation_probability_max',
+          'windspeed_10m_max'
+        ].join(',');
+        // adicionar current_weather também se desejar
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&daily=${daily}&timezone=${encodeURIComponent(TIMEZONE)}&temperature_unit=celsius&windspeed_unit=kmh`;
+        return url;
+      }
+
+      async function fetchForecast(){
+        const url = buildUrl(LAT, LON);
+        log('Buscando previsão em: ' + url);
+        try {
+          setLoading(true);
+          const res = await fetch(url);
+          log('Resposta HTTP: ' + res.status + ' ' + res.statusText);
+          if(!res.ok) throw new Error('Erro HTTP ' + res.status);
+          const data = await res.json();
+          log('Dados recebidos — chaves: ' + Object.keys(data).join(', '));
+          renderForecast(data);
+        } catch (err) {
+          warningEl.style.display = 'block';
+          warningEl.textContent = 'Falha ao carregar previsão: ' + err.message + '. Veja console para mais detalhes.';
+          log('Erro ao buscar previsão: ' + err);
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      function setLoading(flag){
+        const btn = document.getElementById('btnAtualizar');
+        if(flag){ btn.textContent = 'Carregando...'; btn.disabled = true; }
+        else { btn.textContent = 'Atualizar'; btn.disabled = false; }
+      }
+
+      function fmtDate(iso){
+        try {
+          const d = new Date(iso + 'T00:00:00');
+          return new Intl.DateTimeFormat('pt-BR', { weekday:'short', day:'2-digit', month:'short' }).format(d);
+        } catch(e){ return iso; }
+      }
+
+      function renderForecast(data){
+        const daily = data.daily || {};
+        const times = daily.time || [];
+        const tmax = daily.temperature_2m_max || [];
+        const tmin = daily.temperature_2m_min || [];
+        const precip = daily.precipitation_sum || [];
+        const precipProb = daily.precipitation_probability_max || [];
+        const windmax = daily.windspeed_10m_max || [];
+
+        tbody.innerHTML = '';
+        miniResumo.innerHTML = '';
+
+        if(times.length === 0){
+          warningEl.style.display = 'block';
+          warningEl.textContent = 'Previsão vazia retornada pela API.';
+          log('API retornou lista vazia em daily.time');
+          return;
+        }
+
+        for(let i = 0; i < times.length; i++){
+          const tr = document.createElement('tr');
+          const date = times[i];
+          tr.innerHTML = `
+            <td>${fmtDate(date)}</td>
+            <td>${tmax[i] != null ? tmax[i] + '°' : '--'} / ${tmin[i] != null ? tmin[i] + '°' : '--'}</td>
+            <td>${precip[i] != null ? precip[i] : '--'}</td>
+            <td>${precipProb[i] != null ? Math.round(precipProb[i]) : '--'}</td>
+            <td>${windmax[i] != null ? windmax[i] : '--'}</td>
+          `;
+          tbody.appendChild(tr);
+
+          if(i < 6){
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div style="font-weight:700">${fmtDate(date)}</div>
+              <div style="margin-top:6px">${tmax[i] != null ? tmax[i] + '°' : '--'} / ${tmin[i] != null ? tmin[i] + '°' : '--'}</div>
+              <div style="margin-top:6px">☔ ${precip[i] != null ? precip[i] : '--'} mm · ${precipProb[i] != null ? Math.round(precipProb[i]) + '%' : '--'}</div>
+              <div style="margin-top:6px">💨 ${windmax[i] != null ? windmax[i] + ' km/h' : '--'}</div>`;
+            miniResumo.appendChild(card);
+          }
+        }
+
+        // preencher bloco "hoje" (index 0)
+        dataHojeEl.textContent = new Intl.DateTimeFormat('pt-BR', { weekday:'long', day:'2-digit', month:'long' }).format(new Date(times[0] + 'T00:00:00'));
+        tempHojeEl.textContent = `${tmax[0] != null ? tmax[0] + '°' : '--'} / ${tmin[0] != null ? tmin[0] + '°' : '--'}`;
+        ventoHojeEl.textContent = `${windmax[0] != null ? windmax[0] + ' km/h' : '--'}`;
+        chuvaHojeEl.textContent = `${precip[0] != null ? precip[0] + ' mm' : '--'}`;
+        descHojeEl.textContent = `Prob. chuva: ${precipProb[0] != null ? Math.round(precipProb[0]) + '%' : '--'}`;
+
+        warningEl.style.display = 'none';
+        log('Renderização concluída com ' + times.length + ' dias');
+      }
+
+      // botões
+      document.getElementById('btnAtualizar').addEventListener('click', fetchForecast);
+      document.getElementById('btnLocalizar').addEventListener('click', ()=> {
+        map.setView([LAT, LON], 11, { animate:true });
+        marker.openPopup();
+      });
+
+      // tentar obter localização do usuário (opcional)
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos => {
+          try {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const youMarker = L.circleMarker([lat, lon], { radius:6, color:'#0b74b5', fillColor:'#0b74b5', fillOpacity:0.9 }).addTo(map);
+            youMarker.bindPopup('Sua localização aproximada');
+            log('Geolocalização obtida: ' + lat.toFixed(4) + ', ' + lon.toFixed(4));
+          } catch(e){ log('Erro ao adicionar marcador de localização: ' + e); }
+        }, err => {
+          log('Geolocalização não permitida ou falhou: ' + (err && err.message ? err.message : err));
+        }, { timeout:5000 });
+      } else {
+        log('Geolocalização não suportada pelo navegador.');
+      }
+
+      // carregar inicialmente
+      fetchForecast();
+
+    })();
+  </script>
+</body>
+</html>

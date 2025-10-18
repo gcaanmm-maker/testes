@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Previsão — Montes Claros (MG) + Solzinho Animado</title>
+
+<!-- Leaflet + Chart.js -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --bg:#eef2f7; --panel:#ffffff; --accent:#0d7fbf; --muted:#6b7280;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;background:var(--bg);color:#0b1720}
+  header{background:linear-gradient(90deg,#0b3b5b,#0d5c8c);color:#fff;padding:16px;text-align:center}
+  header h1{margin:0;font-size:20px}
+  nav{background:#09304d;display:flex;justify-content:center;gap:12px;padding:10px;flex-wrap:wrap}
+  nav button{background:var(--accent);border:none;color:#fff;padding:8px 14px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .18s}
+  nav button.active, nav button:hover{background:#0f98df; transform:translateY(-2px)}
+  .wrap{display:grid;grid-template-columns:1fr 420px;gap:18px;padding:18px;max-width:1200px;margin:18px auto}
+  #map{height:68vh;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.08)}
+  .panel{background:var(--panel);border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(2,6,23,0.06);overflow:auto}
+  .card{background:#f8fafc;border-radius:10px;padding:10px;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px;border-bottom:1px solid #eef2f6;text-align:left}
+  th{background:#f1f7fb}
+  .hidden{display:none}
+  canvas{max-width:100%;height:300px!important}
+  footer{font-size:13px;color:var(--muted);text-align:center;margin-top:10px}
+
+  /* Solzinho (SVG inline manipulado por classes) */
+  #mascoteWrap{position:fixed; right:20px; bottom:20px; width:120px; z-index:9999; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px}
+  #mascoteSVG{width:110px;height:110px; filter: drop-shadow(0 8px 18px rgba(2,6,23,0.18)); transition:transform .2s}
+  #mascoteWrap:hover #mascoteSVG{transform:scale(1.06)}
+  #fala{background:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.18);max-width:260px;color:#072033;font-size:14px}
+  /* animations */
+  .rays{transform-origin:center; animation:spin 12s linear infinite}
+  @keyframes spin{from{transform:rotate(0deg)} to{transform:rotate(360deg)}}
+  /* expressions */
+  .eye{transition:all .18s}
+  .mouth{transition:all .18s}
+  /* rainy overlay */
+  .drop{stroke:rgba(0,120,200,0.9);stroke-width:2;stroke-linecap:round;opacity:0;animation:dropAnim 1s ease-in-out infinite}
+  @keyframes dropAnim{0%{transform:translateY(-6px);opacity:0}50%{opacity:1}100%{transform:translateY(6px);opacity:0}}
+  /* sweat for hot */
+  .sweat{fill:rgba(255,255,255,0.9);opacity:0;transition:opacity .2s}
+  /* scarf for cold */
+  .scarf{opacity:0;transition:opacity .2s}
+  /* windy tilt */
+  .tilt{transform:rotate(-12deg)}
+  @media(max-width:980px){ .wrap{grid-template-columns:1fr} #map{height:50vh} #mascoteWrap{right:12px;bottom:12px;width:90px} #mascoteSVG{width:80px;height:80px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>☀️ Previsão do Tempo — Montes Claros (MG)</h1>
+</header>
+
+<nav>
+  <button id="btnHome" class="active">🏠 Home</button>
+  <button id="btnMax">🌡️ Máximas</button>
+  <button id="btnMin">❄️ Mínimas</button>
+  <button id="btnVento">💨 Ventos</button>
+  <button id="btnUmidade">💧 Umidade</button>
+</nav>
+
+<main class="wrap">
+  <div id="map" aria-label="Mapa de Montes Claros"></div>
+
+  <aside class="panel">
+    <section id="secHome">
+      <div class="card">
+        <strong id="localTitle">Montes Claros, Minas Gerais</strong>
+        <div style="color:var(--muted);font-size:13px;margin-top:4px" id="coords">Lat — • Lon —</div>
+      </div>
+
+      <div class="card" id="resumoHoje">
+        <h3 style="margin:0 0 8px 0">📅 Hoje — Resumo</h3>
+        <div><strong id="dataHoje">—</strong></div>
+        <div style="margin-top:8px">🌡️ Temperatura: <span id="tempHoje">--</span></div>
+        <div>🌧️ Chuva: <span id="chuvaHoje">--</span></div>
+        <div>💨 Vento: <span id="ventoHoje">--</span></div>
+        <div>💧 Umidade: <span id="umidadeHoje">--</span></div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">📆 Próximos 7 dias</h3>
+        <table>
+          <thead><tr><th>Data</th><th>Máx</th><th>Mín</th><th>Chuva</th><th>Vento</th><th>Umidade</th></tr></thead>
+          <tbody id="tabela"></tbody>
+        </table>
+      </div>
+      <footer>Dados: Open-Meteo • Mapa: OpenStreetMap</footer>
+    </section>
+
+    <section id="secMax" class="hidden"><h3>🌡️ Temperaturas Máximas (7 dias)</h3><canvas id="grafMax"></canvas></section>
+    <section id="secMin" class="hidden"><h3>❄️ Temperaturas Mínimas (7 dias)</h3><canvas id="grafMin"></canvas></section>
+    <section id="secVento" class="hidden"><h3>💨 Velocidade e Direção do Vento (7 dias)</h3><canvas id="grafVento"></canvas></section>
+    <section id="secUmidade" class="hidden"><h3>💧 Umidade Relativa (7 dias)</h3><canvas id="grafUmidade"></canvas></section>
+  </aside>
+</main>
+
+<!-- Solzinho mascote (SVG inline) -->
+<div id="mascoteWrap" title="Clique para dicas">
+  <svg id="mascoteSVG" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Solzinho">
+    <!-- rays group -->
+    <g id="rays" class="rays">
+      <g transform="translate(100 100)">
+        <g id="raysGroup">
+          <!-- 12 rays -->
+          <g transform="rotate(0)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(30)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(60)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(90)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(120)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(150)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(180)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(210)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(240)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(270)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(300)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+          <g transform="rotate(330)"><rect x="-6" y="-80" width="12" height="36" rx="6" fill="#FFD166"/></g>
+        </g>
+      </g>
+    </g>
+
+    <!-- core circle -->
+    <circle id="core" cx="100" cy="100" r="36" fill="#FFD54A" stroke="#FFB300" stroke-width="3"/>
+
+    <!-- eyes -->
+    <g id="eyes" transform="translate(0,0)">
+      <ellipse id="eyeL" class="eye" cx="86" cy="95" rx="5" ry="6" fill="#072033"/>
+      <ellipse id="eyeR" class="eye" cx="114" cy="95" rx="5" ry="6" fill="#072033"/>
+    </g>
+
+    <!-- mouth -->
+    <path id="mouth" class="mouth" d="M85,110 Q100,120 115,110" stroke="#072033" stroke-width="3" fill="transparent" stroke-linecap="round"/>
+
+    <!-- rain drops (initially hidden) -->
+    <g id="rainGroup" transform="translate(100,120)">
+      <path class="drop" d="M-24,-10 q2,6 4,0" transform="translate(0,-10)"/>
+      <path class="drop" d="M0,-10 q2,6 4,0" transform="translate(0,-8)"/>
+      <path class="drop" d="M24,-10 q2,6 4,0" transform="translate(0,-12)"/>
+    </g>
+
+    <!-- sweat (for hot) -->
+    <path id="sweat" class="sweat" d="M130,78 q6,8 0,16 q-6,8 -10,2 q6,-10 10,-18" />
+
+    <!-- scarf (for cold) -->
+    <g id="scarf" class="scarf" transform="translate(48,126)">
+      <rect x="0" y="0" width="104" height="12" rx="6" fill="#FF6B6B"/>
+      <rect x="68" y="6" width="16" height="24" rx="6" fill="#FF6B6B"/>
+    </g>
+  </svg>
+
+  <div id="fala">Olá! Sou o Solzinho ☀️ — clique para dicas rápidas.</div>
+</div>
+
+<script>
+  // ----- Configurações básicas -----
+  const LAT = -16.7283, LON = -43.8583, TZ = 'America/Sao_Paulo';
+  const map = L.map('map').setView([LAT,LON], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  const marker = L.marker([LAT,LON]).addTo(map).bindPopup('Montes Claros, MG').openPopup();
+
+  // elementos
+  const coordsEl = document.getElementById('coords');
+  const tabelaEl = document.getElementById('tabela');
+  const dataHojeEl = document.getElementById('dataHoje');
+  const tempHojeEl = document.getElementById('tempHoje');
+  const chuvaHojeEl = document.getElementById('chuvaHoje');
+  const ventoHojeEl = document.getElementById('ventoHoje');
+  const umidadeHojeEl = document.getElementById('umidadeHoje');
+
+  // mascote elements
+  const falaEl = document.getElementById('fala');
+  const rays = document.getElementById('rays');
+  const eyeL = document.getElementById('eyeL');
+  const eyeR = document.getElementById('eyeR');
+  const mouth = document.getElementById('mouth');
+  const rainGroup = document.getElementById('rainGroup');
+  const sweat = document.getElementById('sweat');
+  const scarf = document.getElementById('scarf');
+  const mascotWrap = document.getElementById('mascoteWrap');
+  const mascotSVG = document.getElementById('mascoteSVG');
+
+  // charts
+  let grafMax, grafMin, grafVento, grafUmidade;
+
+  // buscar dados da Open-Meteo (7 dias)
+  async function carregarDados(){
+    const dailyParams = [
+      'temperature_2m_max',
+      'temperature_2m_min',
+      'precipitation_sum',
+      'windspeed_10m_max',
+      'winddirection_10m_dominant',
+      'relative_humidity_2m_max'
+    ].join(',');
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=${dailyParams}&timezone=${TZ}&temperature_unit=celsius&windspeed_unit=kmh`;
+    try {
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Erro HTTP ' + res.status);
+      const json = await res.json();
+      const daily = json.daily;
+      coordsEl.textContent = `Lat ${LAT.toFixed(4)} • Lon ${LON.toFixed(4)}`;
+      renderResumo(daily);
+      criarGraficos(daily);
+      adaptarMascote(daily);
+    } catch(err){
+      console.error('Falha ao buscar previsão:', err);
+      falaEl.textContent = 'Desculpe — não consegui carregar a previsão. Verifique conexão.';
+    }
+  }
+
+  function fmtDate(isoDate){
+    return new Intl.DateTimeFormat('pt-BR',{weekday:'short', day:'2-digit', month:'short'}).format(new Date(isoDate+'T00:00'));
+  }
+
+  function renderResumo(daily){
+    tabelaEl.innerHTML = '';
+    const times = daily.time || [];
+    const tmax = daily.temperature_2m_max || [];
+    const tmin = daily.temperature_2m_min || [];
+    const precip = daily.precipitation_sum || [];
+    const wind = daily.windspeed_10m_max || [];
+    const winddir = daily.winddirection_10m_dominant || [];
+    const hum = daily.relative_humidity_2m_max || [];
+
+    for(let i=0;i<times.length;i++){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${fmtDate(times[i])}</td>
+        <td>${tmax[i] != null ? tmax[i]+'°C' : '--'}</td>
+        <td>${tmin[i] != null ? tmin[i]+'°C' : '--'}</td>
+        <td>${precip[i] != null ? precip[i]+' mm' : '--'}</td>
+        <td>${wind[i] != null ? wind[i]+' km/h' : '--'}</td>
+        <td>${hum[i] != null ? hum[i]+'%' : '--'}</td>`;
+      tabelaEl.appendChild(tr);
+    }
+
+    // preenchendo resumo hoje (índice 0)
+    if(times.length){
+      dataHojeEl.textContent = new Intl.DateTimeFormat('pt-BR',{weekday:'long', day:'2-digit', month:'long'}).format(new Date(times[0] + 'T00:00'));
+      tempHojeEl.textContent = `${tmax[0]}°C / ${tmin[0]}°C`;
+      chuvaHojeEl.textContent = `${precip[0]} mm`;
+      ventoHojeEl.textContent = `${wind[0]} km/h (${winddir[0] ?? '--'}°)`;
+      umidadeHojeEl.textContent = `${hum[0]}%`;
+    }
+  }
+
+  function criarGraficos(daily){
+    const labels = (daily.time || []).map(fmtDate);
+    const maxT = daily.temperature_2m_max || [];
+    const minT = daily.temperature_2m_min || [];
+    const ventos = daily.windspeed_10m_max || [];
+    const dirs = daily.winddirection_10m_dominant || [];
+    const hum = daily.relative_humidity_2m_max || [];
+
+    // destruir antigos
+    if(grafMax) grafMax.destroy();
+    if(grafMin) grafMin.destroy();
+    if(grafVento) grafVento.destroy();
+    if(grafUmidade) grafUmidade.destroy();
+
+    // Máximas
+    grafMax = new Chart(document.getElementById('grafMax'), {
+      type: 'line',
+      data: { labels, datasets:[{label:'Temperatura Máxima (°C) ☀️', data:maxT, borderColor:'rgba(255,99,71,0.95)', backgroundColor:'rgba(255,99,71,0.16)', fill:true, tension:0.3}]},
+      options:{scales:{y:{title:{display:true,text:'°C'}}}, plugins:{legend:{position:'bottom'}}}
+    });
+
+    // Mínimas
+    grafMin = new Chart(document.getElementById('grafMin'), {
+      type:'line',
+      data:{labels,datasets:[{label:'Temperatura Mínima (°C) ❄️', data:minT, borderColor:'rgba(66,135,245,0.95)', backgroundColor:'rgba(66,135,245,0.14)', fill:true, tension:0.3}]},
+      options:{scales:{y:{title:{display:true,text:'°C'}}}, plugins:{legend:{position:'bottom'}}}
+    });
+
+    // Ventos + direção (segunda escala)
+    grafVento = new Chart(document.getElementById('grafVento'), {
+      type:'bar',
+      data:{labels, datasets:[
+        {label:'Velocidade (km/h) 💨', data:ventos, backgroundColor:'rgba(0,200,83,0.6)'},
+        {label:'Direção (°) 🧭', data:dirs, backgroundColor:'rgba(100,181,246,0.6)', yAxisID:'y2'}
+      ]},
+      options:{scales:{y:{title:{display:true,text:'km/h'}}, y2:{position:'right',title:{display:true,text:'Direção (°)'}}}, plugins:{legend:{position:'bottom'}}}
+    });
+
+    // Umidade
+    grafUmidade = new Chart(document.getElementById('grafUmidade'), {
+      type:'line',
+      data:{labels, datasets:[{label:'Umidade Relativa (%) 💧', data:hum, borderColor:'rgba(0,150,255,0.95)', backgroundColor:'rgba(0,150,255,0.14)', fill:true, tension:0.3}]},
+      options:{scales:{y:{beginAtZero:true, max:100, title:{display:true,text:'%'}}}, plugins:{legend:{position:'bottom'}}}
+    });
+  }
+
+  // ----- Mascote behavior -----
+  // determina condição base no dia 0 e altera expressão e fala
+  function adaptarMascote(daily){
+    try {
+      const precip = (daily.precipitation_sum || [0])[0] ?? 0;
+      const tmax = (daily.temperature_2m_max || [0])[0] ?? 0;
+      const wind = (daily.windspeed_10m_max || [0])[0] ?? 0;
+      const hum = (daily.relative_humidity_2m_max || [50])[0] ?? 50;
+
+      // reset visual states
+      rainGroup.style.opacity = 0;
+      sweat.style.opacity = 0;
+      scarf.style.opacity = 0;
+      mascotSVG.classList.remove('tilt');
+
+      // default sunny face
+      eyeL.setAttribute('rx',5); eyeL.setAttribute('ry',6);
+      eyeR.setAttribute('rx',5); eyeR.setAttribute('ry',6);
+      mouth.setAttribute('d','M85,110 Q100,120 115,110'); // smile
+      falaEl.style.background = 'white';
+
+      let estado = 'sunny';
+      let frase = 'Bom dia! Dia agradável em Montes Claros. ☀️';
+
+      if(precip > 5) {
+        estado = 'rainy';
+        // show raindrops (animate)
+        Array.from(rainGroup.querySelectorAll('.drop')).forEach((p,i)=>{ p.style.opacity = 1; p.style.animationDelay = (i*0.15)+'s'; });
+        mouth.setAttribute('d','M85,116 Q100,108 115,116'); // small frown-ish
+        frase = 'Vai chover: leve guarda-chuva e cuidado nas estradas. ☔';
+      } else if(tmax >= 34) {
+        estado = 'hot';
+        sweat.style.opacity = 1;
+        mouth.setAttribute('d','M85,108 Q100,122 115,108'); // big smile open
+        frase = 'Calor forte! Hidrate-se e evite exposição ao sol nas horas mais quentes. 🌞';
+      } else if(tmax <= 19) {
+        estado = 'cold';
+        scarf.style.opacity = 1;
+        mouth.setAttribute('d','M85,110 Q100,116 115,110'); // subtle smile
+        frase = 'Fresco hoje. Uma blusa leve já ajuda — boa pedida um café! ☕';
+      } else if(wind >= 40) {
+        estado = 'windy';
+        mascotSVG.classList.add('tilt');
+        mouth.setAttribute('d','M85,110 Q100,122 115,110'); // smile
+        frase = 'Vento forte — atenção a objetos soltos e folhas nas ruas. 💨';
+      } else if(hum <= 30) {
+        estado = 'dry';
+        frase = 'Ar seco: hidrate-se e proteja a pele. 💧';
+      } else {
+        estado = 'sunny';
+        frase = 'Dia agradável — ótimo para sair! 😎';
+      }
+
+      // fala inicial
+      falaEl.textContent = frase;
+
+      // click phrases (mix contextual)
+      const extras = [
+        'Você sabia? Montes Claros é a "Princesa do Norte de Minas". 👑',
+        'Dica: em dias quentes evite exercícios ao meio-dia.',
+        'Se chover, prefira calçados fechados em áreas alagadas.',
+        'Umidade baixa? Beba água com mais frequência.',
+        'Quando o vento sopra do leste, pode indicar chuva chegando.'
+      ];
+      mascotWrap.onclick = () => {
+        // mostrar frase aleatória, privilegiando contexto
+        if(estado === 'rainy') falaEl.textContent = 'Lembrete: mantenha o guarda-chuva à mão e proteja eletrônicos.';
+        else if(estado === 'hot') falaEl.textContent = 'Dica calor: use protetor solar e chapéu.';
+        else if(estado === 'cold') falaEl.textContent = 'Friozinho: leve uma jaqueta — à noite esfria mais.';
+        else if(estado === 'windy') falaEl.textContent = 'Vento: prenda objetos leves e tome cuidado com poeira.';
+        else if(estado === 'dry') falaEl.textContent = 'Ar seco: umidificador ou toalhas úmidas ajudam em casa.';
+        else {
+          falaEl.textContent = extras[Math.floor(Math.random()*extras.length)];
+        }
+      };
+
+    } catch(err){
+      console.error('Erro adaptarMascote', err);
+    }
+  }
+
+  // ----- Menu (centralizado) -----
+  const sections = {Home:'secHome', Max:'secMax', Min:'secMin', Vento:'secVento', Umidade:'secUmidade'};
+  for(const [id,secId] of Object.entries(sections)){
+    document.getElementById('btn'+id).addEventListener('click', ()=>{
+      for(const k of Object.keys(sections)){
+        document.getElementById(sections[k]).classList.toggle('hidden', k !== id);
+        document.getElementById('btn'+k).classList.toggle('active', k === id);
+      }
+      // small layout fix: resize charts when section shown
+      setTimeout(()=>{ if(window.Chart) { [grafMax,grafMin,grafVento,grafUmidade].forEach(g=>g && g.resize()); } }, 250);
+    });
+  }
+
+  // Inicializa
+  carregarDados();
+
+  // Atualiza a cada 30 minutos (opcional)
+  // setInterval(carregarDados, 30 * 60 * 1000);
+
+</script>
+</body>
+</html>
