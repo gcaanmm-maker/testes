@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulação de Código - FinTrack</title>
+<style>
+  body {
+    background-color: #0f172a;
+    color: #38bdf8;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    padding: 1rem;
+  }
+
+  #code {
+    background-color: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 800px;
+    height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    border-left: 4px solid #22c55e;
+  }
+
+  button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background-color: #22c55e;
+    color: #1e293b;
+    cursor: pointer;
+    display: none;
+    transition: all 0.3s;
+  }
+
+  button:hover {
+    background-color: #16a34a;
+    color: white;
+  }
+</style>
+</head>
+<body>
+
+<div id="code"></div>
+<button id="testButton" onclick="window.location.href='melhorias.html'">Testar Melhorias 🚀</button>
+
+<script>
+const codeText = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>FinTrack</title>
+  <style>
+    body { font-family: Arial; background: #f8fafc; }
+    h1 { color: #2563eb; }
+    ul { list-style: none; padding: 0; }
+  </style>
+</head>
+<body>
+  <h1>💸 FinTrack - App de Finanças</h1>
+  <p>Saldo atual: R$ 2.340,00</p>
+
+  <h2>Despesas</h2>
+  <ul>
+    <li>Mercado — R$ 480,00</li>
+    <li>Transporte — R$ 200,00</li>
+    <li>Energia — R$ 180,00</li>
+    <li>Streaming — R$ 49,90</li>
+    <li>Lazer — R$ 120,00</li>
+  </ul>
+
+  <h2>Receitas</h2>
+  <ul>
+    <li>Salário — R$ 3.000,00</li>
+    <li>Freelance — R$ 500,00</li>
+    <li>Investimentos — R$ 120,00</li>
+  </ul>
+
+  <h2>Relatórios</h2>
+  <p>Gráficos e estatísticas em desenvolvimento...</p>
+
+  <h2>Configurações</h2>
+  <p>Modo escuro: disponível</p>
+</body>
+</html>
+`;
+
+const codeElement = document.getElementById('code');
+let index = 0;
+
+function typeCode() {
+  if(index < codeText.length) {
+    codeElement.textContent += codeText[index];
+    index++;
+    codeElement.scrollTop = codeElement.scrollHeight;
+    setTimeout(typeCode, 20); // Velocidade aumentada
+  } else {
+    document.getElementById('testButton').style.display = 'inline-block';
+  }
+}
+
+typeCode();
+</script>
+
+</body>
+</html>

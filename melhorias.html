@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinTrack - Sprint 3 (MVP Interativo)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --primary: #2563eb;
+  --secondary: #22c55e;
+  --bg: #f8fafc;
+  --text: #1e293b;
+  --card: #ffffff;
+  --danger: #ef4444;
+}
+
+body.dark {
+  --primary: #60a5fa;
+  --secondary: #34d399;
+  --bg: #0f172a;
+  --text: #f8fafc;
+  --card: #1e293b;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: all 0.3s ease;
+}
+
+header {
+  background: var(--primary);
+  color: white;
+  text-align: center;
+  padding: 1.5rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+nav {
+  display: flex;
+  justify-content: center;
+  background: #e0e7ff;
+  padding: 0.5rem;
+  gap: 1rem;
+}
+
+nav button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+nav button:hover {
+  background: #1d4ed8;
+  transform: translateY(-2px);
+}
+
+section {
+  display: none;
+  max-width: 800px;
+  margin: 2rem auto;
+  background: var(--card);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+section.active {
+  display: block;
+}
+
+.login-container {
+  text-align: center;
+  padding: 3rem;
+}
+
+.login-container input {
+  display: block;
+  margin: 1rem auto;
+  padding: 0.8rem;
+  width: 250px;
+  border: 2px solid var(--primary);
+  border-radius: 8px;
+}
+
+.login-container button {
+  background: var(--secondary);
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.login-container button:hover {
+  background: #16a34a;
+}
+
+footer {
+  background: var(--primary);
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.9rem;
+  margin-top: 3rem;
+}
+
+.chart-container {
+  width: 100%;
+  height: 300px;
+}
+
+.toggle-mode {
+  position: fixed;
+  top: 15px;
+  right: 20px;
+  background: var(--secondary);
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.toggle-mode:hover {
+  background: #15803d;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💸 FinTrack – Controle Financeiro</h1>
+  <p>Adicione suas despesas e acompanhe seus gastos!</p>
+</header>
+
+<button class="toggle-mode" onclick="toggleDarkMode()">🌙 Modo Escuro</button>
+
+<!-- Login -->
+<section id="login" class="active login-container">
+  <h2>🔐 Acesse sua conta</h2>
+  <input type="text" id="user" placeholder="Usuário">
+  <input type="password" id="pass" placeholder="Senha">
+  <button onclick="login()">Entrar</button>
+  <p style="color:red; display:none;" id="login-error">Usuário ou senha incorretos!</p>
+</section>
+
+<!-- Navegação -->
+<nav id="nav" style="display:none;">
+  <button onclick="showSection('dashboard')">Painel</button>
+  <button onclick="showSection('despesas')">Despesas</button>
+  <button onclick="showSection('receitas')">Receitas</button>
+  <button onclick="showSection('relatorios')">Relatórios</button>
+  <button onclick="showSection('config')">Configurações</button>
+</nav>
+
+<!-- Painel -->
+<section id="dashboard">
+  <h2>📊 Painel Geral</h2>
+  <p>Saldo atual: <span id="saldo" style="color:var(--secondary); font-weight:bold;">R$ 0,00</span></p>
+  <p>Despesas: <span id="total-despesas" style="color:var(--danger); font-weight:bold;">R$ 0,00</span></p>
+  <p>Receitas: <span id="total-receitas" style="font-weight:bold;">R$ 0,00</span></p>
+</section>
+
+<!-- Despesas -->
+<section id="despesas">
+  <h2>💸 Adicionar Despesa</h2>
+  <input type="text" id="nome-despesa" placeholder="Descrição">
+  <input type="number" id="valor-despesa" placeholder="Valor (R$)">
+  <button onclick="adicionarDespesa()">Adicionar</button>
+  <ul id="lista-despesas"></ul>
+</section>
+
+<!-- Receitas -->
+<section id="receitas">
+  <h2>💰 Adicionar Receita</h2>
+  <input type="text" id="nome-receita" placeholder="Descrição">
+  <input type="number" id="valor-receita" placeholder="Valor (R$)">
+  <button onclick="adicionarReceita()">Adicionar</button>
+  <ul id="lista-receitas"></ul>
+</section>
+
+<!-- Relatórios -->
+<section id="relatorios">
+  <h2>📈 Relatórios</h2>
+  <div class="chart-container">
+    <canvas id="chart"></canvas>
+  </div>
+</section>
+
+<!-- Configurações -->
+<section id="config">
+  <h2>⚙️ Configurações</h2>
+  <p>Modo escuro ativado? <span id="mode-status">Não</span></p>
+</section>
+
+<footer>
+  FinTrack © 2025 — Desenvolvido pela equipe Scrum 💼
+</footer>
+
+<script>
+let despesas = JSON.parse(localStorage.getItem("despesas")) || [];
+let receitas = JSON.parse(localStorage.getItem("receitas")) || [];
+
+function login() {
+  const user = document.getElementById("user").value;
+  const pass = document.getElementById("pass").value;
+  if(user === "admin" && pass === "123") {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("nav").style.display = "flex";
+    showSection('dashboard');
+    atualizarPainel();
+    atualizarListas();
+    atualizarGrafico();
+  } else {
+    document.getElementById("login-error").style.display = "block";
+  }
+}
+
+function showSection(id) {
+  document.querySelectorAll("section").forEach(sec => sec.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark");
+  document.getElementById("mode-status").innerText = document.body.classList.contains("dark") ? "Sim" : "Não";
+}
+
+function atualizarPainel() {
+  const totalDespesas = despesas.reduce((sum, d) => sum + d.valor, 0);
+  const totalReceitas = receitas.reduce((sum, r) => sum + r.valor, 0);
+  const saldo = totalReceitas - totalDespesas;
+  document.getElementById("saldo").innerText = `R$ ${saldo.toFixed(2)}`;
+  document.getElementById("total-despesas").innerText = `R$ ${totalDespesas.toFixed(2)}`;
+  document.getElementById("total-receitas").innerText = `R$ ${totalReceitas.toFixed(2)}`;
+}
+
+function atualizarListas() {
+  const listaD = document.getElementById("lista-despesas");
+  const listaR = document.getElementById("lista-receitas");
+  listaD.innerHTML = "";
+  listaR.innerHTML = "";
+  despesas.forEach(d => {
+    const li = document.createElement("li");
+    li.textContent = `${d.nome} — R$ ${d.valor.toFixed(2)}`;
+    listaD.appendChild(li);
+  });
+  receitas.forEach(r => {
+    const li = document.createElement("li");
+    li.textContent = `${r.nome} — R$ ${r.valor.toFixed(2)}`;
+    listaR.appendChild(li);
+  });
+}
+
+function adicionarDespesa() {
+  const nome = document.getElementById("nome-despesa").value;
+  const valor = parseFloat(document.getElementById("valor-despesa").value);
+  if(nome && valor) {
+    despesas.push({nome, valor});
+    localStorage.setItem("despesas", JSON.stringify(despesas));
+    document.getElementById("nome-despesa").value = "";
+    document.getElementById("valor-despesa").value = "";
+    atualizarListas();
+    atualizarPainel();
+    atualizarGrafico();
+  }
+}
+
+function adicionarReceita() {
+  const nome = document.getElementById("nome-receita").value;
+  const valor = parseFloat(document.getElementById("valor-receita").value);
+  if(nome && valor) {
+    receitas.push({nome, valor});
+    localStorage.setItem("receitas", JSON.stringify(receitas));
+    document.getElementById("nome-receita").value = "";
+    document.getElementById("valor-receita").value = "";
+    atualizarListas();
+    atualizarPainel();
+    atualizarGrafico();
+  }
+}
+
+// Gráfico interativo
+let chart;
+function atualizarGrafico() {
+  const ctx = document.getElementById('chart');
+  const labels = despesas.map(d => d.nome);
+  const data = despesas.map(d => d.valor);
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels.length ? labels : ["Sem despesas"],
+      datasets: [{
+        data: data.length ? data : [1],
+        backgroundColor: ['#2563eb','#22c55e','#f59e0b','#ef4444','#8b5cf6','#db2777','#0ea5e9']
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+// Inicializar dados ao carregar
+window.onload = () => {
+  if(localStorage.getItem("userLogged") === "true") {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("nav").style.display = "flex";
+    showSection('dashboard');
+    atualizarPainel();
+    atualizarListas();
+    atualizarGrafico();
+  }
+};
+</script>
+
+</body>
+</html>
