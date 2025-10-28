@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Ferramentas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body { font-family: Arial; margin:0; background:#f0f2f5; }
+header { background:#007bff; color:white; padding:15px; text-align:center; font-size:20px; }
+nav { display:flex; justify-content:space-around; background:#0056b3; }
+nav button { flex:1; padding:12px; border:none; background:#0056b3; color:white; font-size:16px; cursor:pointer; }
+nav button:hover { background:#003f7f; }
+.container { padding:10px; }
+.card { background:white; padding:15px; margin:10px 0; border-radius:15px; box-shadow:0 2px 5px rgba(0,0,0,0.2); }
+.card img { max-width:100%; margin-top:10px; border-radius:10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+.faltando { color:red; font-weight:bold; font-size:16px; margin-top:5px; }
+ul { padding-left:20px; }
+button { padding:8px 15px; border-radius:8px; margin-top:5px; cursor:pointer; }
+input, select { width:100%; padding:8px; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
+.hidden { display:none; }
+video { border-radius:10px; margin-top:10px; width:100%; max-width:300px; }
+#previewFoto { width:100%; max-width:300px; margin-top:10px; display:block; border:2px solid green; border-radius:10px; }
+#confirmFoto { color:green; font-weight:bold; display:none; }
+li button { margin-left:10px; }
+</style>
+</head>
+<body>
+<header>Controle de Ferramentas</header>
+
+<nav>
+  <button onclick="mostrarTela('checklist')">Checklist</button>
+  <button onclick="mostrarTela('ferramentas')">Ferramentas</button>
+  <button onclick="mostrarTela('relatorios')">Relatórios</button>
+  <button onclick="mostrarTela('usuarios')">Usuários</button>
+</nav>
+
+<div class="container">
+  <!-- Checklist -->
+  <div id="checklist" class="hidden">
+    <h2>Checklist Diário</h2>
+    <label for="responsavel">Responsável:</label>
+    <select id="responsavel"><option value="">Carregando...</option></select>
+
+    <div id="listaFerramentas"></div>
+
+    <h3>Foto do Armário</h3>
+    <video id="video" autoplay></video>
+    <button onclick="tirarFoto()">Tirar Foto do Armário</button>
+    <canvas id="canvas" width="300" height="200" style="display:none;"></canvas>
+    <p id="confirmFoto">✅ Foto tirada!</p>
+    <img id="previewFoto"/>
+
+    <button onclick="finalizarChecklist()">Finalizar Checklist</button>
+  </div>
+
+  <!-- Ferramentas -->
+  <div id="ferramentas" class="hidden">
+    <h2>Adicionar Ferramenta</h2>
+    <input type="text" id="nomeFerramenta" placeholder="Nome da ferramenta">
+    <input type="text" id="descricaoFerramenta" placeholder="Descrição (opcional)">
+    <input type="text" id="localizacaoFerramenta" placeholder="Localização (opcional)">
+    <button onclick="adicionarFerramenta()">Adicionar</button>
+    <h3>Lista de Ferramentas</h3>
+    <ul id="listaFerramentasCadastradas"></ul>
+  </div>
+
+  <!-- Relatórios -->
+  <div id="relatorios" class="hidden">
+    <h2>Relatórios</h2>
+    <button onclick="carregarRelatorios()">🔄 Atualizar Relatórios</button>
+    <div id="cardsRelatorios">Carregando...</div>
+  </div>
+
+  <!-- Usuários -->
+  <div id="usuarios" class="hidden">
+    <h2>Gerenciar Usuários</h2>
+    <h3>Adicionar Usuário</h3>
+    <input type="text" id="nomeUsuario" placeholder="Nome do usuário">
+    <button onclick="adicionarUsuario()">Adicionar</button>
+
+    <h3>Lista de Usuários</h3>
+    <ul id="listaUsuarios">Carregando...</ul>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+// ======= Supabase =======
+const supabaseUrl = 'https://jyehccjogujkdtingplc.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZWhjY2pvZ3Vqa2R0aW5ncGxjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTMwNzM4NCwiZXhwIjoyMDc2ODgzMzg0fQ._ocxO3lxzheYY9uRMXjhU9RlLYnoXMlQZ3QTTsjPKGc';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+let ferramentas = [];
+let usuarios = [];
+let fotoArmarioFile = null;
+let cameraAtiva = false;
+
+// ======= Navegação =======
+window.mostrarTela = function(id){
+  ['checklist','ferramentas','relatorios','usuarios'].forEach(t => document.getElementById(t).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  if(id==='checklist') carregarChecklist();
+  if(id==='ferramentas') carregarFerramentas();
+  if(id==='relatorios') carregarRelatorios();
+  if(id==='usuarios') carregarUsuarios();
+};
+
+// ======= Usuários =======
+async function carregarUsuarios(){
+  if(usuarios.length>0) return;
+  const { data, error } = await supabase.from('usuarios').select('*').order('nome');
+  if(error) return alert('Erro ao carregar usuários: '+error.message);
+  usuarios = data || [];
+
+  const select = document.getElementById('responsavel');
+  select.innerHTML='<option value="">Selecione o responsável</option>';
+  usuarios.forEach(u=>{
+    const option=document.createElement('option');
+    option.value=u.nome;
+    option.textContent=u.nome;
+    select.appendChild(option);
+  });
+
+  const ul = document.getElementById('listaUsuarios');
+  ul.innerHTML='';
+  if(usuarios.length===0){ ul.textContent='Nenhum usuário cadastrado.'; return;}
+  usuarios.forEach(u=>{
+    const li=document.createElement('li');
+    li.textContent=u.nome;
+    const btn=document.createElement('button');
+    btn.textContent='Remover';
+    btn.onclick=()=>removerUsuario(u.id);
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+async function adicionarUsuario(){
+  const senha = prompt('Informe a senha para adicionar usuário:');
+  if(senha !== 'Qaz123..') return alert('Senha incorreta!');
+  const nome = document.getElementById('nomeUsuario').value.trim();
+  if(!nome) return alert('Digite o nome do usuário');
+  const { error } = await supabase.from('usuarios').insert([{ nome }]);
+  if(error) return alert('Erro: '+error.message);
+  alert('Usuário adicionado com sucesso!');
+  document.getElementById('nomeUsuario').value='';
+  usuarios=[];
+  carregarUsuarios();
+}
+
+async function removerUsuario(id){
+  const senha = prompt('Informe a senha para remover usuário:');
+  if(senha !== 'Qaz123..') return alert('Senha incorreta!');
+  if(!confirm('Tem certeza que deseja remover este usuário?')) return;
+  const { error } = await supabase.from('usuarios').delete().eq('id', id);
+  if(error) return alert('Erro: '+error.message);
+  alert('Usuário removido!');
+  usuarios=[];
+  carregarUsuarios();
+}
+
+// ======= Ferramentas =======
+async function carregarFerramentas(){
+  const { data, error } = await supabase.from('ferramentas').select('*').order('nome');
+  if(error) return alert('Erro: '+error.message);
+  ferramentas = data || [];
+  const ul = document.getElementById('listaFerramentasCadastradas');
+  ul.innerHTML='';
+  ferramentas.forEach(f=>{
+    const li=document.createElement('li');
+    li.textContent=f.nome+(f.descricao?' - '+f.descricao:'');
+    const btnRemover = document.createElement('button');
+    btnRemover.textContent='Remover';
+    btnRemover.onclick=async()=>{ 
+      const senha = prompt('Informe a senha para remover a ferramenta:');
+      if(senha!=='Qaz123..') return alert('Senha incorreta!');
+      if(confirm('Deseja remover esta ferramenta?')){
+        await supabase.from('ferramentas').delete().eq('id',f.id);
+        carregarFerramentas(); 
+      }
+    };
+    li.appendChild(btnRemover);
+    ul.appendChild(li);
+  });
+}
+
+async function adicionarFerramenta(){
+  const nome=document.getElementById('nomeFerramenta').value;
+  const desc=document.getElementById('descricaoFerramenta').value;
+  const loc=document.getElementById('localizacaoFerramenta').value;
+  if(!nome) return alert('Digite o nome da ferramenta');
+  const { error } = await supabase.from('ferramentas').insert([{nome, descricao:desc, localizacao:loc}]);
+  if(error) return alert('Erro: '+error.message);
+  document.getElementById('nomeFerramenta').value='';
+  document.getElementById('descricaoFerramenta').value='';
+  document.getElementById('localizacaoFerramenta').value='';
+  carregarFerramentas();
+}
+
+// ======= Checklist =======
+async function carregarChecklist(){
+  await carregarUsuarios();
+  const container=document.getElementById('listaFerramentas');
+  container.innerHTML='';
+  if(ferramentas.length===0) await carregarFerramentas();
+  ferramentas.forEach(f=>{
+    const div=document.createElement('div');
+    div.innerHTML=`<input type="checkbox" id="f${f.id}" data-id="${f.id}"> <label for="f${f.id}">${f.nome}</label>`;
+    container.appendChild(div);
+  });
+
+  if(!cameraAtiva){
+    cameraAtiva = true;
+    const video=document.getElementById('video');
+    navigator.mediaDevices.getUserMedia({video:true})
+      .then(stream=>{ video.srcObject=stream; })
+      .catch(err=>console.error('Erro câmera:',err));
+  }
+}
+
+window.tirarFoto=function(){
+  const video=document.getElementById('video');
+  const canvas=document.getElementById('canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const dataURL=canvas.toDataURL('image/png');
+  fetch(dataURL).then(r=>r.blob()).then(blob=>{
+    fotoArmarioFile=new File([blob],`foto_${Date.now()}.png`,{type:'image/png'});
+    document.getElementById('previewFoto').src=dataURL;
+    document.getElementById('confirmFoto').style.display='block';
+  });
+};
+
+window.finalizarChecklist=async function(){
+  const responsavel=document.getElementById('responsavel').value;
+  if(!responsavel) return alert('Selecione o responsável');
+  
+  const dataLocal = new Date().toISOString();
+  const { data: ckInsert, error: ckError } = await supabase.from('checklists')
+    .insert([{ data: dataLocal, responsavel }])
+    .select('*');
+  if(ckError) return alert('Erro: '+ckError.message);
+  const ck=ckInsert[0];
+
+  if(fotoArmarioFile){
+    const fotoPath=`checklists/${ck.id}/${fotoArmarioFile.name}`;
+    const { error: upError } = await supabase.storage.from('fotos').upload(fotoPath,fotoArmarioFile,{upsert:true});
+    if(!upError) await supabase.from('checklists').update({foto_armario:fotoPath}).eq('id',ck.id);
+  }
+
+  const statusItens=ferramentas.map(f=>{
+    const check=document.querySelector(`#f${f.id}`);
+    return {id_checklist:ck.id,id_ferramenta:f.id,presente:check.checked};
+  });
+  await supabase.from('itens_checklist').insert(statusItens);
+
+  alert('Checklist finalizado com sucesso!');
+  fotoArmarioFile=null;
+  document.getElementById('previewFoto').src='';
+  document.getElementById('confirmFoto').style.display='none';
+  carregarChecklist();
+};
+
+// ======= Relatórios =======
+async function carregarRelatorios(){
+  const container=document.getElementById('cardsRelatorios');
+  container.innerHTML='Carregando...';
+  const { data: checklists, error } = await supabase.from('checklists').select('*').order('id',{ascending:false});
+  if(error){container.textContent='Erro: '+error.message; return;}
+  if(!checklists || checklists.length===0){container.textContent='Nenhum checklist encontrado.'; return;}
+  if(ferramentas.length===0) await carregarFerramentas();
+
+  container.innerHTML='';
+  for(let ck of checklists){
+    const { data: itens } = await supabase.from('itens_checklist').select('*').eq('id_checklist',ck.id);
+    const faltando=(itens||[]).filter(i=>!i.presente);
+    let fotoURL='';
+    if(ck.foto_armario){
+      const { data } = supabase.storage.from('fotos').getPublicUrl(ck.foto_armario);
+      fotoURL=data?.publicUrl||'';
+    }
+
+    const dataBR = new Date(ck.data).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+
+    const listaItens=(itens||[]).map(i=>{
+      const nome=ferramentas.find(f=>f.id===i.id_ferramenta)?.nome||'N/A';
+      return `<tr><td>${nome}</td><td>${i.presente?'✅ Presente':'❌ Ausente'}</td><td>${i.presente?'':'Faltando'}</td></tr>`;
+    }).join('');
+
+    const card=document.createElement('div');
+    card.className='card';
+    card.innerHTML=`
+      <strong>Responsável:</strong> ${ck.responsavel}<br>
+      <strong>Data:</strong> ${dataBR}<br>
+      <table style="width:100%; border-collapse:collapse; margin-top:5px;">
+        <tr style="background:#cce6ff; font-weight:bold;"><th>Ferramenta</th><th>Status</th><th>Observações</th></tr>
+        ${listaItens}
+      </table>
+      ${faltando.length>0?`<p class="faltando">⚠️ ${faltando.length} ferramenta(s) faltando!</p>`:''}
+      ${fotoURL?`<img src="${fotoURL}" alt="Foto do Armário">`:''}
+      <button onclick="gerarPDFChecklist(${ck.id})">📄 Gerar PDF</button>
+    `;
+    container.appendChild(card);
+  }
+}
+
+// ======= PDF =======
+window.gerarPDFChecklist=async function(checklistId){
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF('p','pt','a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  let y = 60;
+  const lineHeight = 18;
+
+  const { data: ck } = await supabase.from('checklists').select('*').eq('id',checklistId).single();
+  const { data: itens } = await supabase.from('itens_checklist').select('*').eq('id_checklist',checklistId);
+  if(ferramentas.length===0) await carregarFerramentas();
+
+  doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(0,0,0);
+  doc.text("Checklist Diário - Relatório", pageWidth/2, 30, {align:'center'});
+
+  const dataBR = new Date(ck.data).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.text(`Responsável: ${ck.responsavel}`, margin, y); y+=lineHeight;
+  doc.text(`Data: ${dataBR}`, margin, y); y+=lineHeight+5;
+
+  // Tabela
+  const colWidths = [180,100,200];
+  const headers = ['Ferramenta','Status','Observações'];
+  let x = margin;
+  doc.setFillColor(204,230,255);
+  for(let j=0;j<headers.length;j++){
+    doc.rect(x,y,colWidths[j],lineHeight,'FD');
+    x += colWidths[j];
+  }
+  doc.setFont('helvetica','bold'); doc.setTextColor(0,0,0);
+  x=margin;
+  for(let j=0;j<headers.length;j++){
+    doc.text(headers[j],x+5,y+13);
+    x += colWidths[j];
+  }
+  y += lineHeight;
+
+  for(let i=0;i<itens.length;i++){
+    const item = itens[i];
+    const nome=ferramentas.find(f=>f.id===item.id_ferramenta)?.nome||'N/A';
+    const status=item.presente?'✅ Presente':'❌ Ausente';
+    const obs=item.presente?'':'Faltando';
+    x=margin;
+    const bgColor=i%2===0?250:245;
+    doc.setFillColor(bgColor,bgColor,bgColor);
+    doc.rect(x,y,colWidths[0],lineHeight,'FD');
+    doc.rect(x+colWidths[0],y,colWidths[1],lineHeight,'FD');
+    doc.rect(x+colWidths[0]+colWidths[1],y,colWidths[2],lineHeight,'FD');
+    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+    doc.text(nome,x+5,y+13);
+    doc.text(status,x+5+colWidths[0],y+13);
+    doc.text(obs,x+5+colWidths[0]+colWidths[1],y+13);
+
+    // Linha separadora
+    doc.setDrawColor(180,180,180); doc.setLineWidth(0.5);
+    doc.line(margin, y+lineHeight, margin+colWidths[0]+colWidths[1]+colWidths[2], y+lineHeight);
+
+    y += lineHeight;
+    if(y>700){ doc.addPage(); y=60; }
+  }
+
+  // Foto
+  if(ck.foto_armario){
+    const { data } = supabase.storage.from('fotos').getPublicUrl(ck.foto_armario);
+    if(data?.publicUrl){
+      const img = new Image();
+      img.crossOrigin="anonymous";
+      img.src = data.publicUrl;
+      await new Promise(res=>{ img.onload=()=>res(); });
+      doc.addImage(img,'PNG',margin,y+5,150,100);
+    }
+  }
+
+  doc.save(`checklist_${ck.id}.pdf`);
+};
+
+// Inicializar
+carregarFerramentas();
+carregarUsuarios();
+carregarRelatorios();
+window.adicionarUsuario=adicionarUsuario;
+window.removerUsuario=removerUsuario;
+window.adicionarFerramenta=adicionarFerramenta;
+</script>
+</body>
+</html>
