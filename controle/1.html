@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Ferramentas - SaaS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body { 
+        font-family: 'Inter', sans-serif; 
+        margin:0; 
+        background:#f0f2f5; 
+        min-height: 100vh;
+    }
+    header { background:#007bff; color:white; padding:15px; text-align:center; font-size:20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    nav { display:flex; justify-content:space-around; background:#0056b3; }
+    nav button { flex:1; padding:12px; border:none; background:#0056b3; color:white; font-size:14px; cursor:pointer; transition: background 0.3s; }
+    nav button:hover { background:#003f7f; }
+    .container { padding: 20px; max-width: 1200px; margin: auto; }
+    .card { background:white; padding:15px; margin:10px 0; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+    .hidden { display: none !important; }
+
+    /* Estilos para a Tela de Login */
+    #auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 40px); /* Ajuste para não ter scroll */
+        padding: 20px;
+    }
+    .auth-form {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        max-width: 400px;
+        width: 100%;
+    }
+    .auth-form input, .auth-form select, .auth-form button, .container input, .container select, .container button {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+    .auth-form button, .container button:not(.btn-remover) {
+        background: #007bff;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .auth-form button:hover, .container button:not(.btn-remover):hover {
+        background: #0056b3;
+    }
+    .btn-remover { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; margin-left: 10px; cursor: pointer; transition: background 0.3s; }
+    .btn-remover:hover { background: #c82333; }
+    
+    /* Checklist */
+    .camera-control-area {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    #video {
+        width: 100%;
+        max-height: 300px;
+        background: black;
+        border-radius: 8px;
+    }
+    .botoes-foto-container {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .botoes-foto-container button {
+        flex: 1 1 150px;
+        background: #28a745;
+    }
+    .botoes-foto-container button:hover {
+        background: #218838;
+    }
+    .foto-preview {
+        border: 2px solid #ccc;
+        border-radius: 5px;
+        object-fit: cover;
+    }
+    .alert-message {
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        font-weight: 600;
+        text-align: center;
+        transition: opacity 0.3s;
+    }
+    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+</style>
+</head>
+<body>
+
+<!-- Status Message Global -->
+<div id="status-message" class="alert-message hidden"></div>
+
+<header id="main-header" class="hidden">
+    <span>Controle de Ferramentas - SaaS</span>
+    <div>
+        <span id="userInfo" style="margin-right: 15px; font-size: 14px;"></span>
+        <button onclick="handleLogout()" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer;">Sair</button>
+    </div>
+</header>
+
+<div id="auth-container">
+    <div class="auth-form" id="login-form-box">
+        <h2 class="text-2xl font-bold mb-4 text-center">Entrar no Sistema</h2>
+        <input type="email" id="loginEmail" placeholder="E-mail" required>
+        <input type="password" id="loginPassword" placeholder="Senha" required>
+        <button onclick="handleLogin()">Login</button>
+        <p style="text-align: center; margin-top: 10px;">Ainda não tem conta? <a href="#" onclick="showSignUpForm()" style="color:#007bff; text-decoration:underline;">Cadastre-se</a></p>
+    </div>
+
+    <div class="auth-form hidden" id="signup-form-box">
+        <h2 class="text-2xl font-bold mb-4 text-center">Cadastrar Novo Usuário</h2>
+        <input type="text" id="signupName" placeholder="Seu Nome Completo" required>
+        <input type="email" id="signupEmail" placeholder="E-mail" required>
+        <input type="password" id="signupPassword" placeholder="Senha (mín. 6 caracteres)" required>
+        <label for="signupEmpresa" style="display:block; margin-top:10px;">Vincular à Empresa:</label>
+        <select id="signupEmpresa"></select>
+        <input type="password" id="signupEmpresaSenha" placeholder="Senha Mestra da Empresa" required>
+        <button onclick="handleSignUp()">Cadastrar</button>
+        <p style="text-align: center; margin-top: 10px;">Já tem conta? <a href="#" onclick="showLoginForm()" style="color:#007bff; text-decoration:underline;">Faça Login</a></p>
+    </div>
+</div>
+
+<div id="app-content" class="hidden">
+    
+    <nav>
+        <button onclick="mostrarTela('dashboard')">Dashboard</button>
+        <button onclick="mostrarTela('checklist')">Checklist</button>
+        <button onclick="mostrarTela('ferramentas')">Ferramentas</button>
+        <button onclick="mostrarTela('relatorios')">Relatórios</button>
+        <button onclick="mostrarTela('usuarios')">Usuários</button>
+        <button onclick="mostrarTela('locais')">Configurações</button> 
+        </nav>
+    
+    <div class="container">
+        
+      <div id="dashboard" class="hidden card">
+        <h2>Visão Geral da Empresa</h2>
+        <div id="dashboardResumo" class="p-3 bg-gray-100 rounded">Carregando dados...</div>
+        <div style="margin-top: 20px;">
+            <h3>Últimos 5 Checklists</h3>
+            <div id="dashboardUltimosChecklists">Nenhum checklist recente encontrado.</div>
+        </div>
+      </div>
+        
+      <div id="checklist" class="hidden card">
+        <h2>Checklist Diário</h2>
+        
+        <label for="localChecklist">Local do Checklist:</label>
+        <select id="localChecklist" onchange="filtrarFerramentasPorLocal()"><option value="">Selecione o Local</option></select>
+        
+        <label for="responsavel">Responsável:</label>
+        <input type="text" id="responsavel" readonly placeholder="Carregado automaticamente...">
+
+        <h3 style="margin-top: 15px;">Ferramentas no Local:</h3>
+        <div id="listaFerramentas" class="p-3 border rounded mb-4 bg-gray-50">Selecione um local para começar o checklist.</div>
+
+        <h3>Controle de Fotos</h3>
+        <div class="camera-control-area"> 
+            <video id="video" autoplay></video>
+            <div class="botoes-foto-container">
+                <button onclick="tirarFoto('armario1')">Tirar Foto do Armário 1</button>
+                <button onclick="tirarFoto('armario2')">Tirar Foto do Armário 2</button>
+            </div>
+        </div>
+        
+        <canvas id="canvas" width="300" height="200" style="display:none;"></canvas>
+        
+        <h4 style="margin-top: 20px;">Fotos Capturadas:</h4>
+        <div style="display:flex; gap: 10px; align-items:center;">
+            <div>
+                <p id="confirmFoto1" class="foto-confirm hidden" style="color:green; font-weight:bold;">✅ Foto 1 OK</p>
+                <img id="previewFoto1" class="foto-preview hidden" style="max-width: 100px; max-height: 100px;"/>
+            </div>
+            <div>
+                <p id="confirmFoto2" class="foto-confirm hidden" style="color:green; font-weight:bold;">✅ Foto 2 OK</p>
+                <img id="previewFoto2" class="foto-preview hidden" style="max-width: 100px; max-height: 100px;"/>
+            </div>
+        </div>
+
+        <button onclick="finalizarChecklist()" style="margin-top: 20px;">Finalizar Checklist</button>
+      </div>
+
+      <div id="ferramentas" class="hidden card">
+        <h2>Adicionar Ferramenta</h2>
+        <input type="text" id="nomeFerramenta" placeholder="Nome da ferramenta">
+        <input type="text" id="descricaoFerramenta" placeholder="Descrição (opcional)">
+        
+        <label for="localizacaoFerramenta">Local de Uso/Armário:</label>
+        <select id="localizacaoFerramenta"><option value="">Selecione o Local</option></select>
+        
+        <button onclick="adicionarFerramenta()">Adicionar</button>
+        <h3>Lista de Ferramentas</h3>
+        <ul id="listaFerramentasCadastradas" class="list-disc ml-5"></ul>
+      </div>
+
+      <div id="relatorios" class="hidden card">
+        <h2>Relatórios</h2>
+        <div class="admin-card" style="border-left: 5px solid #007bff; padding: 10px; margin-bottom: 15px;">
+            <h3>Filtros de Busca</h3>
+            <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
+                <div style="flex: 1 1 200px;">
+                    <label for="filtroDataInicio" style="display:block;">Data Início:</label>
+                    <input type="date" id="filtroDataInicio" style="width:100%;" />
+                </div>
+                <div style="flex: 1 1 200px;">
+                    <label for="filtroDataFim" style="display:block;">Data Fim:</label>
+                    <input type="date" id="filtroDataFim" style="width:100%;" />
+                </div>
+                <div style="flex: 1 1 200px;">
+                    <label for="filtroResponsavel" style="display:block;">Responsável:</label>
+                    <select id="filtroResponsavel" style="width:100%;"><option value="all">Todos</option></select>
+                </div>
+                <div style="flex: 1 1 150px;">
+                    <label for="filtroStatus" style="display:block;">Status:</label>
+                    <select id="filtroStatus" style="width:100%;">
+                        <option value="all">Todos</option>
+                        <option value="ok">Somente OK</option>
+                        <option value="fail">Com Pendência</option>
+                    </select>
+                </div>
+                <button onclick="carregarRelatorios()" style="align-self: flex-end; padding: 10px 15px; flex-shrink: 0;">
+                    🔍 Aplicar Filtros
+                </button>
+            </div>
+        </div>
+
+        <div id="cardsRelatorios" style="margin-top: 15px;">Carregando...</div>
+      </div>
+
+      <div id="usuarios" class="hidden card">
+        <h2>Usuários da Empresa</h2>
+        <p>Você só pode ver/gerenciar usuários vinculados à sua empresa.</p>
+        <ul id="listaUsuarios" class="list-disc ml-5">Carregando...</ul>
+      </div>
+        
+      <div id="locais" class="hidden card">
+        <h2>Configurações da Empresa</h2>
+        
+        <div class="admin-card p-4 border rounded mb-4">
+            <h3>Gerenciar Locais de Checklist</h3>
+            <input type="text" id="nomeLocal" placeholder="Ex: Armário da Obra A">
+            <input type="text" id="descricaoLocal" placeholder="Descrição (opcional)">
+            <button onclick="adicionarLocal()">Adicionar Local</button>
+
+            <h3 style="margin-top: 15px;">Lista de Locais Cadastrados</h3>
+            <ul id="listaLocais" class="list-disc ml-5">Carregando...</ul>
+        </div>
+        
+      </div>
+    </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+// =======================================================
+// === CONFIGURAÇÃO (NÃO ALTERADA) ===
+// =======================================================
+// POR FAVOR, SUBSTITUA ESTAS CHAVES PELAS SUAS REAIS
+const supabaseUrl = 'https://jyehccjogujkdtingplc.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5ZWhjY2pvZ3Vqa2R0aW5ncGxjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTMwNzM4NCwiZXhwIjoyMDc2ODgzMzg0fQ._ocxO3lxzheYY9uRMXjhU9RlLYnoXMlQZ3QTTsjPKGc';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Variáveis Globais de Sessão e Estado
+let ferramentas = [];
+let usuarios = [];
+let locais = []; 
+let idEmpresaAtiva = null; 
+let nomeUsuarioLogado = null; 
+let idUsuarioLogado = null;
+const EMAIL_REMETENTE = 'alerta@seuprojetosupa.com'; // Usado apenas para simular o envio de e-mail
+
+// Estado da Câmera e Fotos
+let videoStream = null;
+let fotoArmario1File = null;
+let fotoArmario2File = null;
+let itemParaRemover = { type: null, id: null, element: null }; // Estado para substituição de 'confirm'
+
+// =======================================================
+// ===================== FUNÇÕES DE UI E FEEDBACK ====================
+// =======================================================
+
+const statusMessageElement = document.getElementById('status-message');
+
+/**
+ * Exibe uma mensagem de status global na parte superior da tela.
+ * @param {string} message - A mensagem a ser exibida.
+ * @param {boolean} isError - Se for true, usa estilo de erro; senão, usa estilo de sucesso.
+ */
+function showMessage(message, isError = false) {
+    statusMessageElement.textContent = message;
+    statusMessageElement.classList.remove('hidden', 'alert-error', 'alert-success');
+    statusMessageElement.classList.add(isError ? 'alert-error' : 'alert-success');
+    if (message) {
+        window.scrollTo(0, 0); // Rola para o topo para garantir que a mensagem seja vista
+        setTimeout(() => {
+            statusMessageElement.classList.add('hidden');
+        }, 5000); // Esconde após 5 segundos
+    }
+}
+
+/**
+ * Substitui a lógica de 'confirm' com um sistema de duplo clique na UI.
+ * @param {string} type - Tipo da entidade (e.g., 'local', 'usuario', 'ferramenta').
+ * @param {number} id - ID da entidade.
+ * @param {HTMLElement} element - O botão que acionou a remoção.
+ * @param {Function} removerAction - Função que executa a remoção real.
+ */
+function handleConfirmation(type, id, element, removerAction) {
+    // Se o estado atual corresponder ao item clicado
+    if (itemParaRemover.type === type && itemParaRemover.id === id) {
+        // Segundo clique: Executa a ação
+        itemParaRemover = { type: null, id: null, element: null }; // Limpa o estado
+        element.textContent = 'Removendo...';
+        element.style.backgroundColor = '#ccc';
+        removerAction();
+    } else {
+        // Primeiro clique: Define o estado de confirmação
+        if (itemParaRemover.element) {
+            // Se houver outro item em estado de confirmação, reseta ele
+            itemParaRemover.element.textContent = 'Remover';
+            itemParaRemover.element.style.backgroundColor = '#dc3545';
+        }
+        
+        itemParaRemover = { type, id, element };
+        element.textContent = 'CONFIRMAR?';
+        element.style.backgroundColor = '#ffc107'; // Amarelo de atenção
+        
+        showMessage(`Clique em 'CONFIRMAR?' novamente para remover o ${type}.`, true);
+    }
+}
+
+// Limpa o estado de confirmação ao clicar em qualquer lugar que não seja um botão de remoção
+document.addEventListener('click', (e) => {
+    if (itemParaRemover.element && !e.target.classList.contains('btn-remover')) {
+        itemParaRemover.element.textContent = 'Remover';
+        itemParaRemover.element.style.backgroundColor = '#dc3545';
+        itemParaRemover = { type: null, id: null, element: null };
+        showMessage('', false); // Limpa a mensagem de status
+    }
+}, true);
+
+
+// =======================================================
+// ==================== AUTENTICAÇÃO SUPABASE ============
+// =======================================================
+
+function showLoginForm() {
+    document.getElementById('signup-form-box').classList.add('hidden');
+    document.getElementById('login-form-box').classList.remove('hidden');
+}
+
+function showSignUpForm() {
+    document.getElementById('login-form-box').classList.add('hidden');
+    document.getElementById('signup-form-box').classList.remove('hidden');
+    carregarEmpresasParaCadastro();
+}
+
+async function carregarEmpresasParaCadastro() {
+    const select = document.getElementById('signupEmpresa');
+    select.innerHTML = '<option value="">Carregando...</option>';
+
+    const { data: empresas, error } = await supabase.from('empresas').select('id, nome').eq('status', 'Ativo').order('nome');
+    
+    if (error) {
+        showMessage('Erro ao carregar empresas para cadastro: ' + error.message, true);
+        select.innerHTML = '<option value="">Erro ao Carregar</option>';
+        return;
+    }
+    
+    select.innerHTML = '<option value="">Selecione a Empresa</option>';
+    empresas.forEach(e => {
+        const option = document.createElement('option');
+        option.value = e.id;
+        option.textContent = e.nome;
+        select.appendChild(option);
+    });
+}
+
+window.handleLogin = async function() {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    if (!email || !password) {
+        return showMessage('Preencha e-mail e senha.', true);
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+        showMessage('Erro ao fazer login: ' + error.message, true);
+    }
+};
+
+window.handleSignUp = async function() {
+    const nome = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const empresaId = document.getElementById('signupEmpresa').value;
+    const empresaSenha = document.getElementById('signupEmpresaSenha').value;
+
+    if (!nome || !email || !password || !empresaId || !empresaSenha) {
+        return showMessage('Preencha todos os campos.', true);
+    }
+
+    // 1. Verifica a senha mestra da empresa
+    const { data: empresaData, error: empresaError } = await supabase.from('empresas')
+        .select('senha_admin_empresa')
+        .eq('id', empresaId)
+        .single();
+
+    if (empresaError || empresaData.senha_admin_empresa !== empresaSenha) {
+        return showMessage('Senha Mestra da Empresa incorreta ou empresa não encontrada.', true);
+    }
+
+    // 2. Cria o usuário no Supabase Auth
+    const { error: authError } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+            data: { full_name: nome }
+        }
+    });
+
+    if (authError) {
+        return showMessage('Erro ao cadastrar Auth: ' + authError.message, true);
+    }
+    
+    // 3. Insere o vínculo na nossa tabela 'usuarios' (Será completado em initializeApp via RLS)
+    // O SIGNED_IN event tratará o resto.
+    showMessage('Cadastro realizado com sucesso! Você foi logado automaticamente.', false);
+};
+
+window.handleLogout = async function() {
+    // Para limpar o estado de confirmação
+    if (itemParaRemover.element) {
+        itemParaRemover.element.textContent = 'Remover';
+        itemParaRemover.element.style.backgroundColor = '#dc3545';
+        itemParaRemover = { type: null, id: null, element: null };
+    }
+    
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error('Erro ao fazer logout:', error.message);
+    
+    // O onAuthStateChange cuidará da transição da UI
+};
+
+async function initializeApp(user) {
+    document.getElementById('auth-container').classList.add('hidden');
+    document.getElementById('app-content').classList.remove('hidden');
+    document.getElementById('main-header').classList.remove('hidden');
+    
+    idUsuarioLogado = user.id;
+
+    // 1. Busca o vínculo de empresa do usuário logado
+    const { data: userData, error: userError } = await supabase.from('usuarios')
+        .select('id_empresa, nome')
+        .eq('email', user.email)
+        .single();
+    
+    if (userError || !userData) {
+        // Tenta criar o vínculo se o usuário acabou de se cadastrar e está no Auth, mas não na tabela 'usuarios'
+        if (user.user_metadata?.full_name) {
+             // 1b. Tenta inserir o vínculo
+            const empresaId = document.getElementById('signupEmpresa').value;
+            const nome = user.user_metadata.full_name;
+
+            if (empresaId) {
+                 const { error: dbError } = await supabase.from('usuarios').insert([{ 
+                    nome: nome, 
+                    email: user.email, 
+                    id_empresa: empresaId 
+                }]);
+                if (!dbError) {
+                    initializeApp(user); // Recarrega para pegar os dados
+                    return;
+                }
+            }
+        }
+
+        showMessage('Erro: Usuário não possui vínculo com uma Empresa. Contate o administrador.', true);
+        handleLogout(); 
+        return;
+    }
+
+    idEmpresaAtiva = userData.id_empresa;
+    nomeUsuarioLogado = userData.nome;
+    
+    // 2. Exibe informações no Header e seta responsável
+    const { data: empresaInfo } = await supabase.from('empresas').select('nome').eq('id', idEmpresaAtiva).single();
+    
+    document.getElementById('userInfo').textContent = `Usuário: ${nomeUsuarioLogado} | Empresa: ${empresaInfo?.nome || 'N/A'}`;
+    
+    if(document.getElementById('responsavel')) {
+        document.getElementById('responsavel').value = nomeUsuarioLogado;
+    }
+
+    // 3. Carrega os dados da empresa e mostra a tela inicial (Dashboard)
+    await carregarLocais(); 
+    await carregarFerramentas();
+    await carregarUsuarios();
+    
+    // Inicia a câmera (para a tela de checklist)
+    initCamera();
+    
+    mostrarTela('dashboard');
+}
+
+function setupAuthListener() {
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            initializeApp(session.user);
+        } else if (event === 'SIGNED_OUT') {
+            // Estado inicial após o logout
+            idEmpresaAtiva = null;
+            nomeUsuarioLogado = null;
+            idUsuarioLogado = null;
+            document.getElementById('main-header').classList.add('hidden');
+            document.getElementById('app-content').classList.add('hidden');
+            document.getElementById('auth-container').classList.remove('hidden');
+            showLoginForm();
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+        }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+            initializeApp(session.user);
+        } else {
+            showLoginForm();
+        }
+    });
+}
+
+// =======================================================
+// ===================== LOG DE AUDITORIA (CLIENTE) ================
+// =======================================================
+
+async function registrarLog(idEmpresa, acao, entidade, detalhes) {
+    if (!idEmpresa) return console.error("Tentativa de registrar log sem ID de Empresa.");
+
+    // Note: Esta chamada depende da função 'registrar_log_cliente' criada no SQL.
+    const { error } = await supabase.rpc('registrar_log_cliente', {
+        p_id_empresa: idEmpresa,
+        p_usuario_responsavel: nomeUsuarioLogado || 'Desconhecido',
+        p_acao: acao,
+        p_entidade: entidade,
+        p_detalhes: detalhes
+    });
+    
+    if (error) {
+        console.error('Erro ao registrar log via RPC:', error.message);
+    }
+}
+
+
+// ======= Navegação =======
+window.mostrarTela = function(id){
+    if (!idEmpresaAtiva) return showMessage('Você precisa estar logado para acessar.', true);
+
+    // Esconde todas as telas
+    ['dashboard','checklist','ferramentas','relatorios','usuarios','locais'].forEach(t => document.getElementById(t).classList.add('hidden'));
+    
+    // Mostra a tela solicitada
+    document.getElementById(id).classList.remove('hidden');
+    
+    // Carrega os dados da tela
+    if(id==='dashboard') carregarDashboard(); 
+    if(id==='checklist') carregarChecklist();
+    if(id==='ferramentas') carregarFerramentas();
+    if(id==='relatorios') carregarRelatorios();
+    if(id==='usuarios') carregarUsuarios();
+    if(id==='locais') carregarLocais(); 
+};
+
+
+// =======================================================
+// ===================== CÂMERA E FOTOS ====================
+// =======================================================
+
+async function initCamera() {
+    const video = document.getElementById('video');
+    try {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+        }
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = videoStream;
+        video.play();
+    } catch (err) {
+        showMessage("Acesso à câmera negado ou indisponível. A função de fotos não funcionará. (" + err.message + ")", true);
+        console.error("Erro ao iniciar câmera: ", err);
+    }
+}
+
+window.tirarFoto = function(armario) {
+    if (!videoStream) {
+        showMessage('A câmera não está ativa. Tente recarregar a página ou permitir o acesso à câmera.', true);
+        return;
+    }
+    
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    
+    // Ajusta o tamanho do canvas para a proporção do vídeo
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Desenha o frame atual
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Converte para Blob e salva a referência global
+    canvas.toBlob(function(blob) {
+        const file = new File([blob], `${armario}_${new Date().getTime()}.png`, { type: 'image/png' });
+
+        if (armario === 'armario1') {
+            fotoArmario1File = file;
+            document.getElementById('previewFoto1').src = URL.createObjectURL(blob);
+            document.getElementById('previewFoto1').classList.remove('hidden');
+            document.getElementById('confirmFoto1').classList.remove('hidden');
+        } else if (armario === 'armario2') {
+            fotoArmario2File = file;
+            document.getElementById('previewFoto2').src = URL.createObjectURL(blob);
+            document.getElementById('previewFoto2').classList.remove('hidden');
+            document.getElementById('confirmFoto2').classList.remove('hidden');
+        }
+        showMessage(`Foto do ${armario} capturada com sucesso!`);
+    }, 'image/png');
+};
+
+
+// =======================================================
+// ===================== CRUD RLS-DEPENDENTE ====================
+// =======================================================
+
+// LOCAIS
+async function carregarLocais(){
+    const { data, error } = await supabase.from('locais_checklist').select('*').order('nome');
+    if(error) return showMessage('Erro ao carregar locais: ' + error.message, true);
+    locais = data || [];
+
+    // Popula a lista na tela de Configurações
+    const ul = document.getElementById('listaLocais');
+    if(ul){
+        ul.innerHTML='';
+        if(locais.length===0){ ul.textContent='Nenhum local cadastrado.'; }
+        locais.forEach(l=>{
+            const li=document.createElement('li');
+            li.textContent=l.nome + (l.descricao ? ` (${l.descricao})` : '');
+            const btn=document.createElement('button');
+            btn.textContent='Remover';
+            btn.className='btn-remover';
+            btn.onclick=(e)=>handleConfirmation('local', l.id, e.target, ()=>removerLocal(l.id));
+            li.appendChild(btn);
+            ul.appendChild(li);
+        });
+    }
+
+    // Popula os selects de Local
+    const selectChecklist = document.getElementById('localChecklist');
+    const selectFerramenta = document.getElementById('localizacaoFerramenta');
+    
+    [selectChecklist, selectFerramenta].forEach(select => {
+        const selectedValue = select.value;
+        select.innerHTML='<option value="">Selecione o Local</option>';
+        locais.forEach(l => {
+            const option=document.createElement('option');
+            option.value=l.id; 
+            option.textContent=l.nome;
+            select.appendChild(option);
+        });
+        select.value = selectedValue; 
+    });
+}
+
+window.adicionarLocal = async function(){
+    if (!idEmpresaAtiva) return showMessage('Erro interno: Empresa não identificada.', true);
+    
+    const nome = document.getElementById('nomeLocal').value.trim();
+    const descricao = document.getElementById('descricaoLocal').value.trim();
+    if(!nome) return showMessage('Digite o nome do local.', true);
+
+    const { error } = await supabase.from('locais_checklist')
+      .insert([{ nome, descricao, id_empresa: idEmpresaAtiva }]); 
+      
+    if(error) return showMessage('Erro ao adicionar local: '+error.message, true);
+    
+    registrarLog(idEmpresaAtiva, 'CRIAÇÃO', 'LOCAL', `Local '${nome}' (Descrição: ${descricao}) criado.`);
+
+    showMessage('Local adicionado com sucesso!');
+    document.getElementById('nomeLocal').value='';
+    document.getElementById('descricaoLocal').value='';
+    carregarLocais();
+}
+
+async function removerLocal(id){
+    const { data: ferramentasNoLocal } = await supabase.from('ferramentas')
+      .select('id')
+      .eq('id_local', id); 
+      
+    if (ferramentasNoLocal && ferramentasNoLocal.length > 0) {
+        return showMessage('Impossível remover. Há ferramentas cadastradas neste local!', true);
+    }
+    
+    const nomeLocal = locais.find(l => l.id == id)?.nome || `ID ${id}`;
+    
+    const { error } = await supabase.from('locais_checklist').delete().eq('id', id);
+    if(error) return showMessage('Erro ao remover local: '+error.message, true);
+    
+    registrarLog(idEmpresaAtiva, 'REMOCAO', 'LOCAL', `Local '${nomeLocal}' removido.`);
+
+    showMessage('Local removido!');
+    carregarLocais();
+}
+
+
+// USUÁRIOS
+async function carregarUsuarios(){
+    const { data, error } = await supabase.from('usuarios').select('*').order('nome');
+    
+    if(error) return showMessage('Erro ao carregar usuários: '+error.message, true);
+    usuarios = data || [];
+
+    const ul = document.getElementById('listaUsuarios');
+    ul.innerHTML='';
+    if(usuarios.length===0){ ul.textContent='Nenhum usuário cadastrado para esta empresa.'; return;}
+    
+    // Popula o filtro de Relatórios
+    const selectFiltroResponsavel = document.getElementById('filtroResponsavel');
+    selectFiltroResponsavel.innerHTML = '<option value="all">Todos</option>';
+    
+    usuarios.forEach(u=>{
+      const li=document.createElement('li');
+      li.textContent=u.nome + (u.email ? ` (${u.email})` : '');
+      const btn=document.createElement('button');
+      btn.textContent='Remover';
+      btn.className='btn-remover';
+      btn.onclick=(e)=>handleConfirmation('usuario', u.id, e.target, ()=>removerUsuario(u.id));
+      li.appendChild(btn);
+      ul.appendChild(li);
+
+      const option=document.createElement('option');
+      option.value=u.nome;
+      option.textContent=u.nome;
+      selectFiltroResponsavel.appendChild(option);
+    });
+}
+
+async function removerUsuario(id){
+    const usuarioRemovido = usuarios.find(u => u.id == id);
+    if (!usuarioRemovido) return showMessage('Usuário não encontrado para remoção.', true);
+
+    if (usuarioRemovido.email === supabase.auth.currentUser.email) {
+        return showMessage('Você não pode remover seu próprio vínculo de empresa. Use o botão Sair.', true);
+    }
+    
+    const { error } = await supabase.from('usuarios').delete().eq('id', id);
+    if(error) return showMessage('Erro ao remover vínculo de usuário: '+error.message, true);
+    
+    registrarLog(idEmpresaAtiva, 'REMOCAO', 'USUARIO', `Vínculo de usuário '${usuarioRemovido.nome}' removido da empresa.`);
+
+    showMessage('Vínculo de usuário removido!');
+    carregarUsuarios();
+}
+
+// FERRAMENTAS
+async function carregarFerramentas(){
+    if(locais.length === 0) await carregarLocais(); 
+
+    const { data, error } = await supabase.from('ferramentas').select('*').order('nome');
+    
+    if(error) return showMessage('Erro ao carregar ferramentas: '+error.message, true);
+    ferramentas = data || [];
+    
+    const ul = document.getElementById('listaFerramentasCadastradas');
+    ul.innerHTML='';
+    if(ferramentas.length===0){ ul.textContent='Nenhuma ferramenta cadastrada.'; }
+    ferramentas.forEach(f=>{
+      const li=document.createElement('li');
+      const nomeLocal = locais.find(l => l.id == f.id_local)?.nome || 'Sem Local'; 
+      
+      const span = document.createElement('span');
+      span.textContent=f.nome + (f.descricao ? ' - ' + f.descricao : '') + ` [Local: ${nomeLocal}]`; 
+      li.appendChild(span);
+
+      const btnRemover = document.createElement('button');
+      btnRemover.textContent='Remover';
+      btnRemover.className='btn-remover';
+      btnRemover.onclick=(e)=>handleConfirmation('ferramenta', f.id, e.target, async()=>{
+        const { error } = await supabase.from('ferramentas').delete().eq('id', f.id);
+        if(error) return showMessage('Erro ao remover ferramenta: ' + error.message, true);
+        registrarLog(idEmpresaAtiva, 'REMOCAO', 'FERRAMENTA', `Ferramenta '${f.nome}' removida.`);
+        showMessage('Ferramenta removida com sucesso!');
+        carregarFerramentas(); 
+      });
+      li.appendChild(btnRemover);
+      ul.appendChild(li);
+    });
+    filtrarFerramentasPorLocal(); // Atualiza a lista de checklist caso a tela esteja ativa
+}
+
+window.adicionarFerramenta = async function(){
+    if (!idEmpresaAtiva) return showMessage('Erro interno: Empresa não identificada.', true);
+
+    const nome=document.getElementById('nomeFerramenta').value.trim();
+    const desc=document.getElementById('descricaoFerramenta').value.trim();
+    const idLocal = document.getElementById('localizacaoFerramenta').value; 
+    if(!nome || !idLocal) return showMessage('Digite o nome da ferramenta e selecione o Local!', true);
+    
+    const { error } = await supabase.from('ferramentas')
+      .insert([{nome, descricao:desc, id_local: idLocal, id_empresa: idEmpresaAtiva}]);
+      
+    if(error) return showMessage('Erro ao adicionar ferramenta: '+error.message, true);
+    
+    registrarLog(idEmpresaAtiva, 'CRIAÇÃO', 'FERRAMENTA', `Ferramenta '${nome}' adicionada ao Local ID ${idLocal}.`);
+
+    document.getElementById('nomeFerramenta').value='';
+    document.getElementById('descricaoFerramenta').value='';
+    document.getElementById('localizacaoFerramenta').value=''; 
+    showMessage('Ferramenta adicionada com sucesso!');
+    carregarFerramentas();
+}
+
+// CHECKLIST
+// =======================================================
+// ===================== Checklist =======================
+// =======================================================
+
+async function carregarChecklist(){
+  if (!idEmpresaAtiva) return;
+  
+  await carregarUsuarios();
+  if(locais.length===0) await carregarLocais(); 
+  if(ferramentas.length===0) await carregarFerramentas();
+  
+  filtrarFerramentasPorLocal(); 
+
+  if(!cameraAtiva){
+    cameraAtiva = true;
+    const video=document.getElementById('video');
+    navigator.mediaDevices.getUserMedia({video:true})
+      .then(stream=>{ video.srcObject=stream; })
+      .catch(err=>console.error('Erro câmera:',err));
+  }
+}
+
+window.filtrarFerramentasPorLocal = function() {
+    const container=document.getElementById('listaFerramentas');
+    container.innerHTML='';
+    const localId = document.getElementById('localChecklist').value;
+    
+    if (!localId) {
+        container.textContent = 'Selecione um local para ver as ferramentas.';
+        return;
+    }
+
+    const ferramentasFiltradas = ferramentas.filter(f => f.id_local == localId && f.id_empresa == idEmpresaAtiva);
+
+    if (ferramentasFiltradas.length === 0) {
+         container.textContent = 'Nenhuma ferramenta cadastrada para este local.';
+    }
+
+    ferramentasFiltradas.forEach(f=>{
+        const div=document.createElement('div');
+        div.style.borderBottom='1px solid #ccc';
+        div.style.padding='5px 0';
+        div.innerHTML=`<input type="checkbox" id="f${f.id}" data-id="${f.id}"> <label for="f${f.id}">${f.nome}</label>`;
+        container.appendChild(div);
+    });
+};
+
+window.tirarFoto=function(armario){
+  const video=document.getElementById('video');
+  const canvas=document.getElementById('canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  const dataURL=canvas.toDataURL('image/png');
+  fetch(dataURL).then(r=>r.blob()).then(blob=>{
+    const previewId = armario === 'armario1' ? 'previewFoto1' : 'previewFoto2';
+    const confirmId = armario === 'armario1' ? 'confirmFoto1' : 'confirmFoto2';
+    
+    if(armario==='armario1'){
+      fotoArmario1File=new File([blob],`foto1_${Date.now()}.png`,{type:'image/png'});
+    } else {
+      fotoArmario2File=new File([blob],`foto2_${Date.now()}.png`,{type:'image/png'});
+    }
+    document.getElementById(previewId).src=dataURL;
+    document.getElementById(confirmId).style.display='block';
+  });
+};
+
+window.finalizarChecklist=async function(){
+  const responsavel=document.getElementById('responsavel').value;
+  const localId = document.getElementById('localChecklist').value; 
+  
+  if(!idEmpresaAtiva) return alert('Erro interno: Empresa não selecionada.');
+  if(!responsavel) return alert('Selecione o responsável');
+  if(!localId) return alert('Selecione o Local do Checklist!'); 
+
+  const dataLocal = new Date().toISOString(); 
+  const { data: ckInsert, error: ckError } = await supabase.from('checklists')
+    .insert([{ data: dataLocal, responsavel, id_local: localId, id_empresa: idEmpresaAtiva }])
+    .select('*');
+  if(ckError) return alert('Erro ao registrar checklist: '+ckError.message);
+  const ck=ckInsert[0];
+
+  let updateFields = {};
+
+  if(fotoArmario1File){
+    const fotoPath=`checklists/${ck.id}/${fotoArmario1File.name}`;
+    const { error: upError } = await supabase.storage.from('fotos').upload(fotoPath,fotoArmario1File,{upsert:true});
+    if(!upError) updateFields.foto_armario = fotoPath;
+  }
+
+  if(fotoArmario2File){
+    const fotoPath2=`checklists/${ck.id}/${fotoArmario2File.name}`;
+    const { error: upError2 } = await supabase.storage.from('fotos').upload(fotoPath2,fotoArmario2File,{upsert:true});
+    if(!upError2) updateFields.foto_armario_2 = fotoPath2;
+  }
+
+  if(Object.keys(updateFields).length > 0) {
+    const { error: updateError } = await supabase.from('checklists').update(updateFields).eq('id',ck.id);
+    if(updateError) console.error('Erro ao atualizar fotos:', updateError.message);
+  }
+
+  const ferramentasDoLocal = ferramentas.filter(f => f.id_local == localId && f.id_empresa == idEmpresaAtiva);
+  
+  const statusItens=ferramentasDoLocal.map(f=>{
+    const check=document.querySelector(`#f${f.id}`);
+    return {id_checklist:ck.id,id_ferramenta:f.id,presente:check.checked};
+  });
+  const { data: itensInseridos } = await supabase.from('itens_checklist').insert(statusItens).select('*');
+  
+  const totalFaltando = itensInseridos.filter(i => !i.presente).length;
+
+  // Loga o checklist
+  registrarLog(idEmpresaAtiva, 'CHECKLIST_COMPLETO', 'CHECKLIST', `Checklist #${ck.id} finalizado. ${totalFaltando} itens ausentes.`);
+
+
+  alert('Checklist finalizado com sucesso!');
+  fotoArmario1File=null;
+  fotoArmario2File=null;
+  document.getElementById('previewFoto1').src='';
+  document.getElementById('previewFoto2').src='';
+  document.getElementById('confirmFoto1').style.display='none';
+  document.getElementById('confirmFoto2').style.display='none';
+  carregarChecklist();
+};
+
+// =======================================================
+// ===================== DASHBOARD (NOVO) ================
+// =======================================================
+
+async function carregarDashboard(){
+    const resumoContainer = document.getElementById('dashboardResumo');
+    const listaContainer = document.getElementById('dashboardUltimosChecklists');
+    resumoContainer.innerHTML = 'Carregando dados...';
+    listaContainer.innerHTML = '';
+    
+    if (!idEmpresaAtiva) {
+        resumoContainer.innerHTML = 'Selecione uma empresa para carregar o Dashboard.';
+        return;
+    }
+
+    if (ferramentas.length === 0) await carregarFerramentas();
+
+    const totalFerramentas = ferramentas.length;
+    
+    const { data: ultimosChecklists, error: ckError } = await supabase.from('checklists')
+        .select('*')
+        .eq('id_empresa', idEmpresaAtiva)
+        .order('data', { ascending: false })
+        .limit(5);
+
+    let totalChecklists = 0;
+    let checklistsComFalha = 0;
+    
+    let htmlLista = '';
+    
+    if (ultimosChecklists && ultimosChecklists.length > 0) {
+        totalChecklists = ultimosChecklists.length;
+        
+        for(const ck of ultimosChecklists) {
+            const { data: itens } = await supabase.from('itens_checklist').select('presente').eq('id_checklist', ck.id);
+            const faltando = (itens || []).filter(i => !i.presente).length;
+            
+            const nomeLocal = locais.find(l => l.id == ck.id_local)?.nome || 'Local N/A';
+            const dataBR = new Date(ck.data + 'Z').toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'});
+            
+            let statusCor = 'green';
+            let statusTexto = 'OK';
+            if (faltando > 0) {
+                statusCor = 'red';
+                statusTexto = `${faltando} FALTANDO`;
+                checklistsComFalha++;
+            }
+            
+            htmlLista += `
+                <div class="card" style="border-left: 5px solid ${statusCor}; margin-bottom: 5px; padding: 10px;">
+                    <strong>${nomeLocal}</strong> - ${dataBR} por ${ck.responsavel}
+                    <span style="float:right; color:${statusCor}; font-weight:bold;">${statusTexto}</span>
+                </div>
+            `;
+        }
+    }
+
+    const statusGeral = checklistsComFalha === 0 && totalChecklists > 0 ? 
+        '<span style="color:green; font-weight:bold;">TUDO OK!</span>' : 
+        (totalChecklists === 0 ? 'N/A' : '<span style="color:red; font-weight:bold;">ATENÇÃO A PENDÊNCIAS</span>');
+
+    resumoContainer.innerHTML = `
+        <div style="display:flex; gap: 20px;">
+            <div class="card" style="flex:1;">
+                <h3>Status Geral</h3>
+                <p style="font-size: 2em; margin: 0;">${statusGeral}</p>
+            </div>
+            <div class="card" style="flex:1;">
+                <h3>Total de Ferramentas</h3>
+                <p style="font-size: 2em; margin: 0;">${totalFerramentas}</p>
+            </div>
+            <div class="card" style="flex:1;">
+                <h3>Checklists com Falha (Últimos)</h3>
+                <p style="font-size: 2em; margin: 0; color:${checklistsComFalha > 0 ? 'red' : 'green'};">${checklistsComFalha} / ${totalChecklists}</p>
+            </div>
+        </div>
+    `;
+    
+    listaContainer.innerHTML = htmlLista || 'Nenhum checklist recente.';
+}
+// =======================================================
+// ==================== Relatórios (AJUSTADO COM FILTROS) =======================
+// =======================================================
+
+async function carregarRelatorios(){
+  const container=document.getElementById('cardsRelatorios');
+  container.innerHTML='Carregando...';
+  
+  if (!idEmpresaAtiva) { container.textContent = 'Selecione a empresa para ver os relatórios.'; return; }
+
+  if(usuarios.length===0) await carregarUsuarios(); 
+  if(locais.length === 0) await carregarLocais(); 
+  if(ferramentas.length===0) await carregarFerramentas();
+
+  const selectResponsavel = document.getElementById('filtroResponsavel');
+  const selectedResp = selectResponsavel.value;
+  
+  if (selectResponsavel.options.length <= 1) {
+    selectResponsavel.innerHTML = '<option value="all">Todos</option>';
+    usuarios.forEach(u => {
+        const option = document.createElement('option');
+        option.value = u.nome;
+        option.textContent = u.nome;
+        selectResponsavel.appendChild(option);
+    });
+    selectResponsavel.value = selectedResp;
+  }
+  
+  const dataInicio = document.getElementById('filtroDataInicio').value;
+  const dataFim = document.getElementById('filtroDataFim').value;
+  const responsavel = document.getElementById('filtroResponsavel').value;
+  const statusFiltro = document.getElementById('filtroStatus').value;
+
+  let query = supabase.from('checklists')
+    .select('*')
+    .eq('id_empresa', idEmpresaAtiva)
+    .order('data',{ascending:false});
+    
+  if (dataInicio) {
+    query = query.gte('data', dataInicio + 'T00:00:00Z');
+  }
+  if (dataFim) {
+    query = query.lte('data', dataFim + 'T23:59:59Z'); 
+  }
+  if (responsavel !== 'all') {
+    query = query.eq('responsavel', responsavel);
+  }
+    
+  const { data: checklists, error } = await query;
+    
+  if(error){container.textContent='Erro: '+error.message; return;}
+  
+  if(!checklists || checklists.length===0){container.textContent='Nenhum checklist encontrado para esta empresa e filtros.'; return;}
+  
+  container.innerHTML='';
+  let checklistsFiltrados = [];
+  
+  for(let ck of checklists){
+    const { data: itens } = await supabase.from('itens_checklist').select('presente').eq('id_checklist',ck.id);
+    const faltando=(itens||[]).filter(i=>!i.presente);
+    
+    const isOk = faltando.length === 0;
+    
+    if (statusFiltro === 'all' || 
+        (statusFiltro === 'ok' && isOk) || 
+        (statusFiltro === 'fail' && !isOk)) 
+    {
+        let fotoURL1='';
+        if(ck.foto_armario){
+          const { data } = supabase.storage.from('fotos').getPublicUrl(ck.foto_armario);
+          fotoURL1=data?.publicUrl||'';
+        }
+        let fotoURL2='';
+        if(ck.foto_armario_2){ 
+          const { data } = supabase.storage.from('fotos').getPublicUrl(ck.foto_armario_2);
+          fotoURL2=data?.publicUrl||'';
+        }
+
+        const nomeLocal = locais.find(l => l.id == ck.id_local)?.nome || 'Local Removido';
+        const dataBR = new Date(ck.data + 'Z').toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+
+        const listaItens=(await supabase.from('itens_checklist').select('*').eq('id_checklist',ck.id)).data.map(i=>{
+            const nome=ferramentas.find(f=>f.id===i.id_ferramenta)?.nome||'N/A';
+            return `<tr><td>${nome}</td><td>${i.presente?'P - Presente':'A - Ausente'}</td><td>${i.presente?'':'Faltando'}</td></tr>`;
+        }).join('');
+
+        const card=document.createElement('div');
+        card.className='card';
+        card.innerHTML=`
+          <strong>Local:</strong> ${nomeLocal}<br>
+          <strong>Responsável:</strong> ${ck.responsavel}<br>
+          <strong>Data:</strong> ${dataBR}<br>
+          <table style="width:100%; border-collapse:collapse; margin-top:5px;">
+            <tr style="background:#cce6ff; font-weight:bold;"><th>Ferramenta</th><th>Status</th><th>Observações</th></tr>
+            ${listaItens}
+          </table>
+          ${faltando.length>0?`<p class="faltando">⚠️ ${faltando.length} ferramenta(s) faltando!</p>`:''}
+          <div class="fotos-container">
+            ${fotoURL1?`<div><h4>Foto Armário 1</h4><img src="${fotoURL1}" alt="Foto do Armário 1"></div>`:''}
+            ${fotoURL2?`<div><h4>Foto Armário 2</h4><img src="${fotoURL2}" alt="Foto do Armário 2"></div>`:''}
+          </div>
+          <button onclick="gerarPDFChecklist(${ck.id})">📄 Gerar PDF</button>
+        `;
+        container.appendChild(card);
+        checklistsFiltrados.push(ck);
+    }
+  }
+
+  if (checklistsFiltrados.length === 0) {
+      container.innerHTML = 'Nenhum checklist corresponde aos filtros de status e data.';
+  }
+}
+// =======================================================
+// ====================== PDF ============================
+// =======================================================
+
+window.gerarPDFChecklist=async function(checklistId){
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF('p','pt','a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  let y = 60;
+  const lineHeight = 18;
+
+  const { data: ck } = await supabase.from('checklists').select('*').eq('id',checklistId).single();
+  const { data: itens } = await supabase.from('itens_checklist').select('*').eq('id_checklist',checklistId);
+  
+  if(locais.length === 0) await carregarLocais(); 
+  if(ferramentas.length===0) await carregarFerramentas();
+  
+  const nomeLocal = locais.find(l => l.id == ck.id_local)?.nome || 'Local Removido';
+  const nomeEmpresa = (await supabase.from('empresas').select('nome').eq('id', ck.id_empresa).single()).data?.nome || 'N/A';
+  
+  doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.setTextColor(0,0,0);
+  doc.text("Checklist Diário - Relatório", pageWidth/2, 30, {align:'center'});
+
+  const dataBR = new Date(ck.data + 'Z').toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  
+  doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.text(`Empresa: ${nomeEmpresa}`, margin, y); y+=lineHeight; 
+  doc.text(`Local: ${nomeLocal}`, margin, y); y+=lineHeight;
+  doc.text(`Responsável: ${ck.responsavel}`, margin, y); y+=lineHeight;
+  doc.text(`Data: ${dataBR}`, margin, y); y+=lineHeight+5;
+
+  const colWidths = [180,100,200];
+  const headers = ['Ferramenta','Status','Observações'];
+  let x = margin;
+  doc.setFillColor(204,230,255);
+  for(let j=0;j<headers.length;j++){ doc.rect(x,y,colWidths[j],lineHeight,'FD'); x+=colWidths[j]; }
+  doc.setFont('helvetica','bold'); doc.setTextColor(0,0,0);
+  x=margin;
+  for(let j=0;j<headers.length;j++){ doc.text(headers[j],x+5,y+13); x+=colWidths[j]; }
+  y += lineHeight;
+
+  for(let i=0;i<itens.length;i++){
+    const item = itens[i];
+    const nome=ferramentas.find(f=>f.id===item.id_ferramenta)?.nome||'N/A';
+    
+    const status = item.presente ? 'P - Presente' : 'A - Ausente'; 
+    
+    const obs=item.presente?'':'Faltando';
+    x=margin;
+    const bgColor=i%2===0?250:245;
+    doc.setFillColor(bgColor,bgColor,bgColor);
+    doc.rect(x,y,colWidths[0],lineHeight,'FD');
+    doc.rect(x+colWidths[0],y,colWidths[1],lineHeight,'FD');
+    doc.rect(x+colWidths[0]+colWidths[1],y,colWidths[2],lineHeight,'FD');
+    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+    doc.text(nome,x+5,y+13);
+    doc.text(status,x+5+colWidths[0],y+13); 
+    doc.text(obs,x+5+colWidths[0]+colWidths[1],y+13);
+
+    doc.setDrawColor(180,180,180); doc.setLineWidth(0.5);
+    doc.line(margin, y+lineHeight, margin+colWidths[0]+colWidths[1]+colWidths[2], y+lineHeight);
+
+    y += lineHeight;
+    if(y>700){ doc.addPage(); y=60; }
+  }
+
+  const imgWidth = 240; 
+  const imgHeight = 160; 
+  const imgSpacing = 20; 
+  
+  y += 20; 
+
+  let foto1Loaded = false;
+  let foto2Loaded = false;
+  let img1, img2;
+
+  if(ck.foto_armario){
+    const { data } = supabase.storage.from('fotos').getPublicUrl(ck.foto_armario);
+    if(data?.publicUrl){
+      img1 = new Image();
+      img1.crossOrigin="anonymous";
+      img1.src = data.publicUrl;
+      await new Promise(res=>{ img1.onload=()=>{ foto1Loaded=true; res(); }; });
+    }
+  }
+  if(ck.foto_armario_2){
+    const { data } = supabase.storage.from('fotos').getPublicUrl(ck.foto_armario_2);
+    if(data?.publicUrl){
+      img2 = new Image();
+      img2.crossOrigin="anonymous";
+      img2.src = data.publicUrl;
+      await new Promise(res=>{ img2.onload=()=>{ foto2Loaded=true; res(); }; });
+    }
+  }
+
+  if(foto1Loaded && foto2Loaded){
+    const startX1 = margin;
+    const startX2 = margin + imgWidth + imgSpacing;
+    
+    if (startX2 + imgWidth <= pageWidth - margin) {
+      doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.text('Foto Armário 1:', startX1, y);
+      doc.addImage(img1,'PNG',startX1,y + lineHeight/2,imgWidth,imgHeight);
+
+      doc.text('Foto Armário 2:', startX2, y);
+      doc.addImage(img2,'PNG',startX2,y + lineHeight/2,imgWidth,imgHeight);
+      y += imgHeight + lineHeight + 15; 
+    } else { 
+      doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.text('Foto Armário 1:', margin, y);
+      doc.addImage(img1,'PNG',margin,y + lineHeight/2,imgWidth,imgHeight);
+      y += imgHeight + lineHeight + 15; 
+
+      if (y > 700) { doc.addPage(); y = 60; } 
+      doc.text('Foto Armário 2:', margin, y);
+      doc.addImage(img2,'PNG',margin,y + lineHeight/2,imgWidth,imgHeight);
+      y += imgHeight + lineHeight + 15;
+    }
+  } else if (foto1Loaded) {
+    doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('Foto Armário 1:', margin, y);
+    doc.addImage(img1,'PNG',margin,y + lineHeight/2,imgWidth,imgHeight);
+    y += imgHeight + lineHeight + 15;
+  } else if (foto2Loaded) { 
+    doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('Foto Armário 2:', margin, y);
+    doc.addImage(img2,'PNG',margin,y + lineHeight/2,imgWidth,imgHeight);
+    y += imgHeight + lineHeight + 15;
+  }
+
+  doc.save(`checklist_${ck.id}_${nomeEmpresa}.pdf`);
+};
+
+
+// INICIALIZAÇÃO
+setupAuthListener(); 
+</script>
+</body>
+</html>
