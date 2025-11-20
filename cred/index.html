@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Empréstimo - Lipeira Cred</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h2 {
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            color: #007bff;
+        }
+        .panel {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"], button, .whatsapp-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            text-align: center; /* Centraliza texto do botão */
+            text-decoration: none; /* Remove sublinhado do link */
+            display: block; /* Garante que ocupe a largura total */
+        }
+        /* Botão Simular */
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        /* Botão WhatsApp */
+        .whatsapp-btn {
+            background-color: #25d366; /* Verde WhatsApp */
+            color: white;
+            border: none;
+            padding: 15px 10px;
+            margin-top: 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .whatsapp-btn:hover {
+            background-color: #128c7e;
+        }
+        .admin-section {
+            background-color: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .admin-section h2 {
+            color: #6c757d;
+            border-bottom-color: #6c757d;
+        }
+        #resultado {
+            margin-top: 20px;
+        }
+        #resultado table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        #resultado th, #resultado td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        #resultado th {
+            background-color: #007bff;
+            color: white;
+        }
+        .section-separator {
+            margin: 40px 0;
+            border: 0;
+            border-top: 5px dashed #007bff;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Lipeira Cred - Soluções Financeiras</h1>
+</header>
+
+<div class="container">
+
+    <div class="admin-section">
+        <h2>🔒 Painel de Administração de Taxas</h2>
+        <div class="panel">
+            <label for="taxaMes">Taxa de Juros Mensal (% - Ex: 5 ou 1.6):</label>
+            <input type="number" id="taxaMes" value="5.00" step="0.01">
+
+            <label for="adicionalFixo">Taxa Adicional Fixa (Valor R$):</label>
+            <input type="number" id="adicionalFixo" value="50.00" step="0.01">
+
+            <label for="adicionalPorcentagem">Taxa Adicional Variável (% sobre o **valor solicitado**. Ex: 2):</label>
+            <input type="number" id="adicionalPorcentagem" value="2.00" step="0.01">
+
+            <p>Atenção: Insira os percentuais como **números inteiros ou decimais** (Ex: 5 para 5% ou 1.6 para 1.6%).</p>
+        </div>
+    </div>
+
+    <hr class="section-separator">
+
+    <h2>💳 Simulador de Empréstimo - Troque Seu Limite por Pix</h2>
+    <div class="panel">
+        <label for="valorDesejado">Valor que você quer receber (R$):</label>
+        <input type="number" id="valorDesejado" placeholder="Ex: 1000.00" step="0.01">
+
+        <button onclick="simularEmprestimo()">Simular Agora</button>
+        
+        <a 
+            href="https://wa.me/5538999714012?text=Ol%C3%A1%2C%20gostaria%20de%20mais%20informa%C3%A7%C3%B5es%20sobre%20o%20empr%C3%A9stimo%20no%20cart%C3%A3o%20de%20cr%C3%A9dito." 
+            target="_blank" 
+            class="whatsapp-btn"
+        >
+            🟢 Fale Conosco pelo WhatsApp
+        </a>
+    </div>
+
+    <div id="resultado">
+        <h3>Resultados da Simulação:</h3>
+        <p>Preencha o valor desejado e clique em "Simular Agora" para ver as opções.</p>
+    </div>
+
+</div>
+
+<script>
+    /**
+     * Função principal para simular o empréstimo.
+     */
+    function simularEmprestimo() {
+        // 1. Pega os valores do Painel Admin (e converte o percentual para decimal)
+        const taxaJurosPercentual = parseFloat(document.getElementById('taxaMes').value) || 0;
+        const taxaJuros = taxaJurosPercentual / 100; // Ex: 5.00 -> 0.05
+        
+        const adicionalFixo = parseFloat(document.getElementById('adicionalFixo').value) || 0;
+        
+        const adicionalPorcentagemInput = parseFloat(document.getElementById('adicionalPorcentagem').value) || 0;
+        const adicionalPorcentagem = adicionalPorcentagemInput / 100; // Ex: 2.00 -> 0.02
+
+        // 2. Pega o valor desejado pelo cliente
+        const valorDesejado = parseFloat(document.getElementById('valorDesejado').value);
+        const resultadoDiv = document.getElementById('resultado');
+
+        if (isNaN(valorDesejado) || valorDesejado <= 0) {
+            resultadoDiv.innerHTML = '<p style="color: red;">⚠️ Por favor, insira um valor válido e positivo.</p>';
+            return;
+        }
+
+        // --- CÁLCULO DAS TAXAS ADICIONAIS SOBRE O VALOR SOLICITADO (LÍQUIDO) ---
+        // 1. Custo Fixo e Variável sobre o valor solicitado (Líquido)
+        const custoAdicionalFixo = adicionalFixo;
+        const custoAdicionalVariavel = valorDesejado * adicionalPorcentagem;
+        
+        // 2. Valor Bruto Base que precisa ser financiado antes da aplicação dos juros
+        const valorBrutoBase = valorDesejado + custoAdicionalFixo + custoAdicionalVariavel;
+
+        let tabelaHTML = '<h3>Simulação para R$ ' + valorDesejado.toFixed(2).replace('.', ',') + '</h3>';
+        tabelaHTML += '<table>';
+        tabelaHTML += '<tr><th>Parcelas (meses)</th><th>Juros Mensal (%)</th><th>Valor da Parcela (R$)</th><th>Valor Total do Limite (R$)</th></tr>';
+
+        // Loop para calcular de 2 a 18 vezes
+        for (let parcelas = 2; parcelas <= 18; parcelas++) {
+            const i = taxaJuros; // Taxa de juros mensal (decimal)
+            const n = parcelas;  // Número de parcelas
+            
+            // Fator de Tabela Price (PMT)
+            const fatorCapitalizacao = Math.pow(1 + i, n);
+            const fatorPMT = (fatorCapitalizacao * i) / (fatorCapitalizacao - 1);
+            
+            // O fator GrossUp reflete o quanto o Principal (P) aumenta devido aos juros.
+            // Para simplificação da simulação, usaremos o fator de capitalização
+            const fatorGrossUp = fatorCapitalizacao; 
+            
+            // Valor Bruto (P) que será cobrado no cartão:
+            // Valor Bruto (P) = Valor Bruto Base * Fator de Juros do Financiamento
+            let valorBruto = valorBrutoBase * fatorGrossUp; 
+            
+            // Valor da Parcela (Tabela Price sobre o Valor Bruto)
+            let parcelaValor = valorBruto * fatorPMT;
+
+            // Valor Total Pago ao final
+            let valorTotal = parcelaValor * parcelas;
+
+            // Formatação para BRL
+            const parcelaFormatada = parcelaValor.toFixed(2).replace('.', ',');
+            const totalFormatado = valorTotal.toFixed(2).replace('.', ',');
+            
+            // Adiciona a linha na tabela
+            tabelaHTML += `<tr>
+                <td>${parcelas}x</td>
+                <td>${taxaJurosPercentual.toFixed(2).replace('.', ',')}%</td>
+                <td>R$ ${parcelaFormatada}</td>
+                <td>R$ ${totalFormatado}</td>
+            </tr>`;
+        }
+
+        tabelaHTML += '</table>';
+        
+        // Uso de Template String (``) para evitar erro de sintaxe
+        tabelaHTML += `<p style="margin-top: 20px; font-size: 0.9em;">*Atenção: Os valores acima são simulações. O **Valor Total do Limite** é o que será cobrado no seu cartão para que você receba o valor desejado por Pix. Taxa Adicional Fixa: R$ ${adicionalFixo.toFixed(2).replace('.', ',')} | Taxa Adicional Variável: ${(adicionalPorcentagemInput).toFixed(2).replace('.', ',')}% sobre o valor solicitado. </p>`;
+
+        resultadoDiv.innerHTML = tabelaHTML;
+    }
+
+    // Inicializa a simulação ao carregar a página com um valor padrão
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('valorDesejado').value = 1000;
+        simularEmprestimo(); // Chamada inicial para gerar a tabela
+    });
+</script>
+
+</body>
+</html>
