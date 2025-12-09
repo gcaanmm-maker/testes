@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulação de Venda</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        
+        <script>const REPRESENTANTE_ID = 1;</script>
+
+        <h1 id="pageTitle">💰 Simulação de Venda</h1>
+        
+        <div id="infoPlano" style="background:#e9ecef; padding:10px; border-radius:5px; text-align:center; margin-bottom:20px; font-size: 0.9em;">
+            Carregando...
+        </div>
+
+        <label for="valorReceber">Valor que você quer receber (Líquido):</label>
+        <input type="number" id="valorReceber" step="0.01" value="1000.00" oninput="calcular()">
+
+        <div style="margin: 15px 0; text-align: center; color: #007bff;">
+            <strong>Valor a Cobrar na Maquininha: </strong> <br>
+            <span id="valorBaseDisplay" style="font-size: 1.5em; font-weight: bold;">R$ 0,00</span>
+        </div>
+
+        <table id="tabelaResultado">
+            <thead>
+                <tr>
+                    <th>Parcelas</th>
+                    <th>Total Cliente</th>
+                    <th>Valor Parcela</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+
+        <a id="btnWhatsapp" href="#" target="_blank" class="btn-whatsapp hidden">
+            📱 Falar com Representante
+        </a>
+
+    </div>
+
+    <script>
+        const PREFIXO_STORAGE = 'config_multiplans_rep_';
+        const formatarDinheiro = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        let taxaIntermediacao = 6.78;
+        let taxaJuros = 3.49;
+        let whatsappNumero = ""; // Variável para guardar o número
+
+        function carregarDados() {
+            const dadosRaw = localStorage.getItem(PREFIXO_STORAGE + REPRESENTANTE_ID);
+            
+            if (dadosRaw) {
+                try {
+                    const dados = JSON.parse(dadosRaw);
+                    
+                    // 1. Configura as taxas
+                    const idAtivo = dados.ativo;
+                    const plano = dados.planos[idAtivo];
+                    taxaIntermediacao = plano.int;
+                    taxaJuros = plano.jur;
+
+                    document.getElementById('infoPlano').innerHTML = 
+                        `Plano Ativo: #${idAtivo} | Int: ${taxaIntermediacao}% | Juros: ${taxaJuros}%`;
+
+                    // 2. Configura o WhatsApp
+                    whatsappNumero = dados.whatsapp;
+                    const btn = document.getElementById('btnWhatsapp');
+                    
+                    if (whatsappNumero && whatsappNumero.length > 8) {
+                        btn.classList.remove('hidden'); // Mostra o botão
+                        atualizarLinkWhatsapp(1000); // Inicializa o link com valor padrão
+                    } else {
+                        btn.classList.add('hidden'); // Esconde se não tiver número
+                    }
+
+                } catch (e) {
+                    console.error("Erro ao ler dados", e);
+                }
+            }
+            
+            document.getElementById('pageTitle').innerText = `💰 Simulação - Rep ${REPRESENTANTE_ID}`;
+            calcular();
+        }
+
+        function atualizarLinkWhatsapp(valorLiquido) {
+            if (!whatsappNumero) return;
+
+            const btn = document.getElementById('btnWhatsapp');
+            // Cria uma mensagem automática
+            const mensagem = `Olá! Fiz uma simulação de venda no valor líquido de R$ ${valorLiquido}. Gostaria de mais informações.`;
+            
+            // Codifica a mensagem para URL
+            const url = `https://wa.me/${whatsappNumero}?text=${encodeURIComponent(mensagem)}`;
+            btn.href = url;
+        }
+
+        function calcular() {
+            const inputVal = document.getElementById('valorReceber').value;
+            const valorLiquido = parseFloat(inputVal);
+            const tbody = document.querySelector('#tabelaResultado tbody');
+            const baseDisplay = document.getElementById('valorBaseDisplay');
+            
+            // Atualiza o link do WhatsApp com o novo valor digitado
+            atualizarLinkWhatsapp(inputVal);
+
+            tbody.innerHTML = '';
+
+            if (!valorLiquido || valorLiquido <= 0) {
+                baseDisplay.innerText = "R$ 0,00";
+                return;
+            }
+
+            const valorBase = valorLiquido / (1 - (taxaIntermediacao / 100));
+            baseDisplay.innerText = formatarDinheiro(valorBase);
+            
+            const i = taxaJuros / 100;
+
+            for (let n = 1; n <= 12; n++) {
+                let valorParcela;
+                if (n === 1) {
+                    valorParcela = valorBase * (1 + i);
+                } else {
+                    const numerador = i * Math.pow(1 + i, n);
+                    const denominador = Math.pow(1 + i, n) - 1;
+                    valorParcela = valorBase * (numerador / denominador);
+                }
+
+                const totalCliente = valorParcela * n;
+                const row = tbody.insertRow();
+                row.insertCell().textContent = `${n}x`;
+                row.insertCell().textContent = formatarDinheiro(totalCliente);
+                row.insertCell().textContent = formatarDinheiro(valorParcela);
+            }
+        }
+
+        document.getElementById('valorReceber').addEventListener('input', calcular);
+        window.addEventListener('storage', carregarDados);
+        window.onload = carregarDados;
+    </script>
+</body>
+</html>

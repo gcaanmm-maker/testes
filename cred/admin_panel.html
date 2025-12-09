@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Planos e Contatos</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ Gestor de Representantes</h1>
+        
+        <label for="repSelect">Selecione o Representante:</label>
+        <select id="repSelect" onchange="carregarConfiguracao()">
+            <script>
+                for (let i = 1; i <= 10; i++) {
+                    document.write(`<option value="${i}">Representante ${i}</option>`);
+                }
+            </script>
+        </select>
+
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #90caf9;">
+            <label for="whatsappNum">📱 WhatsApp do Representante (somente números):</label>
+            <input type="text" id="whatsappNum" placeholder="Ex: 5538999999999">
+            <small>Dica: Coloque 55 + DDD + Número (sem traços ou espaços).</small>
+        </div>
+
+        <p>Configure os 4 planos e ative um:</p>
+
+        <div class="plans-grid">
+            <script>
+                for (let p = 1; p <= 4; p++) {
+                    document.write(`
+                        <div class="plan-card" id="card_${p}">
+                            <div class="plan-header">
+                                <strong>PLANO ${p}</strong>
+                                <input type="radio" name="planoAtivo" value="${p}" class="radio-select" onclick="destacarPlano(${p})">
+                            </div>
+                            <label>Taxa Intermediação (%):</label>
+                            <input type="number" id="taxaInt_${p}" step="0.01">
+                            <label>Juros Cliente (% a.m.):</label>
+                            <input type="number" id="taxaJuros_${p}" step="0.01">
+                        </div>
+                    `);
+                }
+            </script>
+        </div>
+
+        <button onclick="salvarConfiguracao()">💾 SALVAR TUDO (Taxas + WhatsApp)</button>
+        <p id="mensagem" style="text-align: center; margin-top: 10px; font-weight: bold;"></p>
+        
+        <hr>
+        <div class="rep-list">
+            <script>
+                for (let i = 1; i <= 10; i++) {
+                    document.write(`<a href="rep_${i}.html" target="_blank">Abrir Representante ${i}</a>`);
+                }
+            </script>
+        </div>
+    </div>
+
+    <script>
+        const PREFIXO_STORAGE = 'config_multiplans_rep_';
+
+        function destacarPlano(id) {
+            for(let i=1; i<=4; i++) {
+                document.getElementById(`card_${i}`).classList.remove('active');
+            }
+            document.getElementById(`card_${id}`).classList.add('active');
+        }
+
+        function carregarConfiguracao() {
+            const repId = document.getElementById('repSelect').value;
+            const dadosRaw = localStorage.getItem(PREFIXO_STORAGE + repId);
+            
+            // Estrutura padrão
+            let dados = {
+                whatsapp: "", // Novo campo padrão
+                ativo: 1,
+                planos: {
+                    1: { int: 6.78, jur: 3.49 },
+                    2: { int: 10.00, jur: 2.50 },
+                    3: { int: 12.00, jur: 1.99 },
+                    4: { int: 5.00, jur: 5.00 }
+                }
+            };
+
+            if (dadosRaw) {
+                const parsed = JSON.parse(dadosRaw);
+                // Mescla o que foi salvo com o padrão (para garantir compatibilidade)
+                dados = { ...dados, ...parsed };
+            }
+
+            // 1. Carrega o WhatsApp
+            document.getElementById('whatsappNum').value = dados.whatsapp || "";
+
+            // 2. Carrega os Planos
+            for(let p=1; p<=4; p++) {
+                // Verificação de segurança caso o plano não exista no salvo antigo
+                const plano = dados.planos[p] || { int: 0, jur: 0 };
+                document.getElementById(`taxaInt_${p}`).value = plano.int;
+                document.getElementById(`taxaJuros_${p}`).value = plano.jur;
+            }
+
+            const radios = document.getElementsByName('planoAtivo');
+            for(let r of radios) {
+                if(parseInt(r.value) === dados.ativo) {
+                    r.checked = true;
+                    destacarPlano(dados.ativo);
+                }
+            }
+        }
+
+        function salvarConfiguracao() {
+            const repId = document.getElementById('repSelect').value;
+            
+            let planoAtivo = 1;
+            const radios = document.getElementsByName('planoAtivo');
+            for(let r of radios) {
+                if(r.checked) planoAtivo = parseInt(r.value);
+            }
+
+            let novaConfig = {
+                whatsapp: document.getElementById('whatsappNum').value.replace(/\D/g, ''), // Remove tudo que não for número
+                ativo: planoAtivo,
+                planos: {}
+            };
+
+            for(let p=1; p<=4; p++) {
+                novaConfig.planos[p] = {
+                    int: parseFloat(document.getElementById(`taxaInt_${p}`).value) || 0,
+                    jur: parseFloat(document.getElementById(`taxaJuros_${p}`).value) || 0
+                };
+            }
+
+            localStorage.setItem(PREFIXO_STORAGE + repId, JSON.stringify(novaConfig));
+
+            const msg = document.getElementById('mensagem');
+            msg.textContent = `✅ Salvo para Rep ${repId}!`;
+            msg.style.color = "green";
+            
+            window.dispatchEvent(new Event('storage'));
+        }
+
+        carregarConfiguracao();
+    </script>
+</body>
+</html>
