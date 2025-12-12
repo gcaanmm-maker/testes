@@ -1,0 +1,179 @@
+/* RESET E ESTILOS GERAIS */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    line-height: 1.6;
+    padding: 20px;
+    margin: 0;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+h1, h2, h3 {
+    color: #007bff;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+h1 { border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+
+/* INPUTS E LABELS */
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+input[type="number"], 
+input[type="text"], 
+select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+input:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* ADMIN - ABAS DE PLANOS */
+.tabs-planos {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+.tab-btn {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 5px;
+    color: #495057;
+    width: auto; /* Sobrescreve largura 100% de botões genéricos */
+}
+
+.tab-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #0056b3;
+}
+
+/* ADMIN - EDITOR DE TAXAS */
+.editor-plano {
+    border: 1px solid #ddd;
+    padding: 20px;
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.grid-taxas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.taxa-item label {
+    font-size: 0.9em;
+    margin-bottom: 2px;
+}
+
+/* SIMULAÇÃO - TABELA */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 0.95em;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+th {
+    background-color: #007bff;
+    color: white;
+}
+
+tr:nth-child(even) { background-color: #f9f9f9; }
+
+/* OUTROS */
+.box-whatsapp {
+    background: #e3f2fd; 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin-bottom: 20px; 
+    border: 1px solid #90caf9;
+}
+
+.info-box {
+    background:#e9ecef; 
+    padding:10px; 
+    border-radius:5px; 
+    text-align:center; 
+    margin-bottom:20px; 
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+button {
+    background-color: #28a745;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+button:hover { background-color: #218838; }
+
+.rep-list {
+    margin-top: 20px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-top: 2px solid #007bff;
+}
+
+.rep-list a {
+    display: block;
+    padding: 8px;
+    color: #007bff;
+    text-decoration: none;
+    border-bottom: 1px solid #eee;
+}
+
+.btn-whatsapp {
+    display: block;
+    width: 100%;
+    background-color: #25D366;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 15px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 1.2em;
+    margin-top: 20px;
+    box-sizing: border-box;
+}
+
+.hidden { display: none; }

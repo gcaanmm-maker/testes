@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Taxas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        /* Estilo da Logo */
+        .logo-container { text-align: center; margin-bottom: 15px; }
+        .logo-img { max-width: 150px; height: auto; }
+
+        h2 { text-align: center; color: #007bff; margin-bottom: 5px; }
+        .cidade-txt { text-align: center; color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        label { display: block; margin-bottom: 10px; font-weight: bold; }
+        input { width: 100%; padding: 15px; font-size: 1.2em; border: 2px solid #007bff; border-radius: 8px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background: #f8f9fa; color: #333; }
+        .val-total { font-weight: bold; color: #007bff; }
+        
+        /* Botão WhatsApp com Ícone */
+        .btn-whats { display: flex; align-items: center; justify-content: center; gap: 10px; background: #25d366; color: white; text-align: center; padding: 18px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 25px; font-size: 1.1em; transition: 0.3s; }
+        .btn-whats:hover { background: #1ebe57; transform: scale(1.02); }
+        .fa-whatsapp { font-size: 1.4em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo-container">
+        <img src="logo.jpg" alt="Logo" class="logo-img">
+    </div>
+
+    <h2 id="nomeRep">Carregando...</h2>
+    <div id="cidadeRep" class="cidade-txt"></div>
+
+    <label>Valor que deseja receber (Líquido):</label>
+    <input type="number" id="valorInput" value="1000.00" oninput="calcular()">
+
+    <table id="tabelaTaxas">
+        <thead>
+            <tr>
+                <th>Parcelas</th>
+                <th>Total a Cobrar</th>
+                <th>Valor Parcela</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <a href="#" id="linkWhats" target="_blank" class="btn-whats">
+        <i class="fab fa-whatsapp"></i> VALIDAR E FECHAR PROPOSTA
+    </a>
+</div>
+
+<script>
+    const REPRESENTANTE_ID = 1; 
+    const API_URL = 'https://script.google.com/macros/s/AKfycbx_kZOvD2vxIRKZkCJCdnmx2-bN4ee1Z-95FJuyImXHKYai2rdNadz_cjQLIMgZCigN/exec';
+    let dadosRep = {};
+
+    async function buscarDados() {
+        try {
+            const resp = await fetch(API_URL);
+            const todos = await resp.json();
+            dadosRep = todos.find(r => r.RepId == REPRESENTANTE_ID);
+            if(dadosRep) {
+                document.getElementById('nomeRep').innerText = dadosRep.Nome || "Consultoria";
+                document.getElementById('cidadeRep').innerText = dadosRep.Cidade || "";
+                calcular();
+            }
+        } catch (e) { document.getElementById('nomeRep').innerText = "Erro ao carregar"; }
+    }
+
+    function calcular() {
+        if(!dadosRep.Nome) return;
+        const liquido = parseFloat(document.getElementById('valorInput').value) || 0;
+        const plano = dadosRep.PlanoAtivo || 1;
+        const tbody = document.querySelector('#tabelaTaxas tbody');
+        tbody.innerHTML = '';
+
+        const parcelas = ['debito', '1x', '2x', '3x', '4x', '5x', '6x', '7x', '8x', '9x', '10x', '11x', '12x', '13x', '14x', '15x', '16x', '17x', '18x'];
+
+        parcelas.forEach(p => {
+            const coluna = p === 'debito' ? `Debito_${plano}` : `${p.toUpperCase()}_${plano}`;
+            const taxa = parseFloat(dadosRep[coluna]) || 0;
+
+            // CÁLCULO MARKUP (ACRÉSCIMO SIMPLES)
+            const total = liquido * (1 + (taxa / 100));
+            const numParcelas = p.includes('x') ? parseInt(p) : 1;
+            const vParcela = total / numParcelas;
+
+            if(taxa > 0 || p === 'debito') {
+                tbody.innerHTML += `<tr>
+                    <td>${p === 'debito' ? 'Débito' : p}</td>
+                    <td class="val-total">R$ ${total.toFixed(2).replace('.',',')}</td>
+                    <td>${numParcelas}x R$ ${vParcela.toFixed(2).replace('.',',')}</td>
+                </tr>`;
+            }
+        });
+
+        const msgWhats = `Olá, ${dadosRep.Nome}! Fiz uma simulação de R$ ${liquido.toFixed(2)} na sua página de ${dadosRep.Cidade}. Gostaria de validar esta proposta e fechar agora!`;
+        document.getElementById('linkWhats').href = `https://wa.me/${dadosRep.Whatsapp}?text=${encodeURIComponent(msgWhats)}`;
+    }
+    window.onload = buscarDados;
+</script>
+</body>
+</html>
