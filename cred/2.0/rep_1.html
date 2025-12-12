@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulação de Venda</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        
+        <script>const REPRESENTANTE_ID = 1;</script>
+
+        <h1 id="pageTitle">💰 Simulação de Venda</h1>
+        
+        <div id="infoPlano" class="info-box">
+            Carregando taxas...
+        </div>
+
+        <label for="valorReceber">Valor que você quer receber (Líquido):</label>
+        <input type="number" id="valorReceber" step="0.01" value="1000.00" oninput="calcular()">
+        
+        <div id="avisoTaxaFixa" style="text-align:center; font-size:0.8em; color:#666; margin-bottom:10px;"></div>
+
+        <table id="tabelaResultado">
+            <thead>
+                <tr>
+                    <th>Modalidade</th>
+                    <th>Valor a Cobrar</th>
+                    <th>Parcela</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+
+        <a id="btnWhatsapp" href="#" target="_blank" class="btn-whatsapp hidden">
+            📱 Falar com Representante
+        </a>
+
+    </div>
+
+    <script>
+        const PREFIXO_STORAGE = 'config_multiplans_rep_';
+        const formatarDinheiro = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        let configPlano = { taxaFixa: 0, taxas: {} };
+        let whatsappNumero = "";
+
+        function carregarDados() {
+            const dadosRaw = localStorage.getItem(PREFIXO_STORAGE + REPRESENTANTE_ID);
+            
+            if (dadosRaw) {
+                try {
+                    const dados = JSON.parse(dadosRaw);
+                    const idAtivo = dados.ativo || 1;
+                    
+                    // Carrega o plano ativo
+                    if(dados.planos && dados.planos[idAtivo]) {
+                        configPlano = dados.planos[idAtivo];
+                    }
+
+                    whatsappNumero = dados.whatsapp;
+                    
+                    // Atualiza UI
+                    document.getElementById('infoPlano').innerText = `Tabela Ativa: Plano #${idAtivo}`;
+                    
+                    if(configPlano.taxaFixa > 0) {
+                        document.getElementById('avisoTaxaFixa').innerText = 
+                            `*Incluindo custo fixo de ${formatarDinheiro(configPlano.taxaFixa)} no cálculo.`;
+                    } else {
+                        document.getElementById('avisoTaxaFixa').innerText = "";
+                    }
+
+                    // Botão Whats
+                    const btn = document.getElementById('btnWhatsapp');
+                    if (whatsappNumero && whatsappNumero.length > 8) {
+                        btn.classList.remove('hidden');
+                        atualizarLinkWhatsapp(1000);
+                    } else {
+                        btn.classList.add('hidden');
+                    }
+
+                } catch (e) {
+                    console.error("Erro ao ler dados", e);
+                }
+            }
+            
+            document.getElementById('pageTitle').innerText = `💰 Simulação - Rep ${REPRESENTANTE_ID}`;
+            calcular();
+        }
+
+        function atualizarLinkWhatsapp(valorLiquido) {
+            if (!whatsappNumero) return;
+            const btn = document.getElementById('btnWhatsapp');
+            const mensagem = `Olá! Simulei uma venda para receber R$ ${valorLiquido}. Poderia me ajudar?`;
+            const url = `https://wa.me/${whatsappNumero}?text=${encodeURIComponent(mensagem)}`;
+            btn.href = url;
+        }
+
+        function calcularLinha(label, taxaKey, valorAlvo) {
+            const taxa = configPlano.taxas[taxaKey];
+            
+            // Se a taxa não foi definida ou é 0, não mostramos ou mostramos zerado, 
+            // mas aqui vou assumir que se for 0 é taxa zero mesmo.
+            if (taxa === undefined) return null;
+
+            // Fórmula de Repasse (Cálculo Inverso):
+            // ValorCobrar = ValorAlvo / (1 - (Taxa% / 100))
+            const divisor = 1 - (taxa / 100);
+            let valorCobrar = 0;
+            
+            if(divisor > 0) {
+                valorCobrar = valorAlvo / divisor;
+            }
+
+            // Define quantidade de parcelas para dividir o valor da parcela
+            let divisorParcela = 1;
+            if (label.includes('x')) {
+                divisorParcela = parseInt(label.replace('x',''));
+            }
+
+            return {
+                modalidade: label === '1x' ? 'Crédito 1x' : (label === 'debito' ? 'Débito' : label),
+                total: valorCobrar,
+                parcela: valorCobrar / divisorParcela
+            };
+        }
+
+        function calcular() {
+            const inputVal = document.getElementById('valorReceber').value;
+            let valorLiquido = parseFloat(inputVal);
+            const tbody = document.querySelector('#tabelaResultado tbody');
+            
+            atualizarLinkWhatsapp(inputVal);
+            tbody.innerHTML = '';
+
+            if (!valorLiquido || valorLiquido <= 0) return;
+
+            // 1. Soma a taxa fixa (Custo de operação/aquisição) ao valor que a pessoa quer no bolso
+            const valorAlvo = valorLiquido + (configPlano.taxaFixa || 0);
+
+            // Lista de chaves para iterar
+            const chaves = ['debito', '1x'];
+            for(let i=2; i<=18; i++) chaves.push(`${i}x`);
+
+            chaves.forEach(key => {
+                const dados = calcularLinha(key, key, valorAlvo);
+                
+                // Só exibe se calculou corretamente e a taxa for válida (opcional: ocultar se taxa for 0)
+                if (dados) {
+                    const row = tbody.insertRow();
+                    
+                    // Coluna 1: Modalidade
+                    const cellMod = row.insertCell();
+                    cellMod.textContent = dados.modalidade;
+                    if(key === 'debito') cellMod.style.fontWeight = "bold";
+
+                    // Coluna 2: Valor Total
+                    const cellTotal = row.insertCell();
+                    cellTotal.textContent = formatarDinheiro(dados.total);
+                    cellTotal.style.fontWeight = "bold";
+                    cellTotal.style.color = "#007bff";
+
+                    // Coluna 3: Valor Parcela
+                    const cellParc = row.insertCell();
+                    cellParc.textContent = formatarDinheiro(dados.parcela);
+                }
+            });
+        }
+
+        document.getElementById('valorReceber').addEventListener('input', calcular);
+        window.addEventListener('storage', carregarDados); // Atualiza se mudar no admin em outra aba
+        window.onload = carregarDados;
+    </script>
+</body>
+</html>

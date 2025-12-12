@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Tabela de Taxas</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ Gestor de Taxas Detalhado</h1>
+        
+        <label for="repSelect">Selecione o Representante:</label>
+        <select id="repSelect" onchange="carregarConfiguracao()">
+            <script>
+                for (let i = 1; i <= 10; i++) {
+                    document.write(`<option value="${i}">Representante ${i}</option>`);
+                }
+            </script>
+        </select>
+
+        <div class="box-whatsapp">
+            <label for="whatsappNum">📱 WhatsApp do Representante:</label>
+            <input type="text" id="whatsappNum" placeholder="Ex: 5511999999999">
+        </div>
+
+        <hr>
+        <h3>Configuração dos Planos</h3>
+        <p>Selecione o plano que deseja editar e ativar:</p>
+
+        <div class="tabs-planos">
+            <script>
+                for (let p = 1; p <= 4; p++) {
+                    document.write(`
+                        <button class="tab-btn" id="btnTab_${p}" onclick="selecionarPlano(${p})">
+                            Plano ${p}
+                        </button>
+                    `);
+                }
+            </script>
+        </div>
+
+        <div id="editorPlano" class="editor-plano">
+            <h3 id="tituloPlanoEdit">Editando Plano 1</h3>
+            
+            <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ffeeba;">
+                <label for="taxaFixaInput">➕ Valor Fixo a Somar (R$):</label>
+                <input type="number" id="taxaFixaInput" step="0.01" placeholder="Ex: 0.50 (Custo por transação)">
+                <small>Este valor será somado ao valor líquido solicitado ANTES de calcular a porcentagem.</small>
+            </div>
+
+            <div class="grid-taxas">
+                <div class="taxa-item">
+                    <label>Débito (%):</label>
+                    <input type="number" id="taxa_debito" step="0.01">
+                </div>
+                <div class="taxa-item">
+                    <label>Crédito 1x (%):</label>
+                    <input type="number" id="taxa_1x" step="0.01">
+                </div>
+                <script>
+                    for(let i=2; i<=18; i++){
+                        document.write(`
+                            <div class="taxa-item">
+                                <label>${i}x (%):</label>
+                                <input type="number" id="taxa_${i}x" step="0.01">
+                            </div>
+                        `);
+                    }
+                </script>
+            </div>
+        </div>
+
+        <button onclick="salvarConfiguracao()" style="margin-top: 20px;">💾 SALVAR CONFIGURAÇÃO</button>
+        <p id="mensagem" style="text-align: center; margin-top: 10px; font-weight: bold;"></p>
+        
+        <div class="rep-list">
+            <script>
+                for (let i = 1; i <= 10; i++) {
+                    document.write(`<a href="rep_${i}.html" target="_blank">Abrir Simulação Rep ${i}</a>`);
+                }
+            </script>
+        </div>
+    </div>
+
+    <script>
+        const PREFIXO_STORAGE = 'config_multiplans_rep_';
+        let planoAtualEditando = 1;
+        let configAtual = {};
+
+        function selecionarPlano(id) {
+            planoAtualEditando = id;
+            document.getElementById('tituloPlanoEdit').innerText = `Editando Plano ${id} ${configAtual.ativo === id ? '(ATIVO)' : ''}`;
+            
+            // Atualiza visual dos botões
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btnTab_${id}`).classList.add('active');
+
+            // Carrega os dados deste plano nos inputs
+            const plano = configAtual.planos[id] || {};
+            const taxas = plano.taxas || {};
+
+            document.getElementById('taxaFixaInput').value = plano.taxaFixa || 0;
+            document.getElementById('taxa_debito').value = taxas['debito'] || 0;
+            document.getElementById('taxa_1x').value = taxas['1x'] || 0;
+
+            for(let i=2; i<=18; i++) {
+                document.getElementById(`taxa_${i}x`).value = taxas[`${i}x`] || 0;
+            }
+        }
+
+        function carregarConfiguracao() {
+            const repId = document.getElementById('repSelect').value;
+            const dadosRaw = localStorage.getItem(PREFIXO_STORAGE + repId);
+            
+            // Estrutura Base Nova
+            configAtual = {
+                whatsapp: "",
+                ativo: 1,
+                planos: {}
+            };
+
+            // Inicializa 4 planos vazios se não existirem
+            for(let p=1; p<=4; p++) configAtual.planos[p] = { taxaFixa: 0, taxas: {} };
+
+            if (dadosRaw) {
+                const parsed = JSON.parse(dadosRaw);
+                configAtual = { ...configAtual, ...parsed };
+            }
+
+            // Preenche WhatsApp
+            document.getElementById('whatsappNum').value = configAtual.whatsapp || "";
+            
+            // Marca qual está ativo visualmente no botão
+            document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+                if((idx + 1) === configAtual.ativo) {
+                    btn.innerText = `Plano ${idx + 1} (ATIVO)`;
+                    btn.style.fontWeight = "bold";
+                } else {
+                    btn.innerText = `Plano ${idx + 1}`;
+                    btn.style.fontWeight = "normal";
+                }
+            });
+
+            // Carrega o plano 1 ou o último editado
+            selecionarPlano(planoAtualEditando);
+        }
+
+        function salvarConfiguracao() {
+            const repId = document.getElementById('repSelect').value;
+            
+            // Salva WhatsApp
+            configAtual.whatsapp = document.getElementById('whatsappNum').value.replace(/\D/g, '');
+
+            // Define o plano que está sendo editado como o ATIVO
+            configAtual.ativo = planoAtualEditando;
+
+            // Coleta dados dos inputs para o plano atual
+            const taxasColetadas = {};
+            taxasColetadas['debito'] = parseFloat(document.getElementById('taxa_debito').value) || 0;
+            taxasColetadas['1x'] = parseFloat(document.getElementById('taxa_1x').value) || 0;
+            
+            for(let i=2; i<=18; i++) {
+                taxasColetadas[`${i}x`] = parseFloat(document.getElementById(`taxa_${i}x`).value) || 0;
+            }
+
+            configAtual.planos[planoAtualEditando] = {
+                taxaFixa: parseFloat(document.getElementById('taxaFixaInput').value) || 0,
+                taxas: taxasColetadas
+            };
+
+            localStorage.setItem(PREFIXO_STORAGE + repId, JSON.stringify(configAtual));
+
+            const msg = document.getElementById('mensagem');
+            msg.textContent = `✅ Plano ${planoAtualEditando} salvo e ativado para Rep ${repId}!`;
+            msg.style.color = "green";
+            
+            // Recarrega para atualizar os textos dos botões
+            carregarConfiguracao();
+        }
+
+        window.onload = carregarConfiguracao;
+    </script>
+</body>
+</html>
