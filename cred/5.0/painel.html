@@ -47,7 +47,7 @@
     <label>Selecione o Representante:</label>
     <select id="repSelect" onchange="carregarConfiguracao()">
         <script>
-            for (let i = 1; i <= 10; i++) document.write(`<option value="${i}">Representante ${i}</option>`);
+            for (let i = 1; i <= 12; i++) document.write(`<option value="${i}">Representante ${i}</option>`);
         </script>
     </select>
 
@@ -149,7 +149,7 @@
     function atualizarListaLinks() {
         const container = document.getElementById('containerLinks');
         container.innerHTML = '';
-        for (let i = 1; i <= 10; i++) {
+        for (let i = 1; i <= 12; i++) {
             const rep = cacheDadosReps.find(r => r.RepId == i);
             const nome = (rep && rep.Nome) ? rep.Nome : `Representante ${i}`;
             container.innerHTML += `<a href="rep_${i}.html" target="_blank" class="rep-link-card">🔗 ${nome}</a>`;
@@ -184,4 +184,5 @@
     window.onload = carregarConfiguracao;
 </script>
 </body>
+
 </html>
