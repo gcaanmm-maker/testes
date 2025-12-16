@@ -58,14 +58,11 @@
 </div>
 
 <script>
-    // 💡 CORREÇÃO CRÍTICA: Extrai o ID do nome do arquivo (ex: rep_5.html -> 5)
+    // CRÍTICO: Esta função lê o ID do representante diretamente do nome do arquivo (ex: rep_5.html -> 5).
     function extrairIdDoFileName() {
         const path = window.location.pathname;
-        // Pega apenas o nome do arquivo, ex: 'rep_12.html'
         const fileName = path.substring(path.lastIndexOf('/') + 1); 
-        // Usa regex para extrair o número entre 'rep_' e '.html'
         const match = fileName.match(/rep_(\d+)\.html/i);
-        // Retorna o ID encontrado, ou 1 como padrão de segurança.
         return match ? parseInt(match[1]) : 1; 
     }
     
@@ -75,6 +72,9 @@
     // URL DO SEU GOOGLE APPS SCRIPT
     const API_URL = 'https://script.google.com/macros/s/AKfycbx_kZOvD2vxIRKZkCJCdnmx2-bN4ee1Z-95FJuyImXHKYai2rdNadz_cjQLIMgZCigN/exec';
     let dadosRep = {};
+
+    // Função auxiliar para formatar dinheiro no texto
+    const formatarDinheiro = (valor) => `R$ ${valor.toFixed(2).replace('.',',')}`;
 
     async function buscarDados() {
         try {
@@ -95,33 +95,58 @@
 
     function calcular() {
         if(!dadosRep.Nome) return;
+        
         const liquido = parseFloat(document.getElementById('valorInput').value) || 0;
         const plano = dadosRep.PlanoAtivo || 1;
         const tbody = document.querySelector('#tabelaTaxas tbody');
         tbody.innerHTML = '';
-
+        
         const parcelas = ['debito', '1x', '2x', '3x', '4x', '5x', '6x', '7x', '8x', '9x', '10x', '11x', '12x', '13x', '14x', '15x', '16x', '17x', '18x'];
 
+        // Geração da Tabela de Texto para o WhatsApp
+        let tabelaTexto = `*Simulação de Taxas (Valor Líquido: ${formatarDinheiro(liquido)})*\n\n`;
+        tabelaTexto += "📊 *RESUMO DA PROPOSTA:*\n";
+        tabelaTexto += "--------------------------------------\n";
+
         parcelas.forEach(p => {
+            // Garante que a chave da coluna é sempre com "X" maiúsculo (1X_1)
             const coluna = p === 'debito' ? `Debito_${plano}` : `${p.toUpperCase()}_${plano}`;
             const taxa = parseFloat(dadosRep[coluna]) || 0;
 
-            // CÁLCULO MARKUP (ACRÉSCIMO SIMPLES): R$ 1000 + 17.27% = R$ 1172.70
+            // CÁLCULO MARKUP (ACRÉSCIMO SIMPLES): ValorTotal = Liquido * (1 + Taxa/100)
             const total = liquido * (1 + (taxa / 100));
             const numParcelas = p.includes('x') ? parseInt(p) : 1;
             const vParcela = total / numParcelas;
 
             if(taxa > 0 || p === 'debito') {
+                // 1. Atualiza a tabela HTML
                 tbody.innerHTML += `<tr>
                     <td>${p === 'debito' ? 'Débito' : p}</td>
-                    <td class="val-total">R$ ${total.toFixed(2).replace('.',',')}</td>
-                    <td>${numParcelas}x R$ ${vParcela.toFixed(2).replace('.',',')}</td>
+                    <td class="val-total">${formatarDinheiro(total)}</td>
+                    <td>${numParcelas}x ${formatarDinheiro(vParcela)}</td>
                 </tr>`;
+
+                // 2. Constrói a linha da tabela de texto para o WhatsApp
+                const modalidade = p === 'debito' ? 'Débito' : `${numParcelas}x (Crédito)`;
+                const totalFormatado = formatarDinheiro(total);
+                const parcelaFormatada = formatarDinheiro(vParcela);
+
+                tabelaTexto += `*${modalidade}:* ${totalFormatado}\n`;
+                tabelaTexto += `  - Parcelas: ${numParcelas}x de ${parcelaFormatada}\n`;
             }
         });
 
-        // Frase do WhatsApp com dados do Representante
-        const msgWhats = `Olá, ${dadosRep.Nome}! Fiz uma simulação de R$ ${liquido.toFixed(2)} na sua página de ${dadosRep.Cidade}. Gostaria de validar esta proposta e fechar agora!`;
+        tabelaTexto += "--------------------------------------\n";
+        
+        // Frase de fechamento
+        const mensagemBase = `Olá, ${dadosRep.Nome} de ${dadosRep.Cidade}! 
+        
+Acabei de gerar uma simulação de taxas na sua página. Por favor, valide os valores abaixo para que possamos fechar a proposta hoje!`;
+        
+        // Combina a mensagem base com a tabela de texto
+        const msgWhats = `${mensagemBase}\n\n${tabelaTexto}\n`;
+
+        // Atribui a mensagem formatada para a URL do WhatsApp
         document.getElementById('linkWhats').href = `https://wa.me/${dadosRep.Whatsapp}?text=${encodeURIComponent(msgWhats)}`;
     }
     window.onload = buscarDados;
