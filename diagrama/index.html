@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Biblioteca – Exemplo Didático</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <h1>Sistema de Biblioteca</h1>
+      <p>Exemplo prático para estudos de UML → HTML + CSS + JavaScript</p>
+      <p><span class="badge">Livro</span> <span class="badge">Usuário</span> <span class="badge">Empréstimo</span> <span class="badge">Reserva</span> <span class="badge">Multa</span></p>
+    </div>
+  </header>
+
+  <nav class="top">
+    <a href="#livros">Livros</a>
+    <a href="#usuarios">Usuários</a>
+    <a href="#emprestimos">Empréstimos</a>
+    <a href="#reservas">Reservas</a>
+  </nav>
+
+  <main>
+    <!-- LIVROS -->
+    <section id="livros" class="section">
+      <h2>Livros</h2>
+      <div class="grid" id="booksGrid"></div>
+      <div class="card" style="margin-top:16px">
+        <h3>Adicionar Livro</h3>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <div>
+            <label>Título</label>
+            <input id="bookTitle" placeholder="Ex.: Estruturas de Dados" />
+          </div>
+          <div>
+            <label>Autor</label>
+            <input id="bookAuthor" placeholder="Ex.: Ana Silva" />
+          </div>
+          <div>
+            <label>ISBN</label>
+            <input id="bookIsbn" placeholder="Ex.: 978-0000000000" />
+          </div>
+          <div>
+            <label>Editora</label>
+            <input id="bookPublisher" placeholder="Ex.: TechBooks" />
+          </div>
+          <div>
+            <label>Categoria</label>
+            <input id="bookCategory" placeholder="Ex.: Programação" />
+          </div>
+        </div>
+        <button id="addBookBtn">Adicionar</button>
+      </div>
+    </section>
+
+    <!-- USUARIOS -->
+    <section id="usuarios" class="section">
+      <h2>Usuários</h2>
+      <div class="grid" id="usersGrid"></div>
+      <div class="card" style="margin-top:16px">
+        <h3>Adicionar Usuário</h3>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <div>
+            <label>Nome</label>
+            <input id="userName" placeholder="Ex.: João Pereira" />
+          </div>
+          <div>
+            <label>Matrícula</label>
+            <input id="userMat" placeholder="Ex.: A12345" />
+          </div>
+        </div>
+        <button id="addUserBtn">Adicionar</button>
+      </div>
+    </section>
+
+    <!-- EMPRESTIMOS -->
+    <section id="emprestimos" class="section">
+      <h2>Empréstimos</h2>
+      <div class="card">
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <div>
+            <label>Usuário</label>
+            <select id="loanUser"></select>
+          </div>
+          <div>
+            <label>Livro</label>
+            <select id="loanBook"></select>
+          </div>
+          <div>
+            <label>Data do Empréstimo</label>
+            <input type="date" id="loanDate" />
+          </div>
+          <div>
+            <label>Data de Devolução</label>
+            <input type="date" id="returnDate" />
+          </div>
+        </div>
+        <button id="addLoanBtn">Registrar Empréstimo</button>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <table class="table" id="loansTable">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Usuário</th>
+              <th>Livro</th>
+              <th>Empréstimo</th>
+              <th>Devolução</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RESERVAS -->
+    <section id="reservas" class="section">
+      <h2>Reservas</h2>
+      <div class="card">
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <div>
+            <label>Usuário</label>
+            <select id="resUser"></select>
+          </div>
+          <div>
+            <label>Livro</label>
+            <select id="resBook"></select>
+          </div>
+          <div>
+            <label>Data da Reserva</label>
+            <input type="date" id="resDate" />
+          </div>
+        </div>
+        <button id="addResBtn">Registrar Reserva</button>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <table class="table" id="resTable">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Usuário</th>
+              <th>Livro</th>
+              <th>Data</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    Exemplo didático – Biblioteca • Imagens geradas automaticamente (placeholders)
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

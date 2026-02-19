@@ -1,0 +1,39 @@
+
+:root{
+  --bg:#0d2e4a; --primary:#135c8a; --accent:#00c2ff; --card:#ffffff; --text:#222;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;background:#f3f6f9;color:var(--text)}
+header.hero{background:url('img/banner.png') center/cover no-repeat;color:#fff;min-height:280px;display:flex;align-items:flex-end}
+header.hero .wrap{width:100%;padding:24px 32px;background:linear-gradient(180deg,rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.45) 100%)}
+header h1{margin:0;font-size:2.2rem}
+header p{margin:6px 0 0;font-size:1rem;opacity:.95}
+
+nav.top{display:flex;gap:12px;flex-wrap:wrap;padding:12px 16px;background:#fff;position:sticky;top:0;border-bottom:1px solid #e3e8ee;z-index:2}
+nav.top a{padding:8px 12px;border-radius:8px;color:#0d2e4a;text-decoration:none;border:1px solid #d6dbe3;background:#f8fbff}
+nav.top a:hover{background:#eaf5ff}
+
+main{padding:24px;max-width:1200px;margin:auto}
+.section{margin:18px 0}
+.section h2{margin:0 0 8px;font-size:1.5rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid #e3e8ee;border-radius:12px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card img{width:56px;height:56px}
+.card h3{margin:8px 0 6px;font-size:1.1rem}
+.card p{margin:0 0 8px;color:#555}
+label{font-size:.9rem;color:#334}
+input,select,button{font:inherit}
+input,select{width:100%;padding:10px;border:1px solid #cdd6e1;border-radius:8px;margin:6px 0 12px;background:#fff}
+button{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px 14px;cursor:pointer}
+button.secondary{background:#445}
+button:hover{filter:brightness(1.05)}
+.badge{display:inline-block;background:#eef5ff;color:#0d2e4a;border:1px solid #cbe2ff;border-radius:999px;padding:4px 10px;font-size:.8rem}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px;border-bottom:1px solid #e5ebf2;text-align:left;font-size:.95rem}
+.table img{width:36px;height:36px;border-radius:6px}
+.actions button{margin-right:6px}
+
+footer{margin:40px 0 16px;text-align:center;color:#667}
+@media (max-width:640px){
+  header h1{font-size:1.6rem}
+}
