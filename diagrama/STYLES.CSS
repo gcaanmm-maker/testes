@@ -1,0 +1,74 @@
+body{
+  margin:0;
+  font-family:Arial;
+  background:#f4f6f9;
+}
+
+.hero{
+  background:#0d2e4a;
+  color:#fff;
+  padding:40px;
+  text-align:center;
+}
+
+.top{
+  display:flex;
+  gap:10px;
+  padding:10px;
+  background:#fff;
+}
+
+.top a{
+  text-decoration:none;
+  padding:8px 12px;
+  background:#eaf5ff;
+  border-radius:6px;
+}
+
+.section{
+  padding:20px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:15px;
+}
+
+.card{
+  background:#fff;
+  padding:15px;
+  border-radius:8px;
+  margin-bottom:15px;
+}
+
+input,select,button{
+  width:100%;
+  padding:8px;
+  margin:6px 0;
+}
+
+button{
+  background:#135c8a;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+}
+
+.table th,.table td{
+  padding:10px;
+  border-bottom:1px solid #ddd;
+}
+
+.badge{
+  background:#eef5ff;
+  padding:4px 8px;
+  border-radius:12px;
+  font-size:12px;
+}

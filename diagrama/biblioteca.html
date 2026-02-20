@@ -1,137 +1,390 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema de Biblioteca – Exemplo Didático</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Biblioteca</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#eef2f7;
+}
+
+header{
+  background:linear-gradient(135deg,#1b3c59,#0f2027);
+  color:#fff;
+  padding:40px;
+  text-align:center;
+}
+
+header h1{
+  margin:0;
+  font-size:28px;
+}
+
+nav{
+  background:#fff;
+  padding:10px;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  border-bottom:1px solid #ccc;
+}
+
+nav a{
+  text-decoration:none;
+  padding:6px 12px;
+  background:#d9ecff;
+  border-radius:5px;
+  font-size:14px;
+  color:#0f2027;
+}
+
+section{
+  padding:20px;
+}
+
+.card{
+  background:#fff;
+  padding:15px;
+  border-radius:8px;
+  margin-bottom:20px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+input, select, button{
+  width:100%;
+  padding:8px;
+  margin:5px 0;
+  border-radius:5px;
+  border:1px solid #ccc;
+}
+
+button{
+  background:#1b3c59;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+
+button:hover{
+  background:#16324a;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+}
+
+th, td{
+  padding:8px;
+  border-bottom:1px solid #ddd;
+  text-align:left;
+}
+
+th{
+  background:#1b3c59;
+  color:#fff;
+}
+
+footer{
+  text-align:center;
+  padding:20px;
+  color:#555;
+}
+</style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="wrap">
-    <h1>Sistema de Biblioteca</h1>
-    <p>Exemplo prático para estudos de UML → HTML + CSS + JavaScript</p>
-    <p>
-      <span class="badge">Livro</span>
-      <span class="badge">Usuário</span>
-      <span class="badge">Empréstimo</span>
-      <span class="badge">Reserva</span>
-      <span class="badge">Multa</span>
-      <span class="badge">Pagamento</span>
-    </p>
-  </div>
+<header>
+  <h1>Sistema Completo de Biblioteca</h1>
+  <p>Controle de Livros • Usuários • Empréstimos • Reservas • Multas</p>
 </header>
 
-<nav class="top">
+<nav>
   <a href="#livros">Livros</a>
   <a href="#usuarios">Usuários</a>
   <a href="#emprestimos">Empréstimos</a>
   <a href="#reservas">Reservas</a>
   <a href="#multas">Multas</a>
-  <a href="#pagamentos">Pagamentos</a>
 </nav>
 
-<main>
-
-<!-- ================= MULTAS ================= -->
-<section id="multas" class="section">
-  <h2>Multas</h2>
-
-  <div class="card">
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      <div>
-        <label>Usuário</label>
-        <select id="fineUser"></select>
-      </div>
-      <div>
-        <label>Valor (R$)</label>
-        <input type="number" id="fineValue" step="0.01" placeholder="Ex.: 10.00" />
-      </div>
-      <div>
-        <label>Motivo</label>
-        <input id="fineReason" placeholder="Ex.: Atraso na devolução" />
-      </div>
-      <div>
-        <label>Data</label>
-        <input type="date" id="fineDate" />
-      </div>
-    </div>
-    <button id="addFineBtn">Registrar Multa</button>
-  </div>
-
-  <div class="card" style="margin-top:16px">
-    <table class="table" id="finesTable">
-      <thead>
-        <tr>
-          <th></th>
-          <th>Usuário</th>
-          <th>Valor</th>
-          <th>Motivo</th>
-          <th>Data</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<section id="livros">
+<h2>Cadastro de Livros</h2>
+<div class="card">
+<input id="titulo" placeholder="Título">
+<input id="autor" placeholder="Autor">
+<input id="isbn" placeholder="ISBN">
+<button onclick="addBook()">Cadastrar Livro</button>
+</div>
+<table>
+<thead><tr><th>Título</th><th>Autor</th><th>ISBN</th></tr></thead>
+<tbody id="listaLivros"></tbody>
+</table>
 </section>
 
-
-<!-- ================= PAGAMENTOS ================= -->
-<section id="pagamentos" class="section">
-  <h2>Pagamentos</h2>
-
-  <div class="card">
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      <div>
-        <label>Usuário</label>
-        <select id="paymentUser"></select>
-      </div>
-      <div>
-        <label>Valor Pago (R$)</label>
-        <input type="number" id="paymentValue" step="0.01" placeholder="Ex.: 10.00" />
-      </div>
-      <div>
-        <label>Método</label>
-        <select id="paymentMethod">
-          <option value="Pix">Pix</option>
-          <option value="Cartão">Cartão</option>
-          <option value="Dinheiro">Dinheiro</option>
-        </select>
-      </div>
-      <div>
-        <label>Data</label>
-        <input type="date" id="paymentDate" />
-      </div>
-    </div>
-    <button id="addPaymentBtn">Registrar Pagamento</button>
-  </div>
-
-  <div class="card" style="margin-top:16px">
-    <table class="table" id="paymentsTable">
-      <thead>
-        <tr>
-          <th></th>
-          <th>Usuário</th>
-          <th>Valor</th>
-          <th>Método</th>
-          <th>Data</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<section id="usuarios">
+<h2>Cadastro de Usuários</h2>
+<div class="card">
+<input id="nome" placeholder="Nome">
+<input id="matricula" placeholder="Matrícula">
+<button onclick="addUser()">Cadastrar Usuário</button>
+</div>
+<table>
+<thead><tr><th>Nome</th><th>Matrícula</th></tr></thead>
+<tbody id="listaUsuarios"></tbody>
+</table>
 </section>
 
-</main>
+<section id="emprestimos">
+<h2>Empréstimos</h2>
+<div class="card">
+<select id="loanUser"></select>
+<select id="loanBook"></select>
+<input type="date" id="loanDate">
+<input type="date" id="returnDate">
+<button onclick="addLoan()">Registrar Empréstimo</button>
+</div>
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Usuário</th><th>Livro</th>
+<th>Empréstimo</th><th>Devolução</th>
+<th>Status</th><th>Ação</th>
+</tr>
+</thead>
+<tbody id="listaEmprestimos"></tbody>
+</table>
+</section>
+
+<section id="reservas">
+<h2>Reservas</h2>
+<div class="card">
+<select id="resUser"></select>
+<select id="resBook"></select>
+<input type="date" id="resDate">
+<button onclick="addReserve()">Registrar Reserva</button>
+</div>
+<table>
+<thead>
+<tr>
+<th>ID</th><th>Usuário</th><th>Livro</th><th>Data</th>
+</tr>
+</thead>
+<tbody id="listaReservas"></tbody>
+</table>
+</section>
+
+<section id="multas">
+<h2>Multas</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Usuário</th>
+<th>Valor</th>
+<th>Status</th>
+<th>Ação</th>
+</tr>
+</thead>
+<tbody id="listaMultas"></tbody>
+</table>
+</section>
 
 <footer>
-  Exemplo didático – Biblioteca • UML aplicada na prática
+Sistema Biblioteca - Modelo UML Aplicado
 </footer>
 
-<script src="app.js"></script>
+<script>
+const store={
+  books:[],
+  users:[],
+  loans:[],
+  reserves:[],
+  fines:[]
+};
+
+function save(){
+  localStorage.setItem("biblioteca",JSON.stringify(store));
+}
+
+function load(){
+  const data=localStorage.getItem("biblioteca");
+  if(data) Object.assign(store,JSON.parse(data));
+}
+
+function addBook(){
+  const titulo=document.getElementById("titulo").value;
+  const autor=document.getElementById("autor").value;
+  const isbn=document.getElementById("isbn").value;
+  if(!titulo||!autor||!isbn){alert("Preencha todos os campos");return;}
+  store.books.push({titulo,autor,isbn});
+  save(); render();
+}
+
+function addUser(){
+  const nome=document.getElementById("nome").value;
+  const matricula=document.getElementById("matricula").value;
+  if(!nome||!matricula){alert("Preencha todos os campos");return;}
+  store.users.push({nome,matricula});
+  save(); render();
+}
+
+function addLoan(){
+  const user=document.getElementById("loanUser").value;
+  const book=document.getElementById("loanBook").value;
+  const loanDate=document.getElementById("loanDate").value;
+  const returnDate=document.getElementById("returnDate").value;
+
+  if(store.fines.some(f=>f.user===user && f.status==="Pendente")){
+    alert("Usuário possui multa pendente!");
+    return;
+  }
+
+  if(store.loans.some(l=>l.book===book && l.status==="Ativo")){
+    alert("Livro já emprestado!");
+    return;
+  }
+
+  store.loans.push({
+    id:"L"+Date.now(),
+    user,book,loanDate,returnDate,status:"Ativo"
+  });
+
+  save(); render();
+}
+
+function addReserve(){
+  const user=document.getElementById("resUser").value;
+  const book=document.getElementById("resBook").value;
+  const data=document.getElementById("resDate").value;
+
+  store.reserves.push({
+    id:"R"+Date.now(),
+    user,book,data
+  });
+
+  save(); render();
+}
+
+function devolver(id){
+  const l=store.loans.find(x=>x.id===id);
+  l.status="Devolvido";
+
+  const hoje=new Date();
+  const prazo=new Date(l.returnDate);
+
+  if(hoje>prazo){
+    const dias=Math.ceil((hoje-prazo)/86400000);
+    const valor=dias*2;
+
+    store.fines.push({
+      id:"F"+Date.now(),
+      user:l.user,
+      valor,
+      status:"Pendente"
+    });
+
+    alert("Multa gerada: R$ "+valor);
+  }
+
+  save(); render();
+}
+
+function pagarMulta(id){
+  const multa=store.fines.find(f=>f.id===id);
+  if(multa.status==="Pago"){alert("Multa já paga");return;}
+  multa.status="Pago";
+  save(); render();
+  alert("Multa paga com sucesso!");
+}
+
+function render(){
+  const listaLivros=document.getElementById("listaLivros");
+  const listaUsuarios=document.getElementById("listaUsuarios");
+  const listaEmprestimos=document.getElementById("listaEmprestimos");
+  const listaReservas=document.getElementById("listaReservas");
+  const listaMultas=document.getElementById("listaMultas");
+  const loanUser=document.getElementById("loanUser");
+  const loanBook=document.getElementById("loanBook");
+  const resUser=document.getElementById("resUser");
+  const resBook=document.getElementById("resBook");
+
+  listaLivros.innerHTML="";
+  listaUsuarios.innerHTML="";
+  listaEmprestimos.innerHTML="";
+  listaReservas.innerHTML="";
+  listaMultas.innerHTML="";
+  loanUser.innerHTML="";
+  loanBook.innerHTML="";
+  resUser.innerHTML="";
+  resBook.innerHTML="";
+
+  store.books.forEach(b=>{
+    listaLivros.innerHTML+=`<tr><td>${b.titulo}</td><td>${b.autor}</td><td>${b.isbn}</td></tr>`;
+    loanBook.innerHTML+=`<option value="${b.isbn}">${b.titulo}</option>`;
+    resBook.innerHTML+=`<option value="${b.isbn}">${b.titulo}</option>`;
+  });
+
+  store.users.forEach(u=>{
+    listaUsuarios.innerHTML+=`<tr><td>${u.nome}</td><td>${u.matricula}</td></tr>`;
+    loanUser.innerHTML+=`<option value="${u.matricula}">${u.nome}</option>`;
+    resUser.innerHTML+=`<option value="${u.matricula}">${u.nome}</option>`;
+  });
+
+  store.loans.forEach(l=>{
+    const user=store.users.find(u=>u.matricula===l.user);
+    const book=store.books.find(b=>b.isbn===l.book);
+
+    listaEmprestimos.innerHTML+=`
+    <tr>
+      <td>${l.id}</td>
+      <td>${user?.nome}</td>
+      <td>${book?.titulo}</td>
+      <td>${l.loanDate}</td>
+      <td>${l.returnDate}</td>
+      <td>${l.status}</td>
+      <td>${l.status==="Ativo"?`<button onclick="devolver('${l.id}')">Devolver</button>`:"-"}</td>
+    </tr>`;
+  });
+
+  store.reserves.forEach(r=>{
+    const user=store.users.find(u=>u.matricula===r.user);
+    const book=store.books.find(b=>b.isbn===r.book);
+
+    listaReservas.innerHTML+=`
+    <tr>
+      <td>${r.id}</td>
+      <td>${user?.nome}</td>
+      <td>${book?.titulo}</td>
+      <td>${r.data}</td>
+    </tr>`;
+  });
+
+  store.fines.forEach(f=>{
+    const user=store.users.find(u=>u.matricula===f.user);
+
+    listaMultas.innerHTML+=`
+    <tr>
+      <td>${f.id}</td>
+      <td>${user?.nome}</td>
+      <td>R$ ${f.valor}</td>
+      <td>${f.status}</td>
+      <td>
+        ${f.status==="Pendente" 
+          ? `<button onclick="pagarMulta('${f.id}')">Pagar</button>` 
+          : "✔ Pago"}
+      </td>
+    </tr>`;
+  });
+}
+
+load();
+render();
+</script>
+
 </body>
 </html>
