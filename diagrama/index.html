@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apresentação Técnica - Sistema de Biblioteca</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color:#333;
+}
+
+header{
+    background:rgba(0,0,0,0.75);
+    color:#fff;
+    padding:40px 20px;
+    text-align:center;
+}
+
+header h1{font-size:34px;margin-bottom:10px}
+header p{font-size:18px;opacity:0.9}
+
+.container{
+    max-width:1200px;
+    margin:40px auto;
+    background:#fff;
+    padding:50px;
+    border-radius:12px;
+    box-shadow:0 25px 60px rgba(0,0,0,0.3);
+}
+
+h2{
+    color:#1f3c88;
+    margin-top:40px;
+    margin-bottom:15px;
+}
+
+p{
+    margin-bottom:15px;
+    line-height:1.8;
+    text-align:justify;
+}
+
+.section{
+    margin-bottom:30px;
+}
+
+.highlight{
+    background:#eef3ff;
+    padding:20px;
+    border-left:6px solid #1f3c88;
+    border-radius:8px;
+    margin:20px 0;
+}
+
+ul{margin-left:25px;margin-bottom:20px}
+li{margin-bottom:8px}
+
+.pdf-preview{
+    margin-top:30px;
+    border:3px solid #1f3c88;
+    border-radius:10px;
+    overflow:hidden;
+}
+
+iframe{
+    width:100%;
+    height:650px;
+    border:none;
+}
+
+.buttons{
+    margin-top:40px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:20px;
+}
+
+.btn{
+    flex:1;
+    min-width:250px;
+    padding:16px;
+    text-align:center;
+    background:#1f3c88;
+    color:#fff;
+    text-decoration:none;
+    border-radius:8px;
+    font-weight:bold;
+    transition:0.3s;
+}
+
+.btn:hover{
+    background:#162d63;
+}
+
+footer{
+    text-align:center;
+    margin-top:50px;
+    font-size:14px;
+    color:#777;
+}
+
+@media(max-width:768px){
+    .container{padding:25px}
+    iframe{height:400px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Modelagem UML - Sistema de Biblioteca</h1>
+<p>Documentação Técnica e Estrutural do Projeto</p>
+</header>
+
+<div class="container">
+
+<div class="section">
+<h2>1. Introdução à UML</h2>
+<p>
+A UML (Unified Modeling Language) é uma linguagem padrão internacional para modelagem de sistemas orientados a objetos.
+Ela permite representar graficamente a arquitetura do sistema antes da implementação, reduzindo riscos,
+erros estruturais e retrabalho no desenvolvimento.
+</p>
+
+<div class="highlight">
+A modelagem UML é essencial para garantir organização, padronização e clareza na definição das regras de negócio.
+</div>
+</div>
+
+<div class="section">
+<h2>2. Objetivo do Diagrama de Classes</h2>
+<p>
+O Diagrama de Classes representa a estrutura estática do sistema,
+definindo entidades (classes), seus atributos, métodos e os relacionamentos entre elas.
+Ele é fundamental para orientar a implementação do banco de dados e da lógica de programação.
+</p>
+</div>
+
+<div class="section">
+<h2>3. Estrutura do Sistema de Biblioteca</h2>
+
+<p>O sistema foi projetado para realizar:</p>
+
+<ul>
+<li>Controle de acervo bibliográfico</li>
+<li>Gerenciamento de usuários e clientes</li>
+<li>Processo de empréstimos e devoluções</li>
+<li>Controle de reservas</li>
+<li>Cálculo automático de multas por atraso</li>
+<li>Registro e processamento de pagamentos</li>
+</ul>
+
+<p><strong>Principais Classes Modeladas:</strong></p>
+
+<ul>
+<li><strong>Livro:</strong> Armazena dados bibliográficos como título, autor, ISBN e editora.</li>
+<li><strong>Exemplar:</strong> Representa a unidade física disponível para empréstimo.</li>
+<li><strong>Cliente:</strong> Define o tipo de usuário e limite de empréstimos.</li>
+<li><strong>Usuário:</strong> Dados pessoais e status de cadastro.</li>
+<li><strong>Funcionário:</strong> Responsável por registrar empréstimos e devoluções.</li>
+<li><strong>Empréstimo:</strong> Controla datas, status e atrasos.</li>
+<li><strong>Reserva:</strong> Permite agendamento de livros indisponíveis.</li>
+<li><strong>Multa:</strong> Calcula valores com base em dias de atraso.</li>
+<li><strong>Pagamento:</strong> Processa quitação via PIX, cartão ou dinheiro.</li>
+<li><strong>Categoria:</strong> Classificação temática dos livros.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>4. Relacionamentos e Multiplicidades</h2>
+<p>
+O diagrama utiliza multiplicidades como 1..*, 0..1 e 0..* para indicar cardinalidade entre as classes.
+Por exemplo:
+</p>
+
+<ul>
+<li>Um <strong>Livro</strong> pode possuir vários <strong>Exemplares</strong>.</li>
+<li>Um <strong>Cliente</strong> pode realizar vários <strong>Empréstimos</strong>.</li>
+<li>Um <strong>Empréstimo</strong> pode gerar uma <strong>Multa</strong> (0..1).</li>
+<li>Um <strong>Pagamento</strong> está associado a uma <strong>Multa</strong>.</li>
+</ul>
+
+<p>
+Essas relações garantem integridade e organização da lógica do sistema.
+</p>
+</div>
+
+<div class="section">
+<h2>5. Pré-visualização do Diagrama UML</h2>
+
+<div class="pdf-preview">
+<iframe src="Diagrama biblioteca.pdf"></iframe>
+</div>
+
+</div>
+
+<div class="buttons">
+
+<a href="Diagrama biblioteca.pdf" target="_blank" class="btn">
+📄 Abrir PDF Completo
+</a>
+
+<a href="biblioteca.html" class="btn">
+📚 Abrir Aplicação Biblioteca
+</a>
+
+<a href="https://lucid.app/lucidchart/9fdb5c2b-2061-4528-932d-90c7270708cc/edit?invitationId=inv_aeba91cc-7281-4360-bebe-2c595a4f3e0c&page=0_0#" target="_blank" class="btn">
+🌐 Editar no Lucidchart
+</a>
+
+</div>
+
+<footer>
+Projeto Sistema de Biblioteca | Documentação UML | 2026
+</footer>
+
+</div>
+
+</body>
+</html>
