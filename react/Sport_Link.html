@@ -1,0 +1,1077 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sport Link — Guia Detalhado do Código</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel2: #0b0f15;
+      --border: #30363d;
+      --green: #00ff66;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --white: #ffffff;
+      --blue: #5b8dd9;
+      --yellow: #f9e795;
+      --red: #e74c3c;
+      --code: #a5d6a7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    header {
+      padding: 46px 28px 30px;
+      border-bottom: 1px solid var(--border);
+      background: radial-gradient(circle at top left, rgba(0,255,102,.16), transparent 35%), var(--bg);
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 58px);
+      color: var(--green);
+      letter-spacing: -1px;
+    }
+    header p { margin: 10px 0 0; color: var(--muted); font-size: 18px; }
+    .layout { display: grid; grid-template-columns: 285px 1fr; min-height: 100vh; }
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 22px;
+      border-right: 1px solid var(--border);
+      background: rgba(13,17,23,.96);
+    }
+    nav h3 { margin: 0 0 14px; color: var(--white); font-size: 15px; }
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    nav a:hover { background: var(--panel); color: var(--green); }
+    main { padding: 28px; max-width: 1280px; }
+    .section {
+      margin: 0 0 34px;
+      padding: 26px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.18);
+    }
+    .section h2 { margin: 0 0 10px; color: var(--white); font-size: 28px; }
+    .section h2::after { content: ''; display: block; width: 100%; height: 2px; background: var(--green); margin-top: 10px; opacity: .8; }
+    .lead { color: var(--muted); margin: 12px 0 20px; font-size: 15.5px; }
+    .intro-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 24px; }
+    .metric { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .metric strong { display: block; color: var(--green); font-size: 22px; }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .annotated { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .code-row { display: grid; grid-template-columns: 54px minmax(320px, 1fr) minmax(280px, .9fr); border-bottom: 1px solid var(--border); }
+    .code-row:last-child { border-bottom: 0; }
+    .ln {
+      background: #0b0f15;
+      color: var(--muted);
+      padding: 12px 10px;
+      text-align: right;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+    }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+    .code-row pre { background: #0b0f15; color: var(--code); padding: 12px 14px; font-family: Consolas, monospace; font-size: 13px; }
+    .explain { padding: 12px 14px; color: var(--text); background: #111720; font-size: 14px; }
+    code { font-family: Consolas, monospace; color: var(--code); }
+    .flow-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .flow-card { background: #111720; border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+    .flow-card h3 { color: var(--green); margin: 0 0 10px; }
+    .flow-card li { margin: 6px 0; }
+    .big-code, .simple-code {
+      background: #0b0f15;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      overflow: auto;
+      color: var(--code);
+      font-family: Consolas, monospace;
+      font-size: 13px;
+    }
+    .callout {
+      border-left: 4px solid var(--green);
+      background: #101820;
+      padding: 14px 16px;
+      border-radius: 10px;
+      color: var(--text);
+      margin: 18px 0;
+    }
+    .warn { border-left-color: var(--yellow); }
+    .badge { display: inline-block; border: 1px solid var(--green); color: var(--green); padding: 4px 8px; border-radius: 999px; font-size: 12px; margin-right: 6px; }
+    footer { padding: 28px; color: var(--muted); text-align: center; border-top: 1px solid var(--border); }
+    @media (max-width: 950px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+      .intro-grid, .flow-grid { grid-template-columns: 1fr; }
+      .code-row { grid-template-columns: 42px 1fr; }
+      .explain { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sport Link — Guia Detalhado do Código</h1>
+    <p>Explicação quase linha por linha da estrutura do app: navegação, APIs, Supabase, Bolão, Jogar e Joguinho.</p>
+    <div class="intro-grid">
+      <div class="metric"><strong>7</strong><span>arquivos principais explicados</span></div>
+      <div class="metric"><strong>4</strong><span>guias do aplicativo</span></div>
+      <div class="metric"><strong>6+</strong><span>tabelas Supabase</span></div>
+      <div class="metric"><strong>1</strong><span>joguinho com IA e online</span></div>
+    </div>
+  </header>
+  <div class="layout">
+    <nav>
+      <h3>Índice</h3>
+      <a href="#visao-geral">Visão geral</a>
+      <a href="#fluxos-principais">Fluxos principais</a>
+      <a href="#appjs--navegação-principal">App.js</a>
+      <a href="#supabasejs--configurações-e-integrações">supabase.js</a>
+      <a href="#noticiasjs--tela-de-notícias">noticias.js</a>
+      <a href="#bolaojs--grupos-palpites-e-ranking">bolao.js</a>
+      <a href="#jogarjs--mapa-e-peladas">jogar.js</a>
+      <a href="#joguinhojs--minigame-ia-online-e-áudio">joguinho.js</a>
+      <a href="#stylesjs--estilos-globais">styles.js</a>
+      <a href="#sql--banco-de-dados-supabase">SQL explicado</a>
+      <a href="#sql-completo">SQL completo</a>
+      <a href="#conclusao">Conclusão</a>
+    </nav>
+    <main>
+      <section class="section" id="visao-geral">
+        <h2>Visão geral do app</h2>
+        <p class="lead">O Sport Link é um app React Native com Expo dividido em módulos. A navegação fica no <code>App.js</code>, as telas ficam em arquivos separados e as configurações compartilhadas ficam em <code>supabase.js</code> e <code>styles.js</code>.</p>
+        <div class="callout">
+          <strong>Ideia principal:</strong> separar responsabilidades. Assim, Notícias cuida das APIs de conteúdo, Bolão cuida de grupos e palpites, Jogar cuida do mapa/peladas e Joguinho cuida do minigame, áudio, IA e online.
+        </div>
+        <p><span class="badge">React Native</span><span class="badge">Expo</span><span class="badge">Supabase</span><span class="badge">WebView</span><span class="badge">Expo AV</span><span class="badge">AsyncStorage</span></p>
+      </section>
+      
+<section class="section" id="fluxos-principais">
+  <h2>Fluxos principais do app explicados</h2>
+  <p class="lead">Aqui estão os caminhos mais importantes do aplicativo explicados como sequência de eventos.</p>
+  <div class="flow-grid">
+    
+    <div class='flow-card'>
+      <h3>Fluxo da navegação</h3>
+      <ol>
+        <li>O Expo carrega o App.js.</li><li>App.js cria o NavigationContainer.</li><li>Tab.Navigator monta as quatro guias.</li><li>Cada Tab.Screen aponta para um arquivo de tela separado.</li><li>Bolão e Jogar recebem usuarioLogado por props.</li>
+      </ol>
+    </div>
+    
+    
+    <div class='flow-card'>
+      <h3>Fluxo das notícias</h3>
+      <ol>
+        <li>A tela abre e executa useEffect.</li><li>fetchNoticias busca artigos na NewsAPI.</li><li>fetchDadosFutebol busca classificação e jogos na Football-Data.</li><li>Os estados noticias, jogos e classificacao são atualizados.</li><li>FlatList redesenha a tela com os dados novos.</li><li>Ao tocar em uma notícia, WebView abre o link dentro do app.</li>
+      </ol>
+    </div>
+    
+    
+    <div class='flow-card'>
+      <h3>Fluxo do Bolão</h3>
+      <ol>
+        <li>Usuário cadastra ou faz login.</li><li>App salva o usuário em usuarioLogado.</li><li>Usuário cria grupo ou entra com código.</li><li>O app salva vínculo em grupo_membros.</li><li>Jogos são carregados pela Football-Data API.</li><li>Usuário digita placares e salva em bolao.</li><li>Ranking lista os membros do grupo ativo.</li>
+      </ol>
+    </div>
+    
+    
+    <div class='flow-card'>
+      <h3>Fluxo da aba Jogar</h3>
+      <ol>
+        <li>Tela carrega partidas do Supabase.</li><li>Junta partidas reais com peladas mockadas.</li><li>MapView renderiza marcadores usando latitude/longitude.</li><li>Usuário preenche formulário de nova pelada.</li><li>App valida campos e usuário logado.</li><li>Nova partida é inserida na tabela partidas.</li>
+      </ol>
+    </div>
+    
+    
+    <div class='flow-card'>
+      <h3>Fluxo do Joguinho Online</h3>
+      <ol>
+        <li>Jogador cria sala e recebe código.</li><li>Sala é salva na tabela jogo_online_salas.</li><li>Host abre jogo como Verde.</li><li>Convidado entra com código e joga como Vermelho.</li><li>WebView envia estado para o React Native.</li><li>React Native atualiza o estado no Supabase.</li><li>Polling busca o estado e injeta novamente no WebView.</li>
+      </ol>
+    </div>
+    
+    
+    <div class='flow-card'>
+      <h3>Fluxo do áudio do Joguinho</h3>
+      <ol>
+        <li>Expo AV carrega os arquivos mp3.</li><li>HTML Canvas detecta chute, gol ou trave.</li><li>WebView envia mensagem para React Native.</li><li>handleWebViewMessage chama playNativeSound.</li><li>Ao sair da guia, useFocusEffect chama stopAllNativeSounds.</li><li>A torcida para e não toca nas outras páginas.</li>
+      </ol>
+    </div>
+    
+  </div>
+</section>
+
+      
+    <section class="section" id="appjs---navegação-principal">
+      <h2>App.js — Navegação Principal</h2>
+      <p class="lead">Este arquivo é a porta de entrada do app. Ele monta as quatro guias e distribui o usuário logado para as telas que precisam desse estado.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>import React, { useState } from &#x27;react&#x27;;</code></pre>
+          <div class="explain">Importa o React e o hook <strong>useState</strong>, usado para guardar o usuário logado no app inteiro.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>import { NavigationContainer } from &#x27;@react-navigation/native&#x27;;</code></pre>
+          <div class="explain">Importa o container principal de navegação. Ele envolve todas as telas e permite que o React Navigation funcione.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>import { createBottomTabNavigator } from &#x27;@react-navigation/bottom-tabs&#x27;;</code></pre>
+          <div class="explain">Importa o navegador de abas inferiores, usado para criar as guias Notícias, Bolão, Jogar e Joguinho.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>import { Ionicons } from &#x27;@expo/vector-icons&#x27;;</code></pre>
+          <div class="explain">Importa os ícones usados na barra inferior do app.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>import NoticiasScreen from &#x27;./noticias&#x27;;</code></pre>
+          <div class="explain">Importa a tela de notícias do arquivo separado <code>noticias.js</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>import BolaoScreen from &#x27;./bolao&#x27;;</code></pre>
+          <div class="explain">Importa a tela do bolão do arquivo <code>bolao.js</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>import JogarScreen from &#x27;./jogar&#x27;;</code></pre>
+          <div class="explain">Importa a tela de mapa/peladas do arquivo <code>jogar.js</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>import JoguinhoScreen from &#x27;./joguinho&#x27;;</code></pre>
+          <div class="explain">Importa a tela do minijogo do arquivo <code>joguinho.js</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>const Tab = createBottomTabNavigator();</code></pre>
+          <div class="explain">Cria o objeto de navegação por abas. Ele fornece os componentes <code>Tab.Navigator</code> e <code>Tab.Screen</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>export default function App() {</code></pre>
+          <div class="explain">Define o componente principal do aplicativo. É o primeiro componente carregado pelo Expo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>const [usuarioLogado, setUsuarioLogado] = useState(null);</code></pre>
+          <div class="explain">Cria um estado global simples para o usuário logado. Começa como <code>null</code>, ou seja, ninguém está logado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>&lt;NavigationContainer&gt;</code></pre>
+          <div class="explain">Abre o container de navegação. Todas as telas precisam ficar dentro dele.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">13</div>
+          <pre><code>&lt;Tab.Navigator screenOptions={({ route }) =&gt; ({ ... })}&gt;</code></pre>
+          <div class="explain">Cria a barra de abas e define configurações visuais para todas as guias, como cor, altura e ícones.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">14</div>
+          <pre><code>tabBarStyle: { backgroundColor: &#x27;#1E1E1E&#x27;, borderTopWidth: 0, height: 85, paddingBottom: 25 }</code></pre>
+          <div class="explain">Define a aparência escura da barra inferior, mantendo o design do app.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">15</div>
+          <pre><code>tabBarActiveTintColor: &#x27;#00FF66&#x27;</code></pre>
+          <div class="explain">Define o verde neon para a aba ativa.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">16</div>
+          <pre><code>tabBarInactiveTintColor: &#x27;#888&#x27;</code></pre>
+          <div class="explain">Define cinza para abas não selecionadas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">17</div>
+          <pre><code>route.name === &#x27;Notícias&#x27; ? &#x27;newspaper&#x27; : ...</code></pre>
+          <div class="explain">Escolhe dinamicamente o ícone de cada aba de acordo com o nome da rota.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">18</div>
+          <pre><code>if (!focused) iconName += &#x27;-outline&#x27;;</code></pre>
+          <div class="explain">Quando a aba não está ativa, usa a versão contornada do ícone.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">19</div>
+          <pre><code>&lt;Tab.Screen name=&quot;Notícias&quot; component={NoticiasScreen} /&gt;</code></pre>
+          <div class="explain">Registra a tela Notícias como uma aba do app.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">20</div>
+          <pre><code>&lt;Tab.Screen name=&quot;Bolão&quot;&gt;{() =&gt; &lt;BolaoScreen usuarioLogado={usuarioLogado} setUsuarioLogado={setUsuarioLogado} /&gt;}&lt;/Tab.Screen&gt;</code></pre>
+          <div class="explain">Registra o Bolão e passa o usuário logado e a função de login/logout por props.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">21</div>
+          <pre><code>&lt;Tab.Screen name=&quot;Jogar&quot;&gt;{() =&gt; &lt;JogarScreen usuarioLogado={usuarioLogado} /&gt;}&lt;/Tab.Screen&gt;</code></pre>
+          <div class="explain">Registra a tela Jogar e passa o usuário logado para permitir criação de partidas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">22</div>
+          <pre><code>&lt;Tab.Screen name=&quot;Joguinho&quot; component={JoguinhoScreen} /&gt;</code></pre>
+          <div class="explain">Registra o minijogo como quarta aba do aplicativo.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="supabasejs---configurações-e-integrações">
+      <h2>supabase.js — Configurações e Integrações</h2>
+      <p class="lead">Centraliza o cliente Supabase, chaves de API, região do mapa, filtros e utilitários compartilhados.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>import &#x27;react-native-url-polyfill/auto&#x27;;</code></pre>
+          <div class="explain">Carrega um polyfill de URL necessário para o Supabase funcionar corretamente no ambiente React Native/Expo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>import { createClient } from &#x27;@supabase/supabase-js&#x27;;</code></pre>
+          <div class="explain">Importa a função que cria o cliente Supabase usado para consultar e gravar dados no banco.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>export const SUPABASE_URL = &#x27;https://...supabase.co&#x27;;</code></pre>
+          <div class="explain">Guarda a URL do projeto Supabase. É o endereço do backend do app.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>export const SUPABASE_ANON_KEY = &#x27;...&#x27;;</code></pre>
+          <div class="explain">Guarda a chave pública anônima do Supabase. Ela permite acesso conforme as permissões configuradas no banco.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);</code></pre>
+          <div class="explain">Cria e exporta o cliente Supabase. As telas importam esse objeto para fazer <code>select</code>, <code>insert</code>, <code>update</code> e <code>upsert</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>export const NEWS_API_KEY = &#x27;...&#x27;;</code></pre>
+          <div class="explain">Chave usada para consultar notícias na NewsAPI.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>export const FOOTBALL_DATA_TOKEN = &#x27;...&#x27;;</code></pre>
+          <div class="explain">Token utilizado para acessar jogos e classificação na Football-Data API.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>export const MONTES_CLAROS_REGION = { latitude, longitude, latitudeDelta, longitudeDelta };</code></pre>
+          <div class="explain">Define a região inicial do mapa em Montes Claros/MG.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>export const PELADAS_MOCK = [...]</code></pre>
+          <div class="explain">Lista de peladas iniciais usadas para preencher o mapa mesmo antes de existirem dados no Supabase.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>export const FILTROS_NOTICIAS = [...]</code></pre>
+          <div class="explain">Define os filtros da tela Notícias: Tudo, Brasil e Bastidores.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>export const getFlagEmoji = (tla) =&gt; { ... }</code></pre>
+          <div class="explain">Função utilitária que recebe a sigla de uma seleção e retorna a bandeira correspondente.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>return flags[String(tla).toUpperCase()] || &#x27;🏳️&#x27;;</code></pre>
+          <div class="explain">Se a sigla existir, retorna a bandeira. Se não existir, retorna uma bandeira neutra.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="noticiasjs---tela-de-notícias">
+      <h2>noticias.js — Tela de Notícias</h2>
+      <p class="lead">Responsável por buscar notícias, jogos e classificação, além de abrir notícias dentro do app usando WebView.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>const [noticias, setNoticias] = useState([]);</code></pre>
+          <div class="explain">Estado que armazena os artigos retornados pela NewsAPI.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>const [classificacao, setClassificacao] = useState([]);</code></pre>
+          <div class="explain">Estado que armazena a tabela de classificação vinda da Football-Data API.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>const [jogos, setJogos] = useState([]);</code></pre>
+          <div class="explain">Estado que armazena os próximos jogos ou jogos em andamento.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>const [loadingNews, setLoadingNews] = useState(true);</code></pre>
+          <div class="explain">Controla o loading visual enquanto as notícias estão sendo buscadas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>const [refreshing, setRefreshing] = useState(false);</code></pre>
+          <div class="explain">Controla o pull-to-refresh da tela.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>const [filtroAtivo, setFiltroAtivo] = useState(FILTROS_NOTICIAS[0]);</code></pre>
+          <div class="explain">Define o filtro inicial da tela: Tudo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>const fetchNoticias = async (query) =&gt; { ... }</code></pre>
+          <div class="explain">Função assíncrona que busca notícias de acordo com o filtro selecionado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>setLoadingNews(true);</code></pre>
+          <div class="explain">Liga o indicador de carregamento antes da chamada à API.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>fetch(`https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&amp;language=pt...`)</code></pre>
+          <div class="explain">Monta a URL da NewsAPI usando a busca escolhida, idioma português e ordenação por data.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>const data = await res.json();</code></pre>
+          <div class="explain">Converte a resposta HTTP em JSON para acessar os artigos.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>setNoticias(data.articles.filter((art) =&gt; art.urlToImage &amp;&amp; art.title));</code></pre>
+          <div class="explain">Salva apenas notícias com imagem e título, evitando cards quebrados.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>const fetchDadosFutebol = async () =&gt; { ... }</code></pre>
+          <div class="explain">Busca dados de futebol: classificação e partidas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">13</div>
+          <pre><code>fetch(&#x27;https://api.football-data.org/v4/competitions/WC/standings&#x27;, { headers: { &#x27;X-Auth-Token&#x27;: FOOTBALL_DATA_TOKEN } })</code></pre>
+          <div class="explain">Chamada à Football-Data API para obter a classificação da competição WC.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">14</div>
+          <pre><code>setClassificacao(dataTable.standings);</code></pre>
+          <div class="explain">Salva a classificação para renderizar os grupos.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">15</div>
+          <pre><code>fetch(&#x27;https://api.football-data.org/v4/competitions/WC/matches?status=SCHEDULED,IN_PLAY&#x27;, ...)</code></pre>
+          <div class="explain">Busca jogos agendados ou em andamento.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">16</div>
+          <pre><code>setJogos(dataMatches.matches.slice(0, 5));</code></pre>
+          <div class="explain">Mostra apenas os primeiros jogos para não deixar o carrossel pesado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">17</div>
+          <pre><code>useEffect(() =&gt; { fetchNoticias(...); fetchDadosFutebol(); }, []);</code></pre>
+          <div class="explain">Quando a tela abre pela primeira vez, carrega notícias, jogos e classificação.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">18</div>
+          <pre><code>const onRefresh = useCallback(async () =&gt; { ... }, [filtroAtivo]);</code></pre>
+          <div class="explain">Função chamada ao puxar a tela para baixo. Atualiza tudo mantendo o filtro atual.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">19</div>
+          <pre><code>&lt;FlatList data={noticias} renderItem={renderNoticiaCard} ... /&gt;</code></pre>
+          <div class="explain">Renderiza a lista principal de notícias com performance melhor que map simples.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">20</div>
+          <pre><code>&lt;WebView source={{ uri: noticiaUrl }} startInLoadingState /&gt;</code></pre>
+          <div class="explain">Abre a notícia dentro do app sem mandar o usuário para o navegador externo.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="bolaojs---grupos,-palpites-e-ranking">
+      <h2>bolao.js — Grupos, Palpites e Ranking</h2>
+      <p class="lead">Controla login, cadastro, criação de grupos, entrada por código, palpites e ranking.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>const [email, setEmail] = useState(&#x27;&#x27;);</code></pre>
+          <div class="explain">Guarda o e-mail digitado no login/cadastro.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>const [senha, setSenha] = useState(&#x27;&#x27;);</code></pre>
+          <div class="explain">Guarda a senha digitada.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>const [isLoginView, setIsLoginView] = useState(true);</code></pre>
+          <div class="explain">Alterna entre tela de login e cadastro.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>const [meusGrupos, setMeusGrupos] = useState([]);</code></pre>
+          <div class="explain">Lista os grupos dos quais o usuário participa.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>const [grupoUsuario, setGrupoUsuario] = useState(null);</code></pre>
+          <div class="explain">Armazena o grupo atualmente selecionado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>const [jogosApi, setJogosApi] = useState([]);</code></pre>
+          <div class="explain">Armazena os jogos disponíveis para palpite.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>const [palpites, setPalpites] = useState({});</code></pre>
+          <div class="explain">Objeto que guarda temporariamente os placares digitados antes de salvar.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>const handleCadastro = async () =&gt; { ... }</code></pre>
+          <div class="explain">Cria um registro na tabela <code>usuarios</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>supabase.from(&#x27;usuarios&#x27;).insert([{ email, senha }]);</code></pre>
+          <div class="explain">Insere e-mail e senha no banco. Para produção, o ideal é migrar para Supabase Auth.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>const handleLogin = async () =&gt; { ... }</code></pre>
+          <div class="explain">Busca um usuário com e-mail e senha iguais aos digitados.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>supabase.from(&#x27;usuarios&#x27;).select(&#x27;*&#x27;).eq(&#x27;email&#x27;, email).eq(&#x27;senha&#x27;, senha).maybeSingle();</code></pre>
+          <div class="explain">Consulta a tabela usuarios e retorna no máximo um usuário.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>setUsuarioLogado(data);</code></pre>
+          <div class="explain">Ao encontrar usuário, salva no estado global do App.js.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">13</div>
+          <pre><code>const carregarGrupos = useCallback(async () =&gt; { ... });</code></pre>
+          <div class="explain">Busca todos os grupos em que o usuário atual é membro.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">14</div>
+          <pre><code>supabase.from(&#x27;grupo_membros&#x27;).select(&#x27;status, grupos (...)&#x27;).eq(&#x27;usuario_id&#x27;, usuarioLogado.id);</code></pre>
+          <div class="explain">Consulta a tabela de vínculo e já traz os dados do grupo relacionado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">15</div>
+          <pre><code>const codigoAcesso = Math.floor(100000 + Math.random() * 900000).toString();</code></pre>
+          <div class="explain">Gera um código de 6 dígitos para entrar no grupo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">16</div>
+          <pre><code>supabase.from(&#x27;grupos&#x27;).insert([{ nome, codigo_acesso, criador_id }])</code></pre>
+          <div class="explain">Cria o grupo no Supabase.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">17</div>
+          <pre><code>supabase.from(&#x27;grupo_membros&#x27;).insert([{ grupo_id, usuario_id, status: &#x27;aprovado&#x27; }])</code></pre>
+          <div class="explain">Adiciona o criador como membro aprovado automaticamente.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">18</div>
+          <pre><code>const handleEntrarGrupo = async () =&gt; { ... }</code></pre>
+          <div class="explain">Permite entrar em um grupo buscando o código digitado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">19</div>
+          <pre><code>supabase.from(&#x27;grupo_membros&#x27;).upsert({ grupo_id, usuario_id, status: &#x27;aprovado&#x27; });</code></pre>
+          <div class="explain">Usa upsert para evitar duplicar vínculo se o usuário tentar entrar mais de uma vez.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">20</div>
+          <pre><code>const atualizarPalpite = (jogoId, time, valor) =&gt; { ... }</code></pre>
+          <div class="explain">Atualiza o placar digitado para cada time de um jogo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">21</div>
+          <pre><code>supabase.from(&#x27;bolao&#x27;).upsert({ id, usuario_id, grupo_id, jogo, placar_time1, placar_time2 });</code></pre>
+          <div class="explain">Salva ou atualiza o palpite do usuário para aquele jogo/grupo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">22</div>
+          <pre><code>const carregarRanking = useCallback(async () =&gt; { ... });</code></pre>
+          <div class="explain">Busca membros do grupo e monta uma lista de ranking.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="jogarjs---mapa-e-peladas">
+      <h2>jogar.js — Mapa e Peladas</h2>
+      <p class="lead">Mostra partidas no mapa, lista peladas e permite criar uma nova partida.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>const [abaAtiva, setAbaAtiva] = useState(&#x27;Encontrar&#x27;);</code></pre>
+          <div class="explain">Controla se o usuário está vendo o mapa/lista ou o formulário de criação.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>const [partidas, setPartidas] = useState([]);</code></pre>
+          <div class="explain">Armazena partidas vindas do Supabase + peladas mockadas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>const listar = useCallback(async () =&gt; { ... }, []);</code></pre>
+          <div class="explain">Função que busca as partidas cadastradas no banco.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>const { data } = await supabase.from(&#x27;partidas&#x27;).select(&#x27;*&#x27;);</code></pre>
+          <div class="explain">Consulta todas as partidas da tabela <code>partidas</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>setPartidas([...PELADAS_MOCK, ...(data || [])]);</code></pre>
+          <div class="explain">Junta as partidas fixas iniciais com as cadastradas no banco.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>useEffect(() =&gt; { listar(); }, [listar]);</code></pre>
+          <div class="explain">Carrega o mapa e a lista assim que a tela abre.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>const criar = async () =&gt; { ... }</code></pre>
+          <div class="explain">Função chamada ao publicar uma nova partida.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>if (!usuarioLogado) return Alert.alert(&#x27;Aviso&#x27;, &#x27;Faça login no Bolão primeiro.&#x27;);</code></pre>
+          <div class="explain">Impede criação de partidas sem usuário logado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>if (!nomeQuadra || !endereco || !dataHora || !jogadores || !goleiros || !valor) ...</code></pre>
+          <div class="explain">Valida se todos os campos obrigatórios foram preenchidos.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>const lat = -16.7291552 + (Math.random() - 0.5) * 0.03;</code></pre>
+          <div class="explain">Gera latitude aproximada próxima ao centro de Montes Claros. É uma solução temporária sem geocoding real.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>supabase.from(&#x27;partidas&#x27;).insert([{ nome_quadra, endereco, data_hora, jogadores, goleiros, valor, latitude, longitude, criador_id }]);</code></pre>
+          <div class="explain">Insere a nova pelada/partida no Supabase.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>&lt;MapView initialRegion={MONTES_CLAROS_REGION}&gt; ... &lt;/MapView&gt;</code></pre>
+          <div class="explain">Mostra o mapa começando na região definida em <code>supabase.js</code>.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">13</div>
+          <pre><code>partidas.map((p) =&gt; &lt;Marker coordinate={{ latitude: p.latitude, longitude: p.longitude }} /&gt;)</code></pre>
+          <div class="explain">Cria um marcador no mapa para cada partida.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="joguinhojs---minigame,-ia,-online-e-áudio">
+      <h2>joguinho.js — Minigame, IA, Online e Áudio</h2>
+      <p class="lead">Arquivo mais complexo do projeto. Ele une React Native, WebView, Canvas, Expo AV, AsyncStorage e Supabase.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>const [modo, setModo] = useState(null);</code></pre>
+          <div class="explain">Define o modo atual do jogo. Quando é null, mostra o menu. Quando é ai/local/host/guest, abre o campo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>const [diff, setDiff] = useState(&#x27;medio&#x27;);</code></pre>
+          <div class="explain">Guarda a dificuldade escolhida para a IA.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>const [muted, setMuted] = useState(false);</code></pre>
+          <div class="explain">Controla se o áudio está ligado ou mudo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>const [ranking, setRanking] = useState({ ... });</code></pre>
+          <div class="explain">Guarda estatísticas locais: partidas, vitórias vs IA, vitórias online etc.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>const webviewRef = useRef(null);</code></pre>
+          <div class="explain">Referência para conseguir injetar JavaScript dentro do WebView no modo online.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>const intervalRef = useRef(null);</code></pre>
+          <div class="explain">Guarda o setInterval do online para poder limpar ao sair da tela.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>const soundRefs = useRef({});</code></pre>
+          <div class="explain">Guarda os objetos de som carregados pelo Expo AV.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>useFocusEffect(useCallback(() =&gt; { return () =&gt; { stopAllNativeSounds(); ... }; }, []));</code></pre>
+          <div class="explain">Quando a guia Joguinho perde foco, para a torcida e limpa intervalos.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>AsyncStorage.getItem(&#x27;@copa_hub_ranking&#x27;)</code></pre>
+          <div class="explain">Carrega o ranking local salvo no celular.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>AsyncStorage.setItem(&#x27;@copa_hub_ranking&#x27;, JSON.stringify(next));</code></pre>
+          <div class="explain">Salva o ranking atualizado no dispositivo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>Audio.Sound.createAsync(require(&#x27;./assets/sounds/gol.mp3&#x27;), { shouldPlay: false })</code></pre>
+          <div class="explain">Carrega um som do jogo sem tocar imediatamente.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>if (name === &#x27;torcida&#x27;) { ... isLooping: true ... }</code></pre>
+          <div class="explain">A torcida é tratada como som contínuo/loop, diferente de chute e gol.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">13</div>
+          <pre><code>stopAllNativeSounds()</code></pre>
+          <div class="explain">Percorre todos os sons carregados, para cada um e volta a posição para zero.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">14</div>
+          <pre><code>const gerarCodigo = () =&gt; Math.random().toString(36).slice(2, 6).toUpperCase();</code></pre>
+          <div class="explain">Gera um código curto para compartilhar a sala online.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">15</div>
+          <pre><code>supabase.from(&#x27;jogo_online_salas&#x27;).insert({ codigo, estado: estadoInicial, atualizado_em })</code></pre>
+          <div class="explain">Cria uma sala online no banco com estado inicial do jogo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">16</div>
+          <pre><code>setModo(&#x27;host&#x27;);</code></pre>
+          <div class="explain">Define quem criou a sala como host/vermelho? No app atual, host joga como Verde.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">17</div>
+          <pre><code>supabase.from(&#x27;jogo_online_salas&#x27;).select(&#x27;*&#x27;).eq(&#x27;codigo&#x27;, codigo).maybeSingle();</code></pre>
+          <div class="explain">Busca uma sala pelo código informado para permitir entrada do convidado.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">18</div>
+          <pre><code>setModo(&#x27;guest&#x27;);</code></pre>
+          <div class="explain">Define quem entrou na sala como convidado, controlando o outro jogador.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">19</div>
+          <pre><code>setInterval(async () =&gt; { ... select(&#x27;estado&#x27;) ... }, 250);</code></pre>
+          <div class="explain">Faz polling a cada 250ms para sincronizar estado online. Pode evoluir para Supabase Realtime.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">20</div>
+          <pre><code>webviewRef.current?.injectJavaScript(`window.receiveOnlineState(...); true;`);</code></pre>
+          <div class="explain">Envia o estado do Supabase para o jogo rodando dentro do HTML Canvas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">21</div>
+          <pre><code>handleWebViewMessage(event)</code></pre>
+          <div class="explain">Recebe mensagens do jogo HTML para tocar som, vibrar, salvar ranking ou atualizar estado online.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">22</div>
+          <pre><code>if (data?.type === &#x27;sound&#x27;) playNativeSound(data.name);</code></pre>
+          <div class="explain">Quando o HTML avisa que houve chute/gol/trave, o React Native toca o som nativo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">23</div>
+          <pre><code>if (data?.type === &#x27;estado&#x27;) supabase.from(&#x27;jogo_online_salas&#x27;).update(...)</code></pre>
+          <div class="explain">Quando o jogo muda posição/placar/pausa, salva o novo estado no Supabase.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">24</div>
+          <pre><code>buildHtml(modo, diff)</code></pre>
+          <div class="explain">Gera o HTML completo do jogo: campo, física, jogadores, IA, bola, rede, placar e eventos de toque.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">25</div>
+          <pre><code>const AI_CFG = { facil, medio, dificil }</code></pre>
+          <div class="explain">Configura a mini IA, alterando velocidade, erro e capacidade de previsão.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">26</div>
+          <pre><code>stepAI()</code></pre>
+          <div class="explain">Calcula a posição alvo da IA com base na bola e move o jogador vermelho.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">27</div>
+          <pre><code>drawBall()</code></pre>
+          <div class="explain">Desenha a bola branca com manchas/pentágonos para parecer uma bola de futebol.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">28</div>
+          <pre><code>drawNet()</code></pre>
+          <div class="explain">Desenha a rede das traves no Canvas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">29</div>
+          <pre><code>drawPlayer()</code></pre>
+          <div class="explain">Desenha jogador, uniforme, cabeça, pernas, braços e número.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="stylesjs---estilos-globais">
+      <h2>styles.js — Estilos Globais</h2>
+      <p class="lead">O arquivo styles.js centraliza o visual do app. Em vez de explicar cada propriedade repetida, esta seção mostra os principais blocos de estilo e sua função.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>container</code></pre>
+          <div class="explain">Base das telas: fundo escuro, flex: 1 e ajuste do StatusBar.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>header</code></pre>
+          <div class="explain">Topo das telas, com fundo #1E1E1E, alinhamento em linha e borda inferior.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>headerTitle</code></pre>
+          <div class="explain">Título do topo, usado na tela Notícias/Sport Link.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>subTabsContainer / subTabItem</code></pre>
+          <div class="explain">Estilos das abas internas, como 'Meus Palpites' e 'Ranking' ou 'Encontrar' e 'Criar Partida'.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>authContainer / authInput / authButton</code></pre>
+          <div class="explain">Estilos reutilizados na área de login/cadastro e formulários.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>newsCard / newsImage / newsTitle</code></pre>
+          <div class="explain">Estilos dos cards de notícias.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>grupoCard / tableBodyRow / tableCell</code></pre>
+          <div class="explain">Estilos da classificação por grupo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>betCard / scoreInput / btnConfirmar</code></pre>
+          <div class="explain">Estilos dos palpites do Bolão.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>mapContainer / map / peladaCard</code></pre>
+          <div class="explain">Estilos da aba Jogar com mapa e lista de partidas.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>menuContainer / modeCard / rankPanel</code></pre>
+          <div class="explain">Estilos do menu do Joguinho.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>gameContainer / btnVoltar / roomBadge</code></pre>
+          <div class="explain">Estilos usados quando o campo do Joguinho está aberto.</div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="section" id="sql---banco-de-dados-supabase">
+      <h2>SQL — Banco de Dados Supabase</h2>
+      <p class="lead">Estrutura das tabelas utilizadas pelo aplicativo e explicação dos principais campos.</p>
+      <div class="annotated">
+        
+        <div class="code-row">
+          <div class="ln">1</div>
+          <pre><code>create table usuarios (...)</code></pre>
+          <div class="explain">Cria a tabela de usuários usada no login manual do Bolão.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">2</div>
+          <pre><code>id uuid primary key default gen_random_uuid()</code></pre>
+          <div class="explain">Cria um identificador único automático para cada usuário.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">3</div>
+          <pre><code>email text unique not null</code></pre>
+          <div class="explain">Garante que não existam dois usuários com o mesmo e-mail.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">4</div>
+          <pre><code>senha text not null</code></pre>
+          <div class="explain">Guarda a senha. Em produção, o ideal é usar Supabase Auth em vez de senha em texto.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">5</div>
+          <pre><code>create table grupos (...)</code></pre>
+          <div class="explain">Cria os grupos do bolão.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">6</div>
+          <pre><code>codigo_acesso text unique not null</code></pre>
+          <div class="explain">Código único usado para amigos entrarem no grupo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">7</div>
+          <pre><code>create table grupo_membros (...)</code></pre>
+          <div class="explain">Cria a relação entre usuário e grupo.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">8</div>
+          <pre><code>create table bolao (...)</code></pre>
+          <div class="explain">Armazena os palpites de cada usuário.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">9</div>
+          <pre><code>create table partidas (...)</code></pre>
+          <div class="explain">Armazena peladas criadas na aba Jogar.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">10</div>
+          <pre><code>latitude double precision, longitude double precision</code></pre>
+          <div class="explain">Permite exibir a partida no mapa.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">11</div>
+          <pre><code>create table jogo_online_salas (...)</code></pre>
+          <div class="explain">Cria as salas usadas no modo online do Joguinho.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">12</div>
+          <pre><code>estado jsonb not null default &#x27;{}&#x27;::jsonb</code></pre>
+          <div class="explain">Guarda o estado completo do jogo: bola, jogadores, placar, pausa e vencedor.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">13</div>
+          <pre><code>alter table jogo_online_salas disable row level security</code></pre>
+          <div class="explain">Desativa RLS no protótipo para simplificar leitura/escrita da sala.</div>
+        </div>
+        <div class="code-row">
+          <div class="ln">14</div>
+          <pre><code>grant select, insert, update, delete ...</code></pre>
+          <div class="explain">Permite que o app consulte, crie e atualize salas online.</div>
+        </div>
+      </div>
+    </section>
+    
+      
+<section class="section" id="sql-completo">
+  <h2>SQL completo das tabelas principais</h2>
+  <p class="lead">Use estes comandos no Supabase SQL Editor para montar a base do app.</p>
+  <pre class="big-code"><code>create table if not exists public.usuarios (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  senha text not null,
+  criado_em timestamptz not null default now()
+);
+
+create table if not exists public.grupos (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  codigo_acesso text unique not null,
+  tipo text default 'bolao',
+  criador_id uuid,
+  criado_em timestamptz not null default now()
+);
+
+create table if not exists public.grupo_membros (
+  id uuid primary key default gen_random_uuid(),
+  grupo_id uuid not null,
+  usuario_id uuid not null,
+  status text not null default 'aprovado',
+  criado_em timestamptz not null default now()
+);
+
+create table if not exists public.bolao (
+  id text primary key,
+  usuario_id uuid not null,
+  grupo_id uuid not null,
+  jogo text not null,
+  placar_time1 text not null,
+  placar_time2 text not null,
+  criado_em timestamptz not null default now()
+);
+
+create table if not exists public.partidas (
+  id uuid primary key default gen_random_uuid(),
+  nome_quadra text not null,
+  endereco text not null,
+  data_hora text not null,
+  jogadores int,
+  goleiros int,
+  valor text,
+  latitude double precision,
+  longitude double precision,
+  criador_id uuid,
+  criado_em timestamptz not null default now()
+);
+
+create table if not exists public.jogo_online_salas (
+  codigo text primary key,
+  estado jsonb not null default '{}'::jsonb,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+
+alter table public.jogo_online_salas disable row level security;
+
+grant select, insert, update, delete on public.jogo_online_salas to anon;
+grant select, insert, update, delete on public.jogo_online_salas to authenticated;</code></pre>
+</section>
+
+      <section class="section" id="conclusao">
+        <h2>Conclusão</h2>
+        <p class="lead">Este HTML serve como guia de estudo e apresentação técnica. Ele explica o papel de cada arquivo, os principais blocos de código e os fluxos internos do Sport Link.</p>
+        <div class="callout warn">
+          <strong>Observação importante:</strong> alguns pontos do app são ideais para protótipo, como login manual e polling do joguinho online. Para produção, o recomendado é migrar autenticação para Supabase Auth, proteger chaves com variáveis de ambiente e evoluir o online para Supabase Realtime.
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer>
+    Sport Link • Documentação HTML gerada para explicar o código do app • 2026
+  </footer>
+</body>
+</html>

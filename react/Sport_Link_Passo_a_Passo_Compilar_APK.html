@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sport Link — Passo a passo para compilar APK</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel2: #101720;
+      --border: #30363d;
+      --green: #00ff66;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --white: #ffffff;
+      --blue: #5b8dd9;
+      --yellow: #f9e795;
+      --red: #e74c3c;
+      --code: #a5d6a7;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+    }
+    header {
+      padding: 44px 30px 30px;
+      border-bottom: 1px solid var(--border);
+      background: radial-gradient(circle at top left, rgba(0,255,102,.18), transparent 36%), var(--bg);
+    }
+    h1 {
+      margin: 0;
+      color: var(--green);
+      font-size: clamp(32px, 5vw, 56px);
+      letter-spacing: -1px;
+    }
+    header p { color: var(--muted); font-size: 18px; margin: 10px 0 0; }
+    .layout { display: grid; grid-template-columns: 310px 1fr; min-height: 100vh; }
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 22px;
+      border-right: 1px solid var(--border);
+      background: rgba(13,17,23,.98);
+    }
+    nav h3 { color: var(--white); margin: 0 0 14px; }
+    .nav-btn {
+      display: block;
+      width: 100%;
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      text-align: left;
+      padding: 9px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13.5px;
+    }
+    .nav-btn:hover, .nav-btn.active { background: var(--panel); color: var(--green); }
+    main { padding: 28px; max-width: 1320px; }
+    section {
+      scroll-margin-top: 18px;
+      margin-bottom: 30px;
+      padding: 26px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.18);
+    }
+    h2 { color: var(--white); margin: 0 0 10px; font-size: 28px; }
+    h2:after { content: ''; display: block; height: 2px; background: var(--green); margin-top: 10px; }
+    h3 { color: var(--green); }
+    .lead { color: var(--muted); font-size: 15.5px; }
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .card, .step, .flow-card {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .card-icon { font-size: 24px; }
+    .card h3, .step h3, .flow-card h3 { margin: .25rem 0; color: var(--green); }
+    .callout {
+      border-left: 4px solid var(--green);
+      background: #101820;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+    .warn { border-left-color: var(--yellow); }
+    .danger { border-left-color: var(--red); }
+    .code-card {
+      background: #0b0f15;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 14px 0;
+    }
+    .code-title {
+      padding: 10px 14px;
+      color: var(--blue);
+      font-weight: bold;
+      border-bottom: 1px solid var(--border);
+      font-family: Consolas, monospace;
+    }
+    pre {
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    code { color: var(--code); font-family: Consolas, monospace; }
+    .checklist li { margin: 7px 0; }
+    .ok { color: var(--green); font-weight: bold; }
+    .bad { color: var(--red); font-weight: bold; }
+    .muted { color: var(--muted); }
+    .diagram {
+      background: #0b0f15;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      overflow: auto;
+      margin-top: 16px;
+    }
+    footer { padding: 26px; text-align: center; color: var(--muted); border-top: 1px solid var(--border); }
+    @media(max-width:980px) {
+      .layout, .grid2, .grid3 { grid-template-columns: 1fr; }
+      nav { position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Sport Link — Compilar APK com Expo/EAS</h1>
+  <p>Passo a passo completo para gerar o APK Android do Sport Link usando EAS Build no Windows.</p>
+</header>
+<div class="layout">
+  <nav>
+    <h3>Navegação</h3>
+    <button class="nav-btn" data-target="visao">Visão geral</button>
+    <button class="nav-btn" data-target="estrutura">Estrutura da pasta</button>
+    <button class="nav-btn" data-target="arquivos">Arquivos obrigatórios</button>
+    <button class="nav-btn" data-target="appjson">app.json</button>
+    <button class="nav-btn" data-target="packagejson">package.json</button>
+    <button class="nav-btn" data-target="easjson">eas.json</button>
+    <button class="nav-btn" data-target="terminal">Abrir terminal correto</button>
+    <button class="nav-btn" data-target="git">Erro do Git / EAS_NO_VCS</button>
+    <button class="nav-btn" data-target="build">Gerar APK</button>
+    <button class="nav-btn" data-target="fila">Fila do Expo</button>
+    <button class="nav-btn" data-target="download">Baixar APK</button>
+    <button class="nav-btn" data-target="erros">Erros comuns</button>
+    <button class="nav-btn" data-target="final">Checklist final</button>
+  </nav>
+  <main>
+    <section id="visao">
+      <h2>1. Visão geral</h2>
+      <p class="lead">O APK do Sport Link é gerado pelo EAS Build. O projeto é enviado para os servidores da Expo, entra em uma fila, é compilado e no final a Expo libera um link para baixar o arquivo <code>.apk</code>.</p>
+      <div class="grid3">
+        <article class="card"><div class="card-icon">📁</div><h3>Projeto local</h3><p>Você mantém os arquivos do app no computador.</p></article>
+        <article class="card"><div class="card-icon">☁️</div><h3>EAS Build</h3><p>O EAS envia e compila o projeto nos servidores da Expo.</p></article>
+        <article class="card"><div class="card-icon">📲</div><h3>Download APK</h3><p>No final, a Expo mostra um link para baixar o APK.</p></article>
+      </div>
+      <div class="callout">O APK não aparece automaticamente dentro da pasta do projeto. O APK fica disponível para download na página do build da Expo.</div>
+    </section>
+
+    <section id="estrutura">
+      <h2>2. Estrutura correta da pasta</h2>
+      <p class="lead">O comando do EAS precisa ser executado dentro da pasta onde estão <code>App.js</code>, <code>package.json</code>, <code>app.json</code> e <code>eas.json</code>.</p>
+      <pre><code>projeto-pro-4/
+  assets/
+    icon.png
+    adaptive-icon.png
+    splash-icon.png
+    favicon.png
+    sounds/
+      apito.mp3
+      chute.mp3
+      gol.mp3
+      torcida.mp3
+      trave.mp3
+
+  App.js
+  app.json
+  package.json
+  eas.json
+  index.js
+  noticias.js
+  bolao.js
+  jogar.js
+  joguinho.js
+  styles.js
+  supabase.js</code></pre>
+      <div class="callout warn">No seu caso, o caminho correto ficou parecido com: <code>C:\Users\Guilherme_2\Desktop\trabalho proz\projeto-pro-4\projeto-pro-4</code>.</div>
+    </section>
+
+    <section id="arquivos">
+      <h2>3. Arquivos obrigatórios</h2>
+      <ul class="checklist">
+        <li><span class="ok">Obrigatório:</span> <code>App.js</code></li>
+        <li><span class="ok">Obrigatório:</span> <code>package.json</code></li>
+        <li><span class="ok">Obrigatório:</span> <code>app.json</code></li>
+        <li><span class="ok">Obrigatório:</span> <code>eas.json</code></li>
+        <li><span class="ok">Obrigatório:</span> <code>index.js</code></li>
+        <li><span class="ok">Obrigatório:</span> telas do app: <code>noticias.js</code>, <code>bolao.js</code>, <code>jogar.js</code>, <code>joguinho.js</code></li>
+        <li><span class="ok">Obrigatório:</span> arquivos compartilhados: <code>styles.js</code>, <code>supabase.js</code></li>
+        <li><span class="ok">Obrigatório para seu Joguinho:</span> arquivos MP3 dentro de <code>assets/sounds</code></li>
+      </ul>
+    </section>
+
+    <section id="appjson">
+      <h2>4. app.json correto</h2>
+      <p class="lead">O <code>app.json</code> define nome do aplicativo, slug, ícone, splash e pacote Android.</p>
+      <div class="code-card"><div class="code-title">app.json</div><pre><code>{
+  "expo": {
+    "name": "Sport Link",
+    "slug": "sport-link",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#121212"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.sportlink.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#121212"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}</code></pre></div>
+      <div class="callout">O campo <code>android.package</code> é o identificador único do Android: <code>com.sportlink.app</code>.</div>
+    </section>
+
+    <section id="packagejson">
+      <h2>5. package.json correto</h2>
+      <p class="lead">O <code>package.json</code> define dependências e scripts. O script <code>build:apk</code> chama o EAS com o perfil <code>preview</code>.</p>
+      <div class="code-card"><div class="code-title">package.json</div><pre><code>{
+  "name": "sport-link",
+  "version": "1.0.0",
+  "license": "0BSD",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build:apk": "eas build -p android --profile preview"
+  },
+  "dependencies": {
+    "expo": "~54.0.35",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "expo-av": "~16.0.8",
+    "react-native-maps": "1.20.1",
+    "@expo/vector-icons": "^15.0.3",
+    "react-native-paper": "4.9.2",
+    "react-native-screens": "~4.16.0",
+    "react-native-webview": "13.15.0",
+    "@supabase/supabase-js": "latest",
+    "react-native-url-polyfill": "latest",
+    "@react-navigation/native": "latest",
+    "@react-navigation/bottom-tabs": "latest",
+    "react-native-safe-area-context": "~5.6.0",
+    "@react-native-async-storage/async-storage": "2.2.0"
+  },
+  "devDependencies": {},
+  "private": true
+}</code></pre></div>
+    </section>
+
+    <section id="easjson">
+      <h2>6. eas.json correto</h2>
+      <p class="lead">O <code>eas.json</code> define o tipo de build. Para instalar no celular, o perfil <code>preview</code> deve gerar <code>apk</code>.</p>
+      <div class="code-card"><div class="code-title">eas.json</div><pre><code>{
+  "cli": {
+    "version": ">= 5.7.0"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}</code></pre></div>
+      <div class="callout danger">Não use <code>"aab"</code> em <code>buildType</code>. O valor correto é <code>"app-bundle"</code>.</div>
+    </section>
+
+    <section id="terminal">
+      <h2>7. Abrir o terminal na pasta correta</h2>
+      <p class="lead">O erro <code>Run this command inside a project directory</code> acontece quando o CMD está em uma pasta acima da pasta real do projeto.</p>
+      <div class="code-card"><div class="code-title">Entrar na pasta correta</div><pre><code>cd "C:\Users\Guilherme_2\Desktop\trabalho proz\projeto-pro-4\projeto-pro-4"
+dir</code></pre></div>
+      <p>Depois do <code>dir</code>, precisam aparecer:</p>
+      <pre><code>App.js
+app.json
+package.json
+eas.json
+index.js</code></pre>
+      <div class="callout">Outra forma fácil: abra a pasta correta no Explorer, clique na barra de endereço, digite <code>cmd</code> e aperte Enter.</div>
+    </section>
+
+    <section id="git">
+      <h2>8. Erro do Git e EAS_NO_VCS</h2>
+      <p class="lead">Se aparecer erro dizendo que o Git não foi encontrado, use o modo sem controle de versão.</p>
+      <div class="code-card"><div class="code-title">Ativar modo sem Git</div><pre><code>set EAS_NO_VCS=1</code></pre></div>
+      <p>Depois rode o build normalmente:</p>
+      <div class="code-card"><div class="code-title">Build sem Git</div><pre><code>set EAS_NO_VCS=1
+npx eas-cli@latest build -p android --profile preview</code></pre></div>
+      <div class="callout">Esse comando resolveu o erro de Git no seu computador.</div>
+    </section>
+
+    <section id="build">
+      <h2>9. Gerar o APK</h2>
+      <p class="lead">Com tudo pronto, rode os comandos abaixo dentro da pasta correta do projeto.</p>
+      <div class="code-card"><div class="code-title">Comandos recomendados</div><pre><code>npm install
+set EAS_NO_VCS=1
+npx eas-cli@latest login
+npx eas-cli@latest build -p android --profile preview</code></pre></div>
+      <p>Se já estiver logado, pode rodar apenas:</p>
+      <div class="code-card"><div class="code-title">Build direto</div><pre><code>set EAS_NO_VCS=1
+npx eas-cli@latest build -p android --profile preview</code></pre></div>
+    </section>
+
+    <section id="fila">
+      <h2>10. Entendendo a fila do Expo</h2>
+      <p class="lead">Depois que o projeto é enviado, a tela pode mostrar <code>Status: Queued</code> e <code>Free Tier Queue</code>. Isso é normal.</p>
+      <div class="grid2">
+        <article class="step"><h3>Queued</h3><p>O build está aguardando um servidor livre.</p></article>
+        <article class="step"><h3>In progress</h3><p>O servidor da Expo começou a compilar o app.</p></article>
+        <article class="step"><h3>Finished</h3><p>O APK está pronto para download.</p></article>
+        <article class="step"><h3>Failed</h3><p>O build falhou e será necessário olhar os logs.</p></article>
+      </div>
+    </section>
+
+    <section id="download">
+      <h2>11. Baixar o APK</h2>
+      <p class="lead">Quando o build terminar, abra a página do build no Expo e procure o botão de download.</p>
+      <ol>
+        <li>Acesse o link mostrado no terminal.</li>
+        <li>Espere o status ficar como <code>Finished</code> ou <code>Completed</code>.</li>
+        <li>Clique em <code>Download</code>, <code>Download APK</code> ou <code>Install</code>.</li>
+        <li>O arquivo normalmente vai para <code>C:\Users\Guilherme_2\Downloads</code>.</li>
+        <li>Envie o APK para o celular e instale.</li>
+      </ol>
+      <div class="callout warn">No Android, talvez seja necessário permitir instalação de apps desconhecidos.</div>
+    </section>
+
+    <section id="erros">
+      <h2>12. Erros comuns e soluções</h2>
+      <div class="grid2">
+        <article class="step"><h3>Run this command inside a project directory</h3><p>Você está em uma pasta acima. Entre na pasta onde existem <code>package.json</code>, <code>app.json</code> e <code>eas.json</code>.</p></article>
+        <article class="step"><h3>eas não é reconhecido</h3><p>Use <code>npx eas-cli@latest</code> ou feche e abra o CMD depois da instalação.</p></article>
+        <article class="step"><h3>buildType must be one of apk, app-bundle</h3><p>Troque <code>aab</code> por <code>app-bundle</code> no <code>eas.json</code>.</p></article>
+        <article class="step"><h3>git command not found</h3><p>Rode <code>set EAS_NO_VCS=1</code> antes do build.</p></article>
+        <article class="step"><h3>Arquivo de som não encontrado</h3><p>Confira se existem <code>assets/sounds/chute.mp3</code>, <code>gol.mp3</code>, <code>trave.mp3</code>, <code>torcida.mp3</code> e <code>apito.mp3</code>.</p></article>
+        <article class="step"><h3>Ícone ou splash não encontrado</h3><p>Confira se existem <code>assets/icon.png</code>, <code>adaptive-icon.png</code>, <code>splash-icon.png</code> e <code>favicon.png</code>.</p></article>
+      </div>
+    </section>
+
+    <section id="final">
+      <h2>13. Checklist final</h2>
+      <ul class="checklist">
+        <li><span class="ok">OK:</span> Rodar o comando dentro da pasta correta.</li>
+        <li><span class="ok">OK:</span> <code>app.json</code> com nome Sport Link.</li>
+        <li><span class="ok">OK:</span> <code>package.json</code> com dependências.</li>
+        <li><span class="ok">OK:</span> <code>eas.json</code> com <code>preview.android.buildType = apk</code>.</li>
+        <li><span class="ok">OK:</span> <code>assets</code> com imagens.</li>
+        <li><span class="ok">OK:</span> <code>assets/sounds</code> com MP3.</li>
+        <li><span class="ok">OK:</span> usar <code>set EAS_NO_VCS=1</code> se não tiver Git.</li>
+        <li><span class="ok">OK:</span> esperar a fila gratuita da Expo terminar.</li>
+      </ul>
+      <div class="diagram">
+        <svg width="900" height="170" viewBox="0 0 900 170">
+          <rect x="20" y="45" width="150" height="60" rx="12" fill="#161b22" stroke="#00ff66" />
+          <text x="52" y="82" fill="#00ff66" font-size="16">Projeto local</text>
+          <rect x="250" y="45" width="150" height="60" rx="12" fill="#161b22" stroke="#5b8dd9" />
+          <text x="291" y="82" fill="#c9d1d9" font-size="16">EAS Build</text>
+          <rect x="480" y="45" width="150" height="60" rx="12" fill="#161b22" stroke="#f9e795" />
+          <text x="515" y="82" fill="#c9d1d9" font-size="16">Fila Expo</text>
+          <rect x="710" y="45" width="150" height="60" rx="12" fill="#161b22" stroke="#00ff66" />
+          <text x="747" y="82" fill="#00ff66" font-size="16">APK pronto</text>
+          <line x1="170" y1="75" x2="250" y2="75" stroke="#00ff66" stroke-width="2" />
+          <line x1="400" y1="75" x2="480" y2="75" stroke="#00ff66" stroke-width="2" />
+          <line x1="630" y1="75" x2="710" y2="75" stroke="#00ff66" stroke-width="2" />
+          <text x="190" y="62" fill="#8b949e" font-size="12">upload</text>
+          <text x="425" y="62" fill="#8b949e" font-size="12">queue</text>
+          <text x="655" y="62" fill="#8b949e" font-size="12">download</text>
+        </svg>
+      </div>
+    </section>
+  </main>
+</div>
+<footer>Sport Link • Guia de compilação APK • Expo/EAS Build</footer>
+<script>
+  const buttons = document.querySelectorAll('.nav-btn');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const id = btn.getAttribute('data-target');
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        buttons.forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+</script>
+</body>
+</html>
