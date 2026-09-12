@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotoPro - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SDK oficial do Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .hidden-form { display: none; }
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center p-4 bg-[url('https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center relative">
+    
+    <!-- Camada de escurecimento do fundo -->
+    <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"></div>
+
+    <div class="glass w-full max-w-md p-8 rounded-3xl relative z-10 shadow-2xl shadow-black/50">
+        
+        <div class="flex flex-col items-center mb-8">
+            <div class="p-3 bg-red-500 rounded-2xl shadow-lg shadow-red-500/20 mb-3">
+                <i data-lucide="zap" class="text-white fill-white" size="24"></i>
+            </div>
+            <h1 class="text-2xl font-black tracking-tighter italic text-white">MOTOPRO<span class="text-red-500 text-sm ml-1">ERP</span></h1>
+            <p class="text-xs text-slate-400 mt-1">Gestão inteligente para Oficinas</p>
+        </div>
+
+        <!-- FORMULÁRIO DE LOGIN -->
+        <div id="form-login" class="space-y-4">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">E-mail</label>
+                <input type="email" id="login-email" placeholder="seu@email.com" class="w-full bg-black/40 text-white border border-white/10 rounded-xl p-3 outline-none focus:border-red-500 transition-colors">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Senha</label>
+                <input type="password" id="login-senha" placeholder="••••••••" class="w-full bg-black/40 text-white border border-white/10 rounded-xl p-3 outline-none focus:border-red-500 transition-colors">
+            </div>
+            
+            <div id="login-erro" class="text-red-400 text-xs font-bold text-center hidden">Senha ou E-mail incorretos.</div>
+            
+            <button onclick="fazerLogin()" id="btn-login" class="w-full bg-red-600 hover:bg-red-500 py-3.5 rounded-xl font-black text-sm uppercase text-white shadow-lg shadow-red-600/20 transition-colors flex justify-center items-center gap-2 mt-4">
+                Entrar no Sistema <i data-lucide="arrow-right" size="16"></i>
+            </button>
+            
+            <p class="text-xs text-center text-slate-400 mt-4">
+                Dono de Oficina? <button onclick="toggleForms()" class="text-red-400 font-bold hover:underline">Crie sua conta</button>
+            </p>
+        </div>
+
+        <!-- FORMULÁRIO DE CADASTRO (NOVA OFICINA) -->
+        <div id="form-cadastro" class="hidden-form space-y-4">
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nome da Oficina (Fantasia)</label>
+                <input type="text" id="cad-oficina" placeholder="Ex: MotoCerta Imports" class="w-full bg-black/40 text-white border border-white/10 rounded-xl p-3 outline-none focus:border-blue-500">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Seu Nome (Administrador)</label>
+                <input type="text" id="cad-nome" placeholder="Seu nome completo" class="w-full bg-black/40 text-white border border-white/10 rounded-xl p-3 outline-none focus:border-blue-500">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">E-mail</label>
+                <input type="email" id="cad-email" placeholder="seu@email.com" class="w-full bg-black/40 text-white border border-white/10 rounded-xl p-3 outline-none focus:border-blue-500">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Crie uma Senha</label>
+                <input type="password" id="cad-senha" placeholder="No mínimo 6 caracteres" class="w-full bg-black/40 text-white border border-white/10 rounded-xl p-3 outline-none focus:border-blue-500">
+            </div>
+
+            <div id="cad-erro" class="text-red-400 text-xs font-bold text-center hidden">Erro ao cadastrar. Verifique os dados.</div>
+
+            <button onclick="fazerCadastro()" id="btn-cad" class="w-full bg-blue-600 hover:bg-blue-500 py-3.5 rounded-xl font-black text-sm uppercase text-white shadow-lg shadow-blue-600/20 transition-colors flex justify-center items-center mt-4">
+                Criar Minha Conta
+            </button>
+            
+            <p class="text-xs text-center text-slate-400 mt-4">
+                Já tem uma conta? <button onclick="toggleForms()" class="text-blue-400 font-bold hover:underline">Fazer Login</button>
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // =========================================================================
+        // 1. CONFIGURAÇÃO DO SUPABASE (COLOQUE SUAS CHAVES AQUI)
+        // Você pega isso no painel do Supabase em: Project Settings > API
+        // =========================================================================
+    const SUPABASE_URL = 'https://ywtqcselaiygqhvmqqhh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3dHFjc2VsYWl5Z3Fodm1xcWhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMDUwMzgsImV4cCI6MjEwNDc4MTAzOH0.RPoBkH4Vl-1q49R2ItayYTls94h5JGxr4XpWHxLXyp8';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Verifica se já está logado
+        window.onload = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                // Se já estiver logado, manda direto pro sistema!
+                window.location.href = 'app.html'; // ou index.html do PC
+            }
+        };
+
+        // Alternar entre Login e Cadastro
+        function toggleForms() {
+            const formLogin = document.getElementById('form-login');
+            const formCad = document.getElementById('form-cadastro');
+            
+            if(formLogin.classList.contains('hidden-form')) {
+                formLogin.classList.remove('hidden-form');
+                formCad.classList.add('hidden-form');
+            } else {
+                formLogin.classList.add('hidden-form');
+                formCad.classList.remove('hidden-form');
+            }
+        }
+
+        // =========================================================================
+        // FUNÇÃO DE LOGIN
+        // =========================================================================
+        async function fazerLogin() {
+            const email = document.getElementById('login-email').value;
+            const senha = document.getElementById('login-senha').value;
+            const btn = document.getElementById('btn-login');
+            const erroMsg = document.getElementById('login-erro');
+
+            if(!email || !senha) return;
+
+            btn.innerText = "Aguarde...";
+            erroMsg.classList.add('hidden');
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: senha,
+            });
+
+            if (error) {
+                erroMsg.innerText = "E-mail ou senha incorretos!";
+                erroMsg.classList.remove('hidden');
+                btn.innerHTML = `Entrar no Sistema <i data-lucide="arrow-right" size="16"></i>`;
+                lucide.createIcons();
+            } else {
+                // Login deu certo! Redireciona para o sistema
+                window.location.href = 'app.html'; // O nome do arquivo principal do seu sistema
+            }
+        }
+
+        // =========================================================================
+        // FUNÇÃO DE CADASTRO
+        // =========================================================================
+        async function fazerCadastro() {
+            const oficina = document.getElementById('cad-oficina').value;
+            const nome = document.getElementById('cad-nome').value;
+            const email = document.getElementById('cad-email').value;
+            const senha = document.getElementById('cad-senha').value;
+            const btn = document.getElementById('btn-cad');
+            const erroMsg = document.getElementById('cad-erro');
+
+            if(!oficina || !nome || !email || !senha) {
+                erroMsg.innerText = "Preencha todos os campos!";
+                erroMsg.classList.remove('hidden');
+                return;
+            }
+
+            btn.innerText = "Criando ambiente...";
+            erroMsg.classList.add('hidden');
+
+            // 1. Cria o Usuário no sistema de Autenticação do Supabase
+            // Passamos o nome da oficina e o nome do dono nos "metadados" para usarmos no banco depois
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: senha,
+                options: {
+                    data: {
+                        nome_dono: nome,
+                        nome_oficina: oficina,
+                        cargo: 'admin' // O cara que cadastra sempre é o dono/admin
+                    }
+                }
+            });
+
+            if (error) {
+                erroMsg.innerText = error.message;
+                erroMsg.classList.remove('hidden');
+                btn.innerText = "Criar Minha Conta";
+            } else {
+                alert("Conta criada com sucesso! Você já pode fazer login.");
+                toggleForms();
+                document.getElementById('login-email').value = email;
+            }
+        }
+    </script>
+</body>
+</html>
