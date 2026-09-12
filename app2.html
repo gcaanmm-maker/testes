@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoPro App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Biblioteca para ler o QR Code com a câmera do celular -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        .view-content { display: none; padding-bottom: 120px; /* Espaço extra p/ não ficar atrás do menu */ }
+        .view-content.active { display: block; }
+        .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #64748b; font-size: 10px; font-weight: 700; width: 25%; padding: 10px 0; }
+        .nav-btn.active { color: #ef4444; }
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; border: 2px solid #ef4444; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden bg-slate-900">
+
+    <!-- HEADER -->
+    <header class="bg-slate-800 border-b border-white/10 p-4 flex items-center justify-between z-10 shrink-0 shadow-md shadow-black/50">
+        <div class="flex items-center gap-2">
+            <div class="p-1.5 bg-red-500 rounded-lg"><i data-lucide="zap" class="text-white fill-white" size="16"></i></div>
+            <h1 class="text-lg font-black tracking-tighter italic text-white">MOTOPRO<span class="text-red-500 text-[10px] ml-1">APP</span></h1>
+        </div>
+        <div id="status-online" class="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+    </header>
+
+    <!-- ÁREA PRINCIPAL (SCROLLÁVEL) -->
+    <main class="flex-1 overflow-y-auto p-4" id="main-area">
+
+        <!-- TELA: SINCRONIZAÇÃO (HOME) -->
+        <section id="view-sync" class="view-content active space-y-6">
+            <div class="bg-gradient-to-r from-red-600 to-red-800 p-5 rounded-2xl text-white shadow-lg">
+                <h2 class="text-sm font-bold uppercase tracking-wider mb-1 opacity-80">Sistema de Sincronização</h2>
+                <p class="text-xs mb-4">Exporte os dados em um arquivo para atualizar o PC, ou importe o arquivo do PC para cá.</p>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="exportarArquivo()" class="bg-white/20 hover:bg-white/30 p-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors">
+                        <i data-lucide="upload-cloud" size="24"></i>
+                        <span class="text-[10px] font-bold uppercase text-center">Exportar Arquivo<br>(Enviar p/ PC)</span>
+                    </button>
+                    
+                    <label class="bg-black/30 hover:bg-black/40 p-3 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer border border-dashed border-white/30">
+                        <i data-lucide="download-cloud" size="24"></i>
+                        <span class="text-[10px] font-bold uppercase text-center">Importar Arquivo<br>(Receber do PC)</span>
+                        <input type="file" id="import-file" accept=".txt" class="hidden" onchange="importarArquivo(event)">
+                    </label>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-4 rounded-2xl">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">Total Clientes</p>
+                    <h3 class="text-2xl font-black text-white mt-1" id="kpi-clientes">0</h3>
+                </div>
+                <div class="glass p-4 rounded-2xl">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase">Peças Cadastradas</p>
+                    <h3 class="text-2xl font-black text-white mt-1" id="kpi-pecas">0</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- TELA: BALANÇO (LEITOR QR) -->
+        <section id="view-balanco" class="view-content space-y-4">
+            <h2 class="text-xl font-black italic text-white flex items-center gap-2"><i data-lucide="scan-line" class="text-red-500"></i> Balanço de Estoque</h2>
+            <p class="text-xs text-slate-400">Clique no botão abaixo para ligar a câmera, aponte para a etiqueta QR Code da peça e atualize a quantidade.</p>
+            
+            <button id="btn-start-scanner" onclick="iniciarCamera()" class="w-full bg-red-500 p-4 rounded-xl font-black text-sm uppercase text-white shadow-lg shadow-red-500/20 flex justify-center items-center gap-2">
+                <i data-lucide="camera"></i> Ligar Câmera / Escanear
+            </button>
+            <button id="btn-stop-scanner" onclick="pararCamera()" class="hidden w-full bg-slate-700 p-4 rounded-xl font-black text-sm uppercase text-white flex justify-center items-center gap-2">
+                <i data-lucide="camera-off"></i> Fechar Câmera
+            </button>
+
+            <div id="reader-container" class="hidden mt-4">
+                <div id="reader"></div>
+            </div>
+
+            <!-- MODAL DE ATUALIZAÇÃO DO ITEM LIDO -->
+            <div id="card-item-lido" class="hidden glass p-5 rounded-2xl border-l-4 border-red-500 mt-4 space-y-3">
+                <h3 class="text-sm font-bold text-slate-400 uppercase mb-2 border-b border-white/10 pb-2">Peça Encontrada</h3>
+                <input type="hidden" id="balanco-id">
+                
+                <div class="flex justify-between items-start">
+                    <p class="font-black text-lg text-white leading-tight" id="balanco-nome">Nome da Peça</p>
+                    <span class="bg-white/10 text-slate-300 px-2 py-1 rounded text-[10px] font-mono" id="balanco-cod">COD</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 bg-black/30 p-3 rounded-lg border border-white/5">
+                    <div>
+                        <p class="text-[9px] text-slate-400 uppercase font-bold">Custo</p>
+                        <p class="text-xs font-bold text-slate-200" id="balanco-custo">R$ 0,00</p>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-slate-400 uppercase font-bold">Venda</p>
+                        <p class="text-xs font-bold text-green-400" id="balanco-venda">R$ 0,00</p>
+                    </div>
+                </div>
+
+                <!-- CORRIGIDO: BOTÃO GRANDE EMBAIXO DO CAMPO -->
+                <div class="pt-3 border-t border-white/10 mt-2">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-2 text-center">Quantidade Contada (Atual: <span id="balanco-qtd-atual" class="text-white"></span>)</label>
+                    <div class="flex flex-col gap-3">
+                        <input type="number" id="balanco-nova-qtd" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-4 text-center text-3xl font-black outline-none focus:border-red-500">
+                        <button onclick="salvarBalanco()" class="w-full bg-green-500 py-4 rounded-xl font-black text-sm uppercase text-white shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
+                            <i data-lucide="check-circle" size="20"></i> Confirmar Estoque
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TELA: ATENDIMENTO / OS -->
+        <section id="view-os" class="view-content space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-black italic text-white flex items-center gap-2"><i data-lucide="wrench" class="text-blue-500"></i> Atendimentos</h2>
+                <button onclick="abrirModalOS()" class="bg-blue-600 hover:bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg"><i data-lucide="plus"></i></button>
+            </div>
+            
+            <div class="bg-black/30 p-2 rounded-xl border border-white/10 flex gap-2">
+                <input type="text" id="busca-os" oninput="renderizarListaOS()" placeholder="Buscar por placa ou cliente..." class="w-full bg-transparent border-none outline-none text-xs text-white px-2">
+                <i data-lucide="search" class="text-slate-400" size="16"></i>
+            </div>
+
+            <div id="lista-os-app" class="space-y-3 mt-4">
+                <!-- Lista gerada via JS -->
+            </div>
+        </section>
+
+        <!-- TELA: PRONTUÁRIO -->
+        <section id="view-prontuario" class="view-content space-y-4">
+            <h2 class="text-xl font-black italic text-white flex items-center gap-2"><i data-lucide="clipboard-list" class="text-purple-500"></i> Prontuário Rápido</h2>
+            <p class="text-xs text-slate-400">Puxe o histórico da moto na hora em que ela chegar na oficina.</p>
+
+            <div class="flex gap-2">
+                <input type="text" id="app-busca-placa" placeholder="Placa (Ex: ABC1234)" maxlength="7" class="flex-1 bg-black/50 text-white border border-white/20 rounded-xl p-4 text-center text-lg font-mono uppercase outline-none focus:border-purple-500">
+                <button onclick="buscarProntuarioApp()" class="bg-purple-600 px-6 rounded-xl text-white shadow-lg"><i data-lucide="search"></i></button>
+            </div>
+
+            <div id="app-res-prontuario" class="space-y-3 mt-4">
+                <div class="glass p-8 rounded-2xl text-center border border-white/5 opacity-50">
+                    <i data-lucide="search" size="30" class="mx-auto mb-2 text-slate-500"></i>
+                    <p class="text-xs text-slate-400">Digite a placa acima.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bg-slate-900 border-t border-white/10 flex justify-between px-2 pb-safe fixed bottom-0 w-full z-20">
+        <button onclick="switchView('sync')" id="btn-view-sync" class="nav-btn active"><i data-lucide="refresh-cw"></i> Sync</button>
+        <button onclick="switchView('balanco')" id="btn-view-balanco" class="nav-btn"><i data-lucide="scan-line"></i> Balanço</button>
+        <button onclick="switchView('os')" id="btn-view-os" class="nav-btn"><i data-lucide="wrench"></i> OS</button>
+        <button onclick="switchView('prontuario')" id="btn-view-prontuario" class="nav-btn"><i data-lucide="clipboard-list"></i> Prontuário</button>
+    </nav>
+
+    <!-- MODAL DE CRIAÇÃO DE OS NO APP -->
+    <div id="modal-nova-os" class="hidden fixed inset-0 bg-slate-900 z-50 flex flex-col h-full w-full">
+        <header class="bg-slate-800 p-4 flex items-center justify-between border-b border-white/10 shrink-0">
+            <h3 class="text-lg font-black italic text-white" id="titulo-modal-os">Nova OS</h3>
+            <button onclick="fecharModalOS()" class="text-slate-400"><i data-lucide="x"></i></button>
+        </header>
+        
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+            <input type="hidden" id="os-id-edit">
+            
+            <div class="glass p-4 rounded-2xl space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Cliente</label>
+                    <select id="os-cliente" onchange="carregarMotosOSApp()" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none [&>option]:text-black">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Moto / Placa</label>
+                    <select id="os-moto" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none [&>option]:text-black">
+                        <option value="">Selecione o Cliente Primeiro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="glass p-4 rounded-2xl space-y-3">
+                <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                    <h4 class="text-xs font-bold text-slate-300 uppercase">Serviços e Peças</h4>
+                    <span class="text-xs font-black text-red-400" id="os-total-tela">R$ 0,00</span>
+                </div>
+                
+                <!-- Área para inserir itens -->
+                <div class="flex flex-col gap-2">
+                    <select id="os-item-add" class="w-full bg-black/50 text-white border border-white/20 rounded-lg p-3 text-sm outline-none [&>option]:text-black"></select>
+                    <div class="flex gap-2">
+                        <input type="number" id="os-qtd-add" value="1" min="1" class="w-full bg-black/50 text-white border border-white/20 rounded-lg p-3 text-sm outline-none text-center" placeholder="Qtd">
+                        <button onclick="adicionarItemOSApp()" class="bg-blue-600 px-4 rounded-lg text-white font-bold flex gap-2 items-center"><i data-lucide="plus" size="16"></i> ADD</button>
+                    </div>
+                </div>
+
+                <!-- Lista de itens adicionados -->
+                <div id="os-lista-itens-add" class="space-y-2 mt-3 max-h-40 overflow-y-auto pr-1"></div>
+            </div>
+
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Problema / Observação</label>
+                <textarea id="os-obs" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-xs outline-none h-16"></textarea>
+            </div>
+            
+            <div>
+                <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Status</label>
+                <select id="os-status" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none [&>option]:text-black">
+                    <option value="Sem Compromisso">Orçamento (Sem Compromisso)</option>
+                    <option value="Em Andamento">Em Andamento</option>
+                    <option value="Finalizado">Finalizado</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="p-4 bg-slate-800 border-t border-white/10 shrink-0 flex gap-3 pb-safe absolute bottom-0 w-full">
+            <button onclick="salvarOSApp()" class="flex-1 bg-green-600 py-4 rounded-xl font-black text-sm uppercase text-white shadow-lg shadow-green-600/20">Salvar OS</button>
+        </div>
+    </div>
+
+    <!-- Padding para o iPhone Notch (se for pwa) -->
+    <style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+    </style>
+
+    <script>
+        // --- BANCO DE DADOS LOCAL DO APP ---
+        let db = { clientes: [], estoque: [], servicos: [], atendimentos: [], caixa: 0, fornecedores: [], compras: [], agendamentos: [] };
+        let tempItensOS = [];
+        let html5QrCode;
+
+        window.onload = () => {
+            carregarDados();
+            lucide.createIcons();
+        };
+
+        function carregarDados() {
+            const save = localStorage.getItem('motopro_v8_db');
+            if (save) {
+                db = JSON.parse(save);
+                if(!db.fornecedores) db.fornecedores = []; 
+                if(!db.compras) db.compras = []; 
+                if(!db.agendamentos) db.agendamentos = [];
+            }
+            atualizarDash();
+        }
+
+        function salvar() {
+            localStorage.setItem('motopro_v8_db', JSON.stringify(db));
+            atualizarDash();
+        }
+
+        function atualizarDash() {
+            document.getElementById('kpi-clientes').innerText = db.clientes.length;
+            document.getElementById('kpi-pecas').innerText = db.estoque.length;
+            if(document.getElementById('view-os').classList.contains('active')) renderizarListaOS();
+        }
+
+        // --- NAVEGAÇÃO DO APP ---
+        function switchView(view) {
+            document.querySelectorAll('.view-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('view-' + view).classList.add('active');
+            document.getElementById('btn-view-' + view).classList.add('active');
+            
+            if(view === 'os') renderizarListaOS();
+            pararCamera(); // Para a câmera se trocar de tela
+        }
+
+        // --- SISTEMA DE SINCRONIZAÇÃO POR ARQUIVO (.TXT) ---
+        function exportarArquivo() {
+            const dadosStr = localStorage.getItem('motopro_v8_db');
+            if(!dadosStr) return alert("Nenhum dado para exportar.");
+            
+            const hash = btoa(encodeURIComponent(dadosStr));
+            const blob = new Blob([hash], { type: "text/plain;charset=utf-8" });
+            const dataUrl = URL.createObjectURL(blob);
+            
+            const link = document.createElement("a");
+            link.href = dataUrl;
+            link.download = `motopro_sync_${new Date().getTime()}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(dataUrl);
+            alert("Arquivo gerado! Salve-o e envie para o PC.");
+        }
+
+        function importarArquivo(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const conteudo = e.target.result.trim();
+                try {
+                    const decodificado = decodeURIComponent(atob(conteudo));
+                    JSON.parse(decodificado); 
+                    localStorage.setItem('motopro_v8_db', decodificado);
+                    alert("✅ DADOS IMPORTADOS COM SUCESSO!\nSeu app está atualizado.");
+                    window.location.reload();
+                } catch(error) {
+                    alert("❌ Erro! O arquivo selecionado é inválido ou está corrompido.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- MÓDULO BALANÇO (LEITOR DE QR CODE) ---
+        function iniciarCamera() {
+            document.getElementById('btn-start-scanner').classList.add('hidden');
+            document.getElementById('btn-stop-scanner').classList.remove('hidden');
+            document.getElementById('reader-container').classList.remove('hidden');
+            document.getElementById('card-item-lido').classList.add('hidden');
+
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrCode.start({ facingMode: "environment" }, config,
+                (decodedText) => {
+                    pararCamera();
+                    processarLeitura(decodedText);
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                alert("Erro ao abrir câmera. Verifique as permissões ou se está usando HTTPS.");
+                pararCamera();
+            });
+        }
+
+        function pararCamera() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                }).catch(err => console.log(err));
+            }
+            document.getElementById('btn-start-scanner').classList.remove('hidden');
+            document.getElementById('btn-stop-scanner').classList.add('hidden');
+            document.getElementById('reader-container').classList.add('hidden');
+        }
+
+        function processarLeitura(codigo) {
+            const peca = db.estoque.find(p => p.cod === codigo || p.cod === codigo.trim());
+            
+            if (peca) {
+                document.getElementById('balanco-id').value = peca.id;
+                document.getElementById('balanco-nome').innerText = peca.desc;
+                document.getElementById('balanco-cod').innerText = peca.cod;
+                document.getElementById('balanco-custo').innerText = `R$ ${(peca.custo || 0).toFixed(2)}`;
+                document.getElementById('balanco-venda').innerText = `R$ ${(peca.venda || 0).toFixed(2)}`;
+                document.getElementById('balanco-qtd-atual').innerText = peca.qtd;
+                document.getElementById('balanco-nova-qtd').value = peca.qtd;
+                
+                document.getElementById('card-item-lido').classList.remove('hidden');
+                
+                // Rola a tela para focar na edição
+                setTimeout(() => {
+                    document.getElementById('balanco-nova-qtd').focus();
+                    document.getElementById('main-area').scrollTo({top: document.getElementById('main-area').scrollHeight, behavior: 'smooth'});
+                }, 100);
+            } else {
+                alert(`Código '${codigo}' não encontrado no banco de dados!`);
+            }
+        }
+
+        function salvarBalanco() {
+            const id = document.getElementById('balanco-id').value;
+            const novaQtd = parseInt(document.getElementById('balanco-nova-qtd').value);
+            
+            if (isNaN(novaQtd) || novaQtd < 0) return alert("Quantidade inválida!");
+
+            const idx = db.estoque.findIndex(p => p.id == id);
+            if(idx !== -1) {
+                db.estoque[idx].qtd = novaQtd;
+                salvar();
+                document.getElementById('card-item-lido').classList.add('hidden');
+                alert("✅ Estoque Atualizado!\nVocê já pode ler o próximo.");
+            }
+        }
+
+        // --- MÓDULO OS / ATENDIMENTO ---
+        function renderizarListaOS() {
+            const container = document.getElementById('lista-os-app');
+            const busca = document.getElementById('busca-os').value.toLowerCase();
+            
+            const filtrados = db.atendimentos.filter(os => 
+                os.cliente.toLowerCase().includes(busca) || 
+                os.placa.toLowerCase().includes(busca)
+            ).sort((a, b) => b.id - a.id).slice(0, 20); 
+
+            if (filtrados.length === 0) {
+                container.innerHTML = `<p class="text-center text-xs text-slate-400 mt-10">Nenhuma OS encontrada.</p>`;
+                return;
+            }
+
+            container.innerHTML = filtrados.map(os => {
+                let corStatus = os.status === 'Finalizado' ? 'text-green-400' : 'text-yellow-400';
+                return `
+                <div class="glass p-3 rounded-xl border border-white/10 flex flex-col gap-2 relative">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[9px] font-mono text-slate-400 block">${os.data}</span>
+                            <h4 class="font-bold text-white text-sm">${os.cliente}</h4>
+                        </div>
+                        <span class="font-mono text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">${os.placa}</span>
+                    </div>
+                    <div class="flex justify-between items-end border-t border-white/5 pt-2 mt-1">
+                        <span class="text-[10px] font-bold ${corStatus} uppercase">${os.status}</span>
+                        <span class="font-black text-white">R$ ${os.total.toFixed(2)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function abrirModalOS() {
+            document.getElementById('os-id-edit').value = '';
+            tempItensOS = [];
+            
+            document.getElementById('os-cliente').innerHTML = `<option value="">Selecione o Cliente</option>` + db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+            document.getElementById('os-moto').innerHTML = `<option value="">Selecione...</option>`;
+            
+            let itensHtml = `<option value="">Selecionar Peça/Serviço</option>`;
+            db.estoque.forEach(p => itensHtml += `<option value="p_${p.id}">📦 [${p.qtd} un] ${p.desc} - R$ ${(p.venda||0).toFixed(2)}</option>`);
+            db.servicos.forEach(s => itensHtml += `<option value="s_${s.id}">🔧 ${s.desc} - R$ ${s.valor.toFixed(2)}</option>`);
+            document.getElementById('os-item-add').innerHTML = itensHtml;
+
+            document.getElementById('os-obs').value = '';
+            document.getElementById('os-status').value = 'Sem Compromisso';
+            
+            renderItensOSApp();
+            document.getElementById('modal-nova-os').classList.remove('hidden');
+        }
+
+        function fecharModalOS() {
+            document.getElementById('modal-nova-os').classList.add('hidden');
+        }
+
+        function carregarMotosOSApp() {
+            const cliId = document.getElementById('os-cliente').value;
+            const selectMoto = document.getElementById('os-moto');
+            if(!cliId) { selectMoto.innerHTML = `<option value="">Selecione o Cliente Primeiro</option>`; return; }
+            
+            const cli = db.clientes.find(c => c.id == cliId);
+            if(cli.motos.length === 0) {
+                selectMoto.innerHTML = `<option value="">Cliente sem moto cadastrada</option>`;
+            } else {
+                selectMoto.innerHTML = cli.motos.map(m => `<option value="${m.placa}">${m.modelo} - ${m.placa}</option>`).join('');
+            }
+        }
+
+        function adicionarItemOSApp() {
+            const val = document.getElementById('os-item-add').value;
+            const qtd = parseInt(document.getElementById('os-qtd-add').value) || 1;
+            if(!val) return;
+
+            const type = val.split('_')[0];
+            const id = val.split('_')[1];
+            
+            let obj = type === 'p' ? db.estoque.find(x => x.id == id) : db.servicos.find(x => x.id == id);
+            if(!obj) return;
+
+            const preco = type === 'p' ? (obj.venda || 0) : obj.valor;
+
+            const indexExistente = tempItensOS.findIndex(it => it.id == obj.id && it.type === type);
+            if (indexExistente !== -1) {
+                tempItensOS[indexExistente].qtd += qtd;
+            } else {
+                tempItensOS.push({ id: obj.id, type: type, desc: obj.desc, preco: preco, custo: type === 'p' ? obj.custo : 0, qtd: qtd, isAtacado: false });
+            }
+            
+            document.getElementById('os-qtd-add').value = 1;
+            document.getElementById('os-item-add').value = '';
+            renderItensOSApp();
+        }
+
+        function renderItensOSApp() {
+            const container = document.getElementById('os-lista-itens-add');
+            let total = 0;
+            
+            if(tempItensOS.length === 0) {
+                container.innerHTML = `<p class="text-[10px] text-slate-500 text-center">Nenhum item adicionado.</p>`;
+            } else {
+                container.innerHTML = tempItensOS.map((it, i) => {
+                    const sub = it.preco * it.qtd;
+                    total += sub;
+                    return `
+                    <div class="flex justify-between items-center bg-black/40 p-2 rounded-lg text-xs border border-white/5">
+                        <span class="font-bold text-white w-6">${it.qtd}x</span>
+                        <span class="flex-1 text-slate-300 truncate px-1">${it.desc}</span>
+                        <span class="font-bold text-green-400 mr-2">R$ ${sub.toFixed(2)}</span>
+                        <button onclick="tempItensOS.splice(${i},1); renderItensOSApp();" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button>
+                    </div>`;
+                }).join('');
+                lucide.createIcons();
+            }
+            document.getElementById('os-total-tela').innerText = `R$ ${total.toFixed(2)}`;
+        }
+
+        function salvarOSApp() {
+            const cliId = document.getElementById('os-cliente').value;
+            const placa = document.getElementById('os-moto').value;
+            
+            if(!cliId) return alert("Selecione um cliente.");
+            if(tempItensOS.length === 0) return alert("Adicione pelo menos um serviço ou peça.");
+
+            const cli = db.clientes.find(c => c.id == cliId);
+            const total = tempItensOS.reduce((acc, cur) => acc + (cur.preco * cur.qtd), 0);
+            const hoje = new Date().toISOString().split('T')[0];
+            const status = document.getElementById('os-status').value;
+
+            const novaOS = {
+                id: Date.now(),
+                data: hoje,
+                cliId: cliId,
+                cliente: cli.nome,
+                placa: placa || 'N/A',
+                avaria: document.getElementById('os-obs').value,
+                itens: [...tempItensOS],
+                total: total,
+                desconto: 0,
+                status: status
+            };
+
+            if(status === 'Finalizado') {
+                novaOS.itens.forEach(it => {
+                    if(it.type === 'p') {
+                        const prod = db.estoque.find(p => p.id == it.id);
+                        if(prod) prod.qtd -= it.qtd;
+                    }
+                });
+                db.caixa += total;
+                novaOS.metodo = "Dinheiro"; 
+            }
+
+            db.atendimentos.push(novaOS);
+            salvar();
+            fecharModalOS();
+            renderizarListaOS();
+            alert("OS Registrada!");
+        }
+
+        // --- MÓDULO PRONTUÁRIO ---
+        function buscarProntuarioApp() {
+            const placa = document.getElementById('app-busca-placa').value.trim().toUpperCase();
+            const div = document.getElementById('app-res-prontuario');
+            if(!placa) return alert("Digite a placa!");
+
+            const historico = db.atendimentos.filter(o => o.placa === placa).sort((a,b) => b.id - a.id);
+            
+            if(historico.length === 0) {
+                div.innerHTML = `<div class="glass p-5 rounded-2xl text-center"><p class="text-yellow-500 font-bold text-sm">Nenhum Registro</p></div>`;
+                return;
+            }
+
+            div.innerHTML = historico.map(os => `
+                <div class="glass p-4 rounded-xl border-l-4 border-purple-500">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] text-purple-300 font-bold">${os.data.split('-').reverse().join('/')}</span>
+                        <span class="text-[9px] font-bold px-2 py-1 rounded bg-white/10 text-slate-300">${os.status}</span>
+                    </div>
+                    <p class="text-xs font-bold text-white mb-2">${os.cliente}</p>
+                    <div class="bg-black/30 p-2 rounded-lg">
+                        <ul class="text-[10px] text-slate-300 space-y-1">
+                            ${os.itens.map(it => `<li>- ${it.qtd}x ${it.desc}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <p class="text-right font-black text-white mt-2 text-sm">R$ ${os.total.toFixed(2)}</p>
+                </div>
+            `).join('');
+        }
+
+    </script>
+</body>
+</html>
