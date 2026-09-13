@@ -547,52 +547,34 @@
             const peca = db.estoque.find(p => p.cod === codigo || p.cod === codigo.trim());
             if (peca) {
                 const indexExistente = tempItensOS.findIndex(it => it.id == peca.id && it.type === 'p');
+                
+                // Adiciona +1 se já existir na lista, ou insere um novo se não existir
                 if (indexExistente !== -1) tempItensOS[indexExistente].qtd += 1;
                 else tempItensOS.push({ id: peca.id, type: 'p', desc: peca.desc, preco: peca.venda, custo: peca.custo, qtd: 1, isAtacado: false });
                 
+                // Atualiza a lista na tela imediatamente
                 renderItensOSApp();
-                alert(`✅ 1x ${peca.desc} adicionada na OS!`);
+                
+                // Dá um feedback visual rápido no botão sem travar a tela
+                const btnScanner = document.querySelector(`button[onclick="abrirScanner('os')"]`);
+                const textoOriginal = btnScanner.innerHTML;
+                
+                btnScanner.innerHTML = `<i data-lucide="check-circle" size="16"></i> 1x ${peca.desc} adicionada!`;
+                btnScanner.classList.replace('text-red-400', 'text-green-400');
+                btnScanner.classList.replace('bg-red-500/20', 'bg-green-500/20');
+                lucide.createIcons();
+
+                // Volta o botão ao normal após 2 segundos
+                setTimeout(() => {
+                    btnScanner.innerHTML = textoOriginal;
+                    btnScanner.classList.replace('text-green-400', 'text-red-400');
+                    btnScanner.classList.replace('bg-green-500/20', 'bg-red-500/20');
+                    lucide.createIcons();
+                }, 2000);
+
             } else {
                 alert(`Peça (código ${codigo}) não encontrada no estoque!`);
             }
-        }
-
-        function adicionarItemOSApp() {
-            const val = document.getElementById('os-item-add').value;
-            const qtd = parseInt(document.getElementById('os-qtd-add').value) || 1;
-            if(!val) return;
-
-            const type = val.split('_')[0];
-            const id = val.split('_')[1];
-            let obj = type === 'p' ? db.estoque.find(x => x.id == id) : db.servicos.find(x => x.id == id);
-            if(!obj) return;
-
-            const preco = type === 'p' ? (obj.venda || 0) : obj.valor;
-            const indexExistente = tempItensOS.findIndex(it => it.id == obj.id && it.type === type);
-            
-            if (indexExistente !== -1) tempItensOS[indexExistente].qtd += qtd;
-            else tempItensOS.push({ id: obj.id, type: type, desc: obj.desc, preco: preco, custo: type === 'p' ? obj.custo : 0, qtd: qtd, isAtacado: false });
-            
-            document.getElementById('os-qtd-add').value = 1;
-            document.getElementById('os-item-add').value = '';
-            renderItensOSApp();
-        }
-
-        function renderItensOSApp() {
-            const container = document.getElementById('os-lista-itens-add');
-            let total = 0;
-            
-            if(tempItensOS.length === 0) {
-                container.innerHTML = `<p class="text-[10px] text-slate-500 text-center">Nenhum item adicionado.</p>`;
-            } else {
-                container.innerHTML = tempItensOS.map((it, i) => {
-                    const sub = it.preco * it.qtd;
-                    total += sub;
-                    return `<div class="flex justify-between items-center bg-black/40 p-2 rounded-lg text-xs border border-white/5"><span class="font-bold text-white w-6">${it.qtd}x</span><span class="flex-1 text-slate-300 truncate px-1">${it.desc}</span><span class="font-bold text-green-400 mr-2">R$ ${sub.toFixed(2)}</span><button onclick="tempItensOS.splice(${i},1); renderItensOSApp();" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button></div>`;
-                }).join('');
-                lucide.createIcons();
-            }
-            document.getElementById('os-total-tela').innerText = `R$ ${total.toFixed(2)}`;
         }
 
         // --- CHECKLIST ---
