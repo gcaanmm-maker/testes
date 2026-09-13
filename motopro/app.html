@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Moto Pro App</title>
+    <title>MotoPro App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -223,15 +223,21 @@
                     <span class="text-xs font-black text-red-400" id="os-total-tela">R$ 0,00</span>
                 </div>
                 
-                <button onclick="abrirScanner('os')" class="w-full bg-red-500/20 text-red-400 border border-red-500/30 p-3 rounded-lg text-xs font-bold flex justify-center items-center gap-2 mb-2">
+                <button onclick="abrirScanner('os')" class="w-full bg-red-500/20 text-red-400 border border-red-500/30 p-3 rounded-lg text-xs font-bold flex justify-center items-center gap-2 mb-2 transition-colors duration-300">
                     <i data-lucide="scan-line" size="16"></i> Bipar Peça (QR Code)
                 </button>
 
-                <div class="flex flex-col gap-2">
+                <div class="flex flex-col gap-3 mt-2">
                     <select id="os-item-add" class="w-full bg-black/50 text-white border border-white/20 rounded-lg p-3 text-sm outline-none [&>option]:text-black"></select>
+                    
+                    <label class="flex items-center gap-2 text-[10px] font-bold text-slate-300 uppercase cursor-pointer w-fit">
+                        <input type="checkbox" id="os-is-atacado" class="w-4 h-4 accent-red-500 rounded cursor-pointer">
+                        Aplicar Preço de Atacado (P/ Peças)
+                    </label>
+
                     <div class="flex gap-2">
                         <input type="number" id="os-qtd-add" value="1" min="1" class="w-16 bg-black/50 text-white border border-white/20 rounded-lg p-3 text-sm outline-none text-center" placeholder="Qtd">
-                        <button onclick="adicionarItemOSApp()" class="flex-1 bg-blue-600 rounded-lg text-white font-bold text-xs uppercase flex justify-center items-center gap-2 shadow-lg"><i data-lucide="plus" size="16"></i> Adicionar Item</button>
+                        <button onclick="adicionarItemOSApp()" class="flex-1 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-bold text-xs uppercase flex justify-center items-center gap-2 shadow-lg transition-colors"><i data-lucide="plus" size="16"></i> Adicionar Item</button>
                     </div>
                 </div>
                 <div id="os-lista-itens-add" class="space-y-2 mt-3 max-h-40 overflow-y-auto pr-1"></div>
@@ -244,17 +250,59 @@
                 </div>
                 <div>
                     <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Status</label>
-                    <select id="os-status" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none font-bold text-blue-400 [&>option]:text-black">
+                    <select id="os-status" onchange="aoMudarStatusOS()" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none font-bold text-blue-400 [&>option]:text-black">
                         <option value="Sem Compromisso">Orçamento (Sem Compromisso)</option>
                         <option value="Em Andamento">Em Andamento</option>
                         <option value="Finalizado">Finalizado (Pago)</option>
                     </select>
                 </div>
             </div>
+
+            <!-- SEÇÃO DE PAGAMENTO DENTRO DO APP (OCULTA POR PADRÃO, ABRE SE FOR 'FINALIZADO') -->
+            <div id="secao-pagamento-app" class="glass p-4 rounded-2xl space-y-3 hidden border-l-4 border-green-500">
+                <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                    <h4 class="text-xs font-bold text-green-400 uppercase flex items-center gap-1"><i data-lucide="credit-card" size="14"></i> Forma de Pagamento</h4>
+                    <span id="pgto-status-valida" class="text-[10px] font-bold text-slate-400">Total OS: R$ 0,00</span>
+                </div>
+                
+                <!-- Modo Único de Pagamento -->
+                <div id="pgto-modo-simples">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Forma Única</label>
+                    <select id="os-metodo-unico" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none [&>option]:text-black">
+                        <option value="Dinheiro">💵 Dinheiro</option>
+                        <option value="PIX">⚡ PIX</option>
+                        <option value="Cartão de Crédito">💳 Cartão de Crédito</option>
+                        <option value="Cartão de Débito">💳 Cartão de Débito</option>
+                    </select>
+                </div>
+
+                <div class="pt-1">
+                    <button type="button" onclick="alternarModoPagamento()" id="btn-toggle-multi-pgto" class="text-[10px] text-blue-400 font-bold underline">
+                        Dividir em múltiplos métodos de pagamento
+                    </button>
+                </div>
+
+                <!-- Modo Múltiplo de Pagamento (Dividir Conta) -->
+                <div id="pgto-modo-multi" class="hidden space-y-3 pt-2">
+                    <div class="flex gap-2">
+                        <select id="multi-pgto-metodo" class="flex-1 bg-black/50 text-white border border-white/20 rounded-lg p-3 text-xs outline-none [&>option]:text-black">
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="PIX">PIX</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                        </select>
+                        <input type="number" id="multi-pgto-valor" step="0.01" placeholder="R$ Valor" class="w-24 bg-black/50 text-white border border-white/20 rounded-lg p-3 text-xs outline-none text-center">
+                        <button type="button" onclick="adicionarPagamentoMulti()" class="bg-green-600 px-4 rounded-lg text-white font-bold text-xs uppercase shadow flex items-center justify-center"><i data-lucide="plus" size="16"></i></button>
+                    </div>
+
+                    <div id="lista-multi-pagamentos" class="space-y-2 max-h-32 overflow-y-auto"></div>
+                </div>
+            </div>
+
         </div>
 
         <div class="p-4 bg-slate-800 border-t border-white/10 shrink-0 flex gap-3 pb-safe absolute bottom-0 w-full">
-            <button onclick="salvarOSNuvem()" class="flex-1 bg-green-600 py-4 rounded-xl font-black text-sm uppercase text-white shadow-lg flex justify-center items-center gap-2">
+            <button onclick="salvarOSNuvem()" class="flex-1 bg-green-600 hover:bg-green-500 transition-colors py-4 rounded-xl font-black text-sm uppercase text-white shadow-lg flex justify-center items-center gap-2">
                 <i data-lucide="save"></i> Salvar na Nuvem
             </button>
         </div>
@@ -266,10 +314,10 @@
         
         <div class="space-y-6 flex-1">
             <div class="grid grid-cols-2 gap-3 text-xs text-white font-semibold">
-                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5"><input type="checkbox" id="chk-arranhoes" class="w-5 h-5 accent-blue-500"> Arranhões</label>
-                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5"><input type="checkbox" id="chk-amassado" class="w-5 h-5 accent-blue-500"> Amassado</label>
-                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5"><input type="checkbox" id="chk-pintura" class="w-5 h-5 accent-blue-500"> Pintura Queimada</label>
-                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5"><input type="checkbox" id="chk-retrovisor" class="w-5 h-5 accent-blue-500"> Retrovisor Quebrado</label>
+                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"><input type="checkbox" id="chk-arranhoes" class="w-5 h-5 accent-blue-500"> Arranhões</label>
+                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"><input type="checkbox" id="chk-amassado" class="w-5 h-5 accent-blue-500"> Amassado</label>
+                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"><input type="checkbox" id="chk-pintura" class="w-5 h-5 accent-blue-500"> Pintura Queimada</label>
+                <label class="flex items-center gap-2 bg-white/5 p-4 rounded-xl border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"><input type="checkbox" id="chk-retrovisor" class="w-5 h-5 accent-blue-500"> Retrov. Quebrado</label>
             </div>
             
             <div class="bg-black/40 p-5 rounded-2xl border border-white/5">
@@ -281,8 +329,8 @@
             </div>
         </div>
 
-        <button onclick="salvarChecklistApp()" class="w-full bg-blue-600 p-4 rounded-xl font-black text-sm uppercase text-white shadow-lg mt-auto pb-safe">
-            Confirmar Vistoria
+        <button onclick="salvarChecklistApp()" class="w-full bg-blue-600 hover:bg-blue-500 transition-colors p-4 rounded-xl font-black text-sm uppercase text-white shadow-lg mt-auto pb-safe">
+            ConfirmarVistoria
         </button>
     </div>
 
@@ -295,8 +343,10 @@
         let oficinaAtiva = null;
         let db = { clientes: [], estoque: [], servicos: [], atendimentos: [], caixa: 0 };
         let tempItensOS = [];
+        let tempPagamentosOS = [];
+        let eMultiPagamento = false;
         let html5QrCode;
-        let scannerModo = ''; // 'balanco' ou 'os'
+        let scannerModo = ''; 
         let realtimeTimeout = null;
         
         let checklistOS = { arranhoes: false, amassado: false, pintura: false, retrovisor: false, combustivel: "2" };
@@ -383,11 +433,22 @@
                 db.caixa = caixaData ? parseFloat(caixaData.saldo) || 0 : 0;
 
                 db.clientes = (cliRes.data || []).map(c => ({ id: c.id, nome: c.nome, motos: (motRes.data || []).filter(m => m.cliente_id === c.id).map(m => ({ modelo: m.modelo, placa: m.placa })) }));
-                db.estoque = (estRes.data || []).map(p => ({ id: p.id, desc: p.descricao, cod: p.codigo_qr||'', qtd: p.qtd||0, custo: parseFloat(p.custo)||0, venda: parseFloat(p.preco_venda)||0 }));
+                
+                db.estoque = (estRes.data || []).map(p => ({ 
+                    id: p.id, 
+                    desc: p.descricao, 
+                    cod: p.codigo_qr||'', 
+                    qtd: p.qtd||0, 
+                    custo: parseFloat(p.custo)||0, 
+                    venda: parseFloat(p.preco_venda)||0,
+                    atacado: parseFloat(p.preco_atacado)||0 
+                }));
+                
                 db.servicos = (serRes.data || []).map(s => ({ id: s.id, desc: s.descricao, valor: parseFloat(s.valor)||0 }));
+                
                 db.atendimentos = (ornRes.data || []).map(o => {
                     const cliData = db.clientes.find(c => c.id === o.cliente_id);
-                    return { id: o.id, data: o.data_criacao ? o.data_criacao.split('T')[0] : '', cliId: o.cliente_id, cliente: cliData ? cliData.nome : 'Cliente Deletado', placa: o.placa || '', itens: (o.os_itens || []).map(i => ({ id: i.item_id, type: i.tipo === 'peca' ? 'p' : 's', desc: i.descricao, preco: parseFloat(i.preco_unitario), qtd: i.qtd })), total: parseFloat(o.total)||0, status: o.status }
+                    return { id: o.id, data: o.data_criacao ? o.data_criacao.split('T')[0] : '', cliId: o.cliente_id, cliente: cliData ? cliData.nome : 'Cliente Deletado', placa: o.placa || '', itens: (o.os_itens || []).map(i => ({ id: i.item_id, type: i.tipo === 'peca' ? 'p' : 's', desc: i.descricao, preco: parseFloat(i.preco_unitario), qtd: i.qtd, isAtacado: i.is_atacado || false })), total: parseFloat(o.total)||0, status: o.status }
                 });
 
                 atualizarDash();
@@ -514,8 +575,12 @@
 
         function abrirModalOS() {
             tempItensOS = [];
+            tempPagamentosOS = [];
+            eMultiPagamento = false;
             checklistOS = { arranhoes: false, amassado: false, pintura: false, retrovisor: false, combustivel: "2" };
             atualizarBotaoChecklistUI();
+            
+            document.getElementById('os-is-atacado').checked = false; 
 
             document.getElementById('os-cliente').innerHTML = `<option value="">Selecione o Cliente</option>` + db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
             document.getElementById('os-moto').innerHTML = `<option value="">Selecione...</option>`;
@@ -527,6 +592,8 @@
 
             document.getElementById('os-obs').value = '';
             document.getElementById('os-status').value = 'Sem Compromisso';
+            
+            aoMudarStatusOS();
             renderItensOSApp();
             document.getElementById('modal-nova-os').classList.remove('hidden');
         }
@@ -542,17 +609,101 @@
             selectMoto.innerHTML = cli.motos.length === 0 ? `<option value="">Sem moto cadastrada</option>` : cli.motos.map(m => `<option value="${m.placa}">${m.modelo} - ${m.placa}</option>`).join('');
         }
 
+        // --- MANIPULAÇÃO DE PAGAMENTO ---
+        function aoMudarStatusOS() {
+            const st = document.getElementById('os-status').value;
+            const sec = document.getElementById('secao-pagamento-app');
+            if(st === 'Finalizado') {
+                sec.classList.remove('hidden');
+                atualizarValidacaoPagamentoUI();
+            } else {
+                sec.classList.add('hidden');
+            }
+        }
+
+        function alternarModoPagamento() {
+            eMultiPagamento = !eMultiPagamento;
+            const divSimples = document.getElementById('pgto-modo-simples');
+            const divMulti = document.getElementById('pgto-modo-multi');
+            const btn = document.getElementById('btn-toggle-multi-pgto');
+
+            if(eMultiPagamento) {
+                divSimples.classList.add('hidden');
+                divMulti.classList.remove('hidden');
+                btn.innerText = "Usar forma de pagamento única";
+                renderPagamentosMulti();
+            } else {
+                divMulti.classList.add('hidden');
+                divSimples.classList.remove('hidden');
+                btn.innerText = "Dividir em múltiplos métodos de pagamento";
+            }
+        }
+
+        function adicionarPagamentoMulti() {
+            const metodo = document.getElementById('multi-pgto-metodo').value;
+            const valor = parseFloat(document.getElementById('multi-pgto-valor').value);
+
+            if(isNaN(valor) || valor <= 0) return alert("Digite um valor válido para o pagamento!");
+
+            tempPagamentosOS.push({ metodo: metodo, valor: valor });
+            document.getElementById('multi-pgto-valor').value = '';
+            renderPagamentosMulti();
+        }
+
+        function removerPagamentoMulti(idx) {
+            tempPagamentosOS.splice(idx, 1);
+            renderPagamentosMulti();
+        }
+
+        function renderPagamentosMulti() {
+            const container = document.getElementById('lista-multi-pagamentos');
+            if(tempPagamentosOS.length === 0) {
+                container.innerHTML = `<p class="text-[10px] text-slate-500 text-center">Nenhum pagamento inserido.</p>`;
+            } else {
+                container.innerHTML = tempPagamentosOS.map((p, i) => `
+                    <div class="flex justify-between items-center bg-black/40 p-2 rounded-lg text-xs border border-white/5">
+                        <span class="font-bold text-white">${p.metodo}</span>
+                        <span class="font-bold text-green-400">R$ ${p.valor.toFixed(2)}</span>
+                        <button onclick="removerPagamentoMulti(${i})" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            }
+            atualizarValidacaoPagamentoUI();
+        }
+
+        function atualizarValidacaoPagamentoUI() {
+            const totalOS = tempItensOS.reduce((acc, cur) => acc + (cur.preco * cur.qtd), 0);
+            const statusValida = document.getElementById('pgto-status-valida');
+            
+            if(eMultiPagamento) {
+                const totalPago = tempPagamentosOS.reduce((acc, cur) => acc + cur.valor, 0);
+                const restante = totalOS - totalPago;
+                if(Math.abs(restante) < 0.01) {
+                    statusValida.innerHTML = `<span class="text-green-400 font-bold">Total Pago OK!</span>`;
+                } else if(restante > 0) {
+                    statusValida.innerHTML = `<span class="text-yellow-400 font-bold">Falta: R$ ${restante.toFixed(2)}</span>`;
+                } else {
+                    statusValida.innerHTML = `<span class="text-red-400 font-bold">Excesso: R$ ${Math.abs(restante).toFixed(2)}</span>`;
+                }
+            } else {
+                statusValida.innerText = `Total OS: R$ ${totalOS.toFixed(2)}`;
+            }
+        }
+
         // --- SCANNER DENTRO DA OS ---
         function processarLeituraOS(codigo) {
             const peca = db.estoque.find(p => p.cod === codigo || p.cod === codigo.trim());
             if (peca) {
-                const indexExistente = tempItensOS.findIndex(it => it.id == peca.id && it.type === 'p');
+                const isAtacado = document.getElementById('os-is-atacado').checked;
+                const precoDefinido = isAtacado ? (peca.atacado || peca.venda || 0) : (peca.venda || 0);
+                const indexExistente = tempItensOS.findIndex(it => it.id == peca.id && it.type === 'p' && it.isAtacado === isAtacado);
+                
                 if (indexExistente !== -1) tempItensOS[indexExistente].qtd += 1;
-                else tempItensOS.push({ id: peca.id, type: 'p', desc: peca.desc, preco: peca.venda, custo: peca.custo, qtd: 1, isAtacado: false });
+                else tempItensOS.push({ id: peca.id, type: 'p', desc: peca.desc, preco: precoDefinido, custo: peca.custo, qtd: 1, isAtacado: isAtacado });
                 
                 renderItensOSApp();
                 
-                // Feedback visual silencioso no botão
                 const btnScanner = document.querySelector(`button[onclick="abrirScanner('os')"]`);
                 const textoOriginal = btnScanner.innerHTML;
                 
@@ -574,9 +725,12 @@
             }
         }
 
+        // --- ADIÇÃO MANUAL NA OS ---
         function adicionarItemOSApp() {
             const val = document.getElementById('os-item-add').value;
             const qtd = parseInt(document.getElementById('os-qtd-add').value) || 1;
+            const isAtacado = document.getElementById('os-is-atacado').checked;
+
             if(!val) return;
 
             const type = val.split('_')[0];
@@ -584,14 +738,16 @@
             let obj = type === 'p' ? db.estoque.find(x => x.id == id) : db.servicos.find(x => x.id == id);
             if(!obj) return;
 
-            const preco = type === 'p' ? (obj.venda || 0) : obj.valor;
-            const indexExistente = tempItensOS.findIndex(it => it.id == obj.id && it.type === type);
+            const preco = type === 'p' ? (isAtacado ? (obj.atacado || obj.venda || 0) : (obj.venda || 0)) : obj.valor;
+            const indexExistente = tempItensOS.findIndex(it => it.id == obj.id && it.type === type && it.isAtacado === isAtacado);
             
             if (indexExistente !== -1) tempItensOS[indexExistente].qtd += qtd;
-            else tempItensOS.push({ id: obj.id, type: type, desc: obj.desc, preco: preco, custo: type === 'p' ? obj.custo : 0, qtd: qtd, isAtacado: false });
+            else tempItensOS.push({ id: obj.id, type: type, desc: obj.desc, preco: preco, custo: type === 'p' ? obj.custo : 0, qtd: qtd, isAtacado: type === 'p' ? isAtacado : false });
             
             document.getElementById('os-qtd-add').value = 1;
             document.getElementById('os-item-add').value = '';
+            document.getElementById('os-is-atacado').checked = false;
+            
             renderItensOSApp();
         }
 
@@ -605,11 +761,13 @@
                 container.innerHTML = tempItensOS.map((it, i) => {
                     const sub = it.preco * it.qtd;
                     total += sub;
-                    return `<div class="flex justify-between items-center bg-black/40 p-2 rounded-lg text-xs border border-white/5"><span class="font-bold text-white w-6">${it.qtd}x</span><span class="flex-1 text-slate-300 truncate px-1">${it.desc}</span><span class="font-bold text-green-400 mr-2">R$ ${sub.toFixed(2)}</span><button onclick="tempItensOS.splice(${i},1); renderItensOSApp();" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button></div>`;
+                    const badgeAtacado = it.isAtacado ? `<span class="bg-red-500/20 text-red-400 text-[8px] font-black px-1 rounded ml-1 tracking-widest">ATAC</span>` : '';
+                    return `<div class="flex justify-between items-center bg-black/40 p-2 rounded-lg text-xs border border-white/5"><span class="font-bold text-white w-6">${it.qtd}x</span><span class="flex-1 text-slate-300 truncate px-1">${it.desc} ${badgeAtacado}</span><span class="font-bold text-green-400 mr-2">R$ ${sub.toFixed(2)}</span><button onclick="tempItensOS.splice(${i},1); renderItensOSApp();" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button></div>`;
                 }).join('');
                 lucide.createIcons();
             }
             document.getElementById('os-total-tela').innerText = `R$ ${total.toFixed(2)}`;
+            atualizarValidacaoPagamentoUI();
         }
 
         // --- CHECKLIST ---
@@ -646,16 +804,36 @@
             lucide.createIcons();
         }
 
+        // --- SALVAR OS NA NUVEM ---
         async function salvarOSNuvem() {
             const cliId = document.getElementById('os-cliente').value;
             const placa = document.getElementById('os-moto').value;
             if(!cliId) return alert("Selecione um cliente.");
             if(tempItensOS.length === 0) return alert("Adicione pelo menos um serviço ou peça.");
 
-            toggleLoading(true);
             const total = tempItensOS.reduce((acc, cur) => acc + (cur.preco * cur.qtd), 0);
             const hoje = new Date().toISOString().split('T')[0];
             const status = document.getElementById('os-status').value;
+
+            let finalPagamentos = [];
+            let metodoTexto = 'N/A';
+
+            if(status === 'Finalizado') {
+                if(eMultiPagamento) {
+                    const totalPago = tempPagamentosOS.reduce((acc, cur) => acc + cur.valor, 0);
+                    if(Math.abs(total - totalPago) > 0.05) {
+                        return alert(`O valor dos pagamentos (R$ ${totalPago.toFixed(2)}) não bate com o valor total da OS (R$ ${total.toFixed(2)}).`);
+                    }
+                    finalPagamentos = [...tempPagamentosOS];
+                    metodoTexto = tempPagamentosOS.map(p => p.metodo).join(', ');
+                } else {
+                    const metodoUnico = document.getElementById('os-metodo-unico').value;
+                    finalPagamentos = [{ metodo: metodoUnico, valor: total }];
+                    metodoTexto = metodoUnico;
+                }
+            }
+
+            toggleLoading(true);
 
             const osPayload = {
                 oficina_id: oficinaAtiva,
@@ -666,13 +844,10 @@
                 checklist: checklistOS,
                 total: total,
                 desconto: 0,
-                status: status
+                status: status,
+                metodo: metodoTexto,
+                pagamentos: finalPagamentos
             };
-            
-            if(status === 'Finalizado') {
-                osPayload.metodo = "Dinheiro";
-                osPayload.pagamentos = [{metodo: 'Dinheiro', valor: total}];
-            }
 
             const { data: novaOS, error: errOS } = await supabaseClient.from('ordens_servico').insert([osPayload]).select().single();
             
@@ -689,11 +864,12 @@
                 qtd: it.qtd,
                 preco_unitario: it.preco,
                 custo: it.custo,
-                is_atacado: false
+                is_atacado: it.isAtacado
             }));
 
             await supabaseClient.from('os_itens').insert(itensPayload);
 
+            // Atualiza Saldo de Caixa e Estoque se a OS foi finalizada
             if(status === 'Finalizado') {
                 await atualizarSaldoCaixa(db.caixa + total);
                 for(let it of tempItensOS) {
@@ -723,7 +899,7 @@
                 return;
             }
 
-            div.innerHTML = historico.map(os => `<div class="glass p-4 rounded-xl border-l-4 border-purple-500"><div class="flex justify-between items-start mb-2"><span class="text-[10px] text-purple-300 font-bold">${os.data.split('-').reverse().join('/')}</span><span class="text-[9px] font-bold px-2 py-1 rounded bg-white/10 text-slate-300">${os.status}</span></div><p class="text-xs font-bold text-white mb-2">${os.cliente}</p><div class="bg-black/30 p-2 rounded-lg"><ul class="text-[10px] text-slate-300 space-y-1">${os.itens.map(it => `<li>- ${it.qtd}x ${it.desc}</li>`).join('')}</ul></div><p class="text-right font-black text-white mt-2 text-sm">R$ ${os.total.toFixed(2)}</p></div>`).join('');
+            div.innerHTML = historico.map(os => `<div class="glass p-4 rounded-xl border-l-4 border-purple-500"><div class="flex justify-between items-start mb-2"><span class="text-[10px] text-purple-300 font-bold">${os.data.split('-').reverse().join('/')}</span><span class="text-[9px] font-bold px-2 py-1 rounded bg-white/10 text-slate-300">${os.status}</span></div><p class="text-xs font-bold text-white mb-2">${os.cliente}</p><div class="bg-black/30 p-2 rounded-lg"><ul class="text-[10px] text-slate-300 space-y-1">${os.itens.map(it => `<li>- ${it.qtd}x ${it.desc} ${it.isAtacado ? '<span class="text-red-400 font-black">[ATAC]</span>' : ''}</li>`).join('')}</ul></div><p class="text-right font-black text-white mt-2 text-sm">R$ ${os.total.toFixed(2)}</p></div>`).join('');
         }
     </script>
 </body>
