@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KidsPro - Gestão e PDV (Supabase)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; overflow: hidden; }
+        .glass { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .active-nav { background: rgba(168, 85, 247, 0.2); border-left: 4px solid #a855f7; color: #a855f7; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        input[type=range] { accent-color: #a855f7; }
+        input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden" id="app-body">
+
+    <!-- MENU LATERAL -->
+    <aside class="w-64 glass h-full flex flex-col p-4 gap-2 z-10 shrink-0 overflow-y-auto" id="sidebar">
+        <div class="flex flex-col gap-2 mb-1">
+            <div class="flex items-center gap-3 shrink-0"><div class="p-1.5 bg-purple-500 rounded-lg shadow-lg shadow-purple-500/20"><i data-lucide="store" class="text-white" size="18"></i></div><h1 class="text-lg font-black tracking-tighter italic text-white">KIDS<span class="text-purple-400">PRO</span></h1></div>
+            <img id="app-logo" src="logo.png" alt="Logo" class="w-full max-w-[120px] mx-auto rounded-xl object-contain bg-white/5 p-1.5 border border-white/10 mt-2" onerror="this.style.display='none'">
+        </div>
+        <nav class="flex flex-col gap-0.5 shrink-0 mt-4">
+            <button onclick="window.switchTab('pdv')" id="btn-pdv" class="flex items-center gap-2 p-2 rounded-lg transition-all hover:bg-white/10 active-nav"><i data-lucide="shopping-cart" size="14"></i> <span class="text-xs font-semibold">Frente de Caixa (PDV)</span></button>
+            <button onclick="window.switchTab('clientes')" id="btn-clientes" class="flex items-center gap-2 p-2 rounded-lg transition-all hover:bg-white/10"><i data-lucide="users" size="14"></i> <span class="text-xs font-semibold">Clientes & Fiado</span></button>
+            <button onclick="window.switchTab('estoque')" id="btn-estoque" class="flex items-center gap-2 p-2 rounded-lg transition-all hover:bg-white/10"><i data-lucide="tag" size="14"></i> <span class="text-xs font-semibold">Estoque de Produtos</span></button>
+            <button onclick="window.switchTab('relatorios')" id="btn-relatorios" class="flex items-center gap-2 p-2 rounded-lg transition-all hover:bg-white/10"><i data-lucide="bar-chart-2" size="14"></i> <span class="text-xs font-semibold">Dashboard & Relatórios</span></button>
+        </nav>
+        <div class="flex-1 flex flex-col min-h-0 mt-1 border-t border-white/10 pt-2">
+            <h3 class="text-[9px] font-bold text-slate-400 uppercase mb-2 shrink-0 flex items-center gap-2"><i data-lucide="activity" size="12"></i> Últimas Vendas</h3>
+            <div id="dash-atividades" class="space-y-2 overflow-y-auto flex-1 pr-2 pb-2"></div>
+        </div>
+        <div class="mt-auto pt-2 border-t border-white/10 text-center">
+            <div class="text-[10px] text-green-400 font-bold mb-2">Supabase Conectado <i data-lucide="cloud" class="inline" size="12"></i></div>
+        </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="flex-1 flex gap-6 p-6 lg:p-8 overflow-hidden h-full relative" id="main-content">
+        <!-- DASHBOARD CENTRAL LATERAL -->
+        <div class="w-72 flex flex-col gap-5 h-full overflow-y-auto pb-4 shrink-0 pr-1">
+            <div class="glass p-5 rounded-3xl border-l-4 border-green-500 relative flex flex-col gap-2 shrink-0">
+                <div class="flex justify-between items-center"><p class="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Saldo em Caixa</p><button onclick="window.toggleVisibilidadeCaixa()" class="text-slate-400 hover:text-white" id="btn-olho-caixa"><i data-lucide="eye" size="16"></i></button></div>
+                <h2 class="text-2xl font-black text-white" id="dash-caixa">R$ 0,00</h2>
+                <div class="grid grid-cols-2 gap-2 mt-2 border-t border-white/10 pt-3">
+                    <button onclick="window.prepararCaixa('suprimento')" class="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 py-2 rounded-xl text-[10px] font-bold uppercase transition-colors flex flex-col items-center justify-center gap-1"><i data-lucide="arrow-down-circle" size="14"></i> Entrada</button>
+                    <button onclick="window.prepararCaixa('sangria')" class="bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 py-2 rounded-xl text-[10px] font-bold uppercase transition-colors flex flex-col items-center justify-center gap-1"><i data-lucide="arrow-up-circle" size="14"></i> Sangria</button>
+                    <button onclick="window.fecharCaixa()" class="col-span-2 mt-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 py-2.5 rounded-xl text-[10px] font-bold uppercase transition-colors flex items-center justify-center gap-2"><i data-lucide="lock" size="14"></i> Fechar Caixa</button>
+                </div>
+            </div>
+            <div class="glass p-5 rounded-3xl border-l-4 border-purple-500 shrink-0"><p class="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Crediário (Fiado)</p><h2 class="text-2xl font-black text-purple-400" id="dash-credito">R$ 0,00</h2></div>
+            <div class="glass p-5 rounded-3xl border-l-4 border-yellow-500 flex-1 min-h-[150px] overflow-hidden flex flex-col"><h3 class="text-[10px] font-bold text-yellow-500 uppercase mb-3 flex items-center gap-2 shrink-0 border-b border-white/10 pb-2"><i data-lucide="alert-triangle" size="14"></i> Estoque Baixo</h3><div id="dash-alertas" class="space-y-2 text-xs overflow-y-auto flex-1 pr-1 pb-2"></div></div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto pr-2 pb-10 h-full">
+            
+            <!-- PDV -->
+            <section id="tab-pdv" class="tab-content active space-y-6">
+                <div class="flex justify-between items-center"><h2 class="text-3xl font-black italic text-white">Frente de Caixa</h2><button onclick="window.abrirModalAtendimento()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-black text-sm shadow-lg flex items-center gap-2"><i data-lucide="shopping-cart"></i> Nova Venda</button></div>
+                <div class="glass rounded-3xl overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-white/10 text-slate-200 text-[10px] uppercase font-bold"><tr><th class="p-4">Data</th><th>Cliente</th><th>Status</th><th>Total</th><th>Ações</th></tr></thead><tbody id="lista-atendimentos"></tbody></table></div>
+            </section>
+
+            <!-- CLIENTES -->
+            <section id="tab-clientes" class="tab-content space-y-6">
+                <div class="flex justify-between items-center"><h2 class="text-3xl font-black italic text-white">Clientes</h2><button onclick="window.abrirModalCliente()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg">+ Novo Cliente</button></div>
+                <div class="glass p-3 rounded-2xl border border-white/10 flex items-center gap-3"><i data-lucide="search" class="text-slate-400 ml-2" size="20"></i><input type="text" id="busca-cliente" oninput="window.atualizarInterface()" placeholder="Buscar..." class="w-full bg-transparent border-none outline-none text-white text-sm"></div>
+                <div id="grid-clientes" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+            </section>
+
+            <!-- ESTOQUE -->
+            <section id="tab-estoque" class="tab-content space-y-6">
+                <div class="flex justify-between items-center"><h2 class="text-3xl font-black italic text-white">Estoque</h2><button onclick="window.abrirModalPeca()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg">+ Novo Produto</button></div>
+                <div class="glass p-3 rounded-2xl border border-white/10 flex items-center gap-3"><i data-lucide="search" class="text-slate-400 ml-2" size="20"></i><input type="text" id="busca-estoque-geral" oninput="window.atualizarInterface()" placeholder="Buscar produto..." class="w-full bg-transparent border-none outline-none text-white text-sm"></div>
+                <div class="glass rounded-3xl p-6 overflow-x-auto"><table class="w-full text-left text-sm"><thead class="text-slate-300 text-[10px] uppercase border-b border-white/10"><tr><th class="pb-3">Cód/Produto</th><th class="pb-3">Cat/Tam</th><th class="pb-3 text-purple-400">Preço (R$)</th><th class="pb-3">Qtd</th><th class="pb-3 text-right">Ações</th></tr></thead><tbody id="lista-pecas"></tbody></table></div>
+            </section>
+
+            <!-- RELATÓRIOS -->
+            <section id="tab-relatorios" class="tab-content space-y-6">
+                <div class="flex flex-col xl:flex-row justify-between xl:items-end gap-4 glass p-4 rounded-3xl border border-white/10">
+                    <h2 class="text-2xl font-black italic text-white flex items-center gap-2"><i data-lucide="bar-chart"></i> Visão Gerencial</h2>
+                    <div class="flex gap-2">
+                        <div><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1">Início</label><input type="date" id="rel-inicio" onchange="window.gerarRelatorio()" class="bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"></div>
+                        <div><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1">Fim</label><input type="date" id="rel-fim" onchange="window.gerarRelatorio()" class="bg-black/40 border border-white/10 rounded-lg p-2 text-xs text-white outline-none"></div>
+                        <button onclick="window.gerarRelatorioPDF()" class="bg-purple-500 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 h-[42px] mt-auto"><i data-lucide="file-text" size="14"></i> PDF</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="glass p-5 rounded-3xl border-b-4 border-green-500"><p class="text-[10px] font-bold uppercase text-slate-300">Faturamento</p><h2 class="text-xl lg:text-2xl font-black text-green-400" id="kpi-faturamento">R$ 0,00</h2></div>
+                    <div class="glass p-5 rounded-3xl border-b-4 border-blue-500"><p class="text-[10px] font-bold uppercase text-slate-300">Lucro Bruto</p><h2 class="text-xl lg:text-2xl font-black text-blue-400" id="kpi-lucro">R$ 0,00</h2></div>
+                    <div class="glass p-5 rounded-3xl border-b-4 border-purple-500"><p class="text-[10px] font-bold uppercase text-slate-300">Ticket Médio</p><h2 class="text-xl lg:text-2xl font-black text-purple-400" id="kpi-ticket">R$ 0,00</h2></div>
+                    <div class="glass p-5 rounded-3xl border-b-4 border-yellow-500"><p class="text-[10px] font-bold uppercase text-slate-300">Em Estoque</p><h2 class="text-xl lg:text-2xl font-black text-white" id="kpi-imobilizado">R$ 0,00</h2></div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
+                    <div class="glass p-6 rounded-3xl border border-white/10 xl:col-span-2 overflow-x-auto"><h3 class="text-sm font-bold text-slate-200 uppercase mb-4 flex items-center gap-2"><i data-lucide="list" size="16"></i> Relatório de Vendas</h3><table class="w-full text-left text-sm"><thead class="bg-white/10 text-slate-200 text-[10px] uppercase font-bold"><tr><th class="p-3">Data</th><th class="p-3">Cliente</th><th class="p-3">Método</th><th class="p-3 text-right">Desc.</th><th class="p-3 text-right">Total</th></tr></thead><tbody id="lista-relatorio-vendas"></tbody></table></div>
+                    <div class="glass p-6 rounded-3xl flex flex-col gap-4 border border-white/10 xl:col-span-1"><h3 class="text-sm font-bold text-slate-200 uppercase flex items-center gap-2 border-b border-white/10 pb-2"><i data-lucide="qr-code" size="16"></i> Etiquetas em Lote</h3><div class="flex-1 max-h-64 overflow-y-auto bg-black/40 rounded-lg p-2 border border-white/10 space-y-1" id="lista-etiquetas-selecao"></div><button onclick="window.imprimirEtiquetasLote()" class="bg-purple-600 hover:bg-purple-500 px-6 py-3 rounded-lg font-bold text-xs text-white shadow-lg mt-auto">🖨️ Imprimir Selecionadas</button></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- OS MODAIS ESTÃO AQUI: -->
+    <!-- Modal Atendimento -->
+    <div id="modal-atendimento" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-2 md:p-4"><div class="glass w-full max-w-6xl h-[95vh] lg:h-[90vh] rounded-3xl p-4 md:p-6 flex flex-col lg:flex-row gap-4 md:gap-6"><div class="flex-1 flex flex-col gap-4"><div class="flex justify-between items-start"><h3 class="text-2xl font-black italic text-white">Frente de Caixa</h3><input type="date" id="orc-data" class="bg-white/10 text-white rounded-lg p-2 text-xs outline-none"></div><div class="grid grid-cols-1 gap-3"><label class="text-[10px] font-bold text-slate-300 uppercase -mb-2">Cliente</label><select id="orc-cliente" class="bg-white/10 text-white border border-white/10 rounded-xl p-3 text-sm [&>option]:text-black"></select></div><div class="flex flex-col md:flex-row gap-3 items-end glass p-4 rounded-2xl border border-white/5 mt-2"><div class="flex-1 w-full"><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1">Buscar / Bipar</label><input type="text" id="orc-busca" placeholder="🔍 Produto ou código..." onkeydown="window.handleBuscaOrc(event)" oninput="window.filtrarSelectOrc()" class="w-full bg-white/10 text-white rounded-lg p-2.5 text-sm mb-2 outline-none"><select id="orc-item-select" class="w-full bg-black/40 text-white rounded-lg p-2.5 text-sm outline-none [&>option]:text-white"></select></div><div class="w-16"><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1 text-center">Qtd</label><input type="number" id="orc-item-qtd" value="1" min="1" class="w-full bg-white/10 text-white rounded-lg p-2.5 text-sm text-center"></div><button onclick="window.adicionarItemAoOrc()" class="bg-purple-500 hover:bg-purple-600 p-2.5 rounded-lg text-white w-full md:w-auto h-[42px]"><i data-lucide="plus"></i></button></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/5 p-4 rounded-3xl mt-auto border border-white/10"><div class="space-y-2"><div class="flex justify-between text-xs font-bold text-slate-300 uppercase items-center"><span>Desconto (R$)</span><input type="number" id="orc-desconto" value="0" oninput="window.calcularTotalOrc()" class="bg-black/40 text-white text-right w-24 rounded-lg p-1.5 outline-none"></div><div class="flex justify-between text-lg font-black text-white pt-2 border-t border-white/10"><span>Total a Pagar</span><span id="orc-total-final" class="text-purple-400">R$ 0,00</span></div></div><div class="flex flex-col gap-2 justify-end"><button onclick="window.abrirFinalizacao()" class="bg-green-500 hover:bg-green-600 p-3 rounded-xl font-black text-sm text-white uppercase flex items-center justify-center gap-2"><i data-lucide="check-circle" size="18"></i> Ir para Pagamento</button></div></div><button onclick="window.fecharModal('modal-atendimento')" class="text-slate-400 hover:text-white text-[10px] font-bold text-center p-2">← Cancelar e Fechar</button></div><div class="w-full lg:w-[400px] lg:h-full bg-black/20 border border-white/5 rounded-3xl p-5 flex flex-col gap-4 shadow-xl"><h3 class="text-sm font-bold text-slate-200 uppercase border-b border-white/10 pb-2 flex justify-between items-center">Cesta <span class="text-[10px] bg-white/10 px-2 py-1 rounded-full text-slate-300" id="orc-qtd-itens">0 itens</span></h3><div class="flex-1 overflow-y-auto space-y-2 pr-2" id="orc-itens-lista"></div></div></div></div>
+    
+    <!-- Modal Pagamento Múltiplo -->
+    <div id="modal-pagamento" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4"><div class="glass w-full max-w-md rounded-3xl p-8 space-y-5"><h3 class="text-xl font-black italic text-green-500 uppercase flex justify-between"><span>Recebimento</span><span class="text-sm font-bold text-white bg-white/10 px-3 py-1 rounded-lg" id="pag-valor-total">R$ 0,00</span></h3><div id="lista-pagamentos-multiplos" class="space-y-3 max-h-48 overflow-y-auto pr-1"></div><button onclick="window.adicionarLinhaPagamento()" class="w-full bg-white/5 border border-dashed border-white/20 p-2 rounded-xl text-xs text-blue-400 font-bold hover:bg-white/10">+ Adicionar Forma de Pagamento</button><div class="bg-black/40 p-4 rounded-xl border border-white/5 space-y-2 mt-4"><div class="flex justify-between text-xs font-bold text-slate-300"><span>Total Recebido:</span> <span id="pag-total-recebido" class="text-white">R$ 0,00</span></div><div class="flex justify-between text-sm font-black" id="pag-status-restante"><span class="text-red-400">Falta Pagar:</span> <span class="text-red-400">R$ 0,00</span></div></div><button id="btn-confirma-finalizacao" onclick="window.confirmarFinalizacao()" class="w-full bg-green-600 hover:bg-green-500 transition-colors p-4 rounded-2xl font-black text-white uppercase text-sm shadow-lg">Confirmar Venda</button><button onclick="window.fecharModal('modal-pagamento')" class="w-full text-slate-400 text-xs font-bold hover:text-white">Voltar ao Carrinho</button></div></div>
+    
+    <!-- Modal Recibo e Peca/Produto/Caixa (Compactos para economizar espaço) -->
+    <div id="modal-recibo" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[120] flex items-center justify-center p-4"><div class="glass w-full max-w-sm rounded-3xl p-8 space-y-4 text-center border border-green-500/30"><div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-2"><i data-lucide="check-circle" size="32"></i></div><h3 class="text-2xl font-black italic text-white">Venda Concluída!</h3><input type="hidden" id="last-os-id"><div class="flex flex-col gap-3 mt-6"><button onclick="window.imprimirTermica(document.getElementById('last-os-id').value); window.fecharModal('modal-recibo');" class="w-full bg-purple-600 p-4 rounded-xl font-black text-white uppercase text-sm flex items-center justify-center gap-2"><i data-lucide="printer"></i> Imprimir</button><button onclick="window.fecharModal('modal-recibo')" class="w-full bg-white/10 text-white p-4 rounded-xl font-black uppercase text-sm">Finalizar</button></div></div></div>
+    
+    <div id="modal-peca" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="glass w-full max-w-lg rounded-3xl p-8 space-y-4 max-h-[95vh] overflow-y-auto"><h3 class="text-xl font-black italic text-white" id="titulo-modal-peca">Cadastro de Produto</h3><input type="hidden" id="edit-peca-id"><div class="grid grid-cols-2 gap-4"><input type="text" id="p-desc" placeholder="Nome" class="col-span-2 w-full bg-white/10 text-white rounded-xl p-3 text-sm"><select id="p-categoria" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm [&>option]:text-black"><option value="Roupa">Roupa</option><option value="Acessório">Acessório</option><option value="Brinquedo">Brinquedo</option></select><input type="text" id="p-cod" placeholder="Código" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><input type="text" id="p-tamanho" placeholder="Tamanho" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><input type="text" id="p-cor" placeholder="Cor" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><input type="number" id="p-qtd" placeholder="Quantidade" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><input type="text" id="p-fornecedor" placeholder="Fornecedor" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><div class="col-span-2 grid grid-cols-3 gap-3 mt-2"><div class="bg-white/5 p-3 rounded-xl"><label class="text-[10px] font-bold text-slate-300">Custo (R$)</label><input type="number" id="p-custo" oninput="window.calcularVenda()" class="w-full bg-black/40 text-white rounded-lg p-2 font-black mt-1"></div><div class="bg-blue-500/20 p-3 rounded-xl"><label class="text-[10px] font-bold text-slate-300">Margem (%)</label><input type="number" id="p-margem" oninput="window.calcularVenda()" class="w-full bg-black/40 text-blue-400 rounded-lg p-2 font-black mt-1"></div><div class="bg-purple-500/20 p-3 rounded-xl"><label class="text-[10px] font-bold text-slate-300">Venda (R$)</label><input type="number" id="p-venda" oninput="window.calcularMargem()" class="w-full bg-black/40 text-purple-400 rounded-lg p-2 font-black mt-1"></div></div></div><div class="flex gap-4 pt-4"><button onclick="window.fecharModal('modal-peca')" class="flex-1 text-slate-300 text-xs font-bold">Cancelar</button><button onclick="window.salvarPeca()" class="flex-1 bg-purple-600 p-4 rounded-xl font-black text-xs text-white uppercase shadow-lg">Salvar</button></div></div></div>
+    
+    <div id="modal-caixa" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"><div class="glass w-full max-w-sm rounded-3xl p-8 space-y-5"><h3 class="text-xl font-black italic text-white" id="titulo-modal-caixa">Movimentação</h3><input type="hidden" id="tipo-mov-caixa"><div><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1">Valor (R$)</label><input type="number" id="valor-mov-caixa" placeholder="0.00" class="w-full bg-white/10 text-white rounded-xl p-4 text-3xl font-black text-center"></div><div><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1">Motivo</label><input type="text" id="desc-mov-caixa" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"></div><div class="flex gap-4 pt-2"><button onclick="window.fecharModal('modal-caixa')" class="flex-1 text-slate-300 text-xs font-bold">Cancelar</button><button onclick="window.confirmarMovimentacaoCaixa()" class="flex-1 bg-white/20 p-3 rounded-xl font-black text-xs text-white uppercase">Confirmar</button></div></div></div>
+    
+    <div id="modal-divida" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"><div class="glass w-full max-w-sm rounded-3xl p-8 space-y-5"><h3 class="text-xl font-black italic text-green-400 flex items-center gap-2"><i data-lucide="check-circle" size="20"></i> Receber Fiado</h3><input type="hidden" id="divida-cli-id"><div class="bg-black/20 p-4 rounded-xl border border-white/5 space-y-1"><p class="text-xs text-slate-400">Cliente: <span id="divida-cli-nome" class="font-bold text-white ml-1"></span></p><p class="text-xs text-slate-400">Dívida: <span id="divida-cli-total" class="font-black text-red-400 ml-1"></span></p></div><div><label class="text-[10px] font-bold text-slate-300 uppercase block mb-1">Valor Recebido (R$)</label><input type="number" id="divida-valor-pago" class="w-full bg-white/10 text-green-400 rounded-xl p-4 text-3xl font-black text-center"></div><div class="flex gap-4 pt-2"><button onclick="window.fecharModal('modal-divida')" class="flex-1 text-slate-300 text-xs font-bold">Cancelar</button><button onclick="window.confirmarPagamentoDivida()" class="flex-1 bg-green-600 p-3 rounded-xl font-black text-xs text-white">Baixa</button></div></div></div>
+    
+    <div id="modal-cliente" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="glass w-full max-w-md rounded-3xl p-8 space-y-4"><h3 class="text-xl font-black italic text-purple-400" id="titulo-modal-cli">Cliente</h3><input type="hidden" id="edit-cli-id"><input type="text" id="cli-nome" placeholder="Nome" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><input type="text" id="cli-tel" placeholder="Telefone" class="w-full bg-white/10 text-white rounded-xl p-3 text-sm"><div class="flex gap-4"><button onclick="window.fecharModal('modal-cliente')" class="flex-1 p-3 text-slate-300 text-xs font-bold">Cancelar</button><button onclick="window.salvarCliente()" class="flex-1 bg-purple-500 p-3 rounded-xl font-black text-xs text-white">Salvar</button></div></div></div>
+
+    <script>
+        // CONFIGURAÇÃO SUPABASE
+        const SUPABASE_URL = 'https://ikttfbdtdhvtpmlyxdpl.supabase.co';
+		const SUPABASE_KEY = 'SUA_CHAVE_AQUI...';
+		const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let db = { clientes: [], estoque: [], atendimentos: [], caixa: 0 };
+        let esconderCaixa = false;
+        let pagamentosMultiplos = [];
+        let tempOrc = { itens: [], desconto: 0, total: 0 }; 
+
+        async function carregarBancoSupabase() {
+            try {
+                const [resClientes, resEstoque, resAtendimentos, resCaixa] = await Promise.all([
+                    supabase.from('clientes').select('*').order('nome', { ascending: true }),
+                    supabase.from('estoque').select('*').order('created_at', { ascending: false }),
+                    supabase.from('atendimentos').select('*').order('created_at', { ascending: false }),
+                    supabase.from('caixa_movimentacoes').select('tipo, valor')
+                ]);
+
+                if(resClientes.data) db.clientes = resClientes.data;
+                
+                if(resEstoque.data) {
+                    db.estoque = resEstoque.data.map(p => ({
+                        id: p.id, desc: p.desc_produto, categoria: p.categoria, tamanho: p.tamanho, cor: p.cor, 
+                        cod: p.cod, qtd: p.qtd, custo: parseFloat(p.custo), margem: parseFloat(p.margem), venda: parseFloat(p.venda), fornecedor: p.fornecedor
+                    }));
+                }
+                
+                if(resAtendimentos.data) {
+                    db.atendimentos = resAtendimentos.data.map(a => ({
+                        id: a.id, data: a.data, cliente: a.cliente, itens: a.itens,
+                        total: parseFloat(a.total), custoTotal: parseFloat(a.custo_total), metodo: a.metodo, status: a.status
+                    }));
+                }
+
+                let saldo = 0;
+                if (resCaixa.data) { resCaixa.data.forEach(mov => { saldo += (mov.tipo === 'sangria' ? -parseFloat(mov.valor) : parseFloat(mov.valor)); }); }
+                db.caixa = saldo;
+
+                window.atualizarInterface();
+            } catch (error) { console.error("Erro ao carregar do Supabase:", error); }
+        }
+
+        window.onload = () => {
+            const hoje = new Date(); 
+            document.getElementById('rel-inicio').value = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]; 
+            document.getElementById('rel-fim').value = hoje.toISOString().split('T')[0]; 
+
+            lucide.createIcons();
+            carregarBancoSupabase().then(() => { window.switchTab('pdv'); });
+        };
+
+        window.switchTab = function(tab) { 
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-nav')); 
+            document.getElementById('tab-' + tab).classList.add('active'); 
+            document.getElementById('btn-' + tab).classList.add('active-nav'); 
+            if(tab === 'relatorios') window.gerarRelatorio();
+        }
+        
+        window.abrirModal = function(id) { document.getElementById(id).classList.remove('hidden'); }
+        window.fecharModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+        window.calcularVenda = function() { const custo = parseFloat(document.getElementById('p-custo').value)||0; const margem = parseFloat(document.getElementById('p-margem').value)||0; if (custo > 0) document.getElementById('p-venda').value = (custo + (custo * (margem / 100))).toFixed(2); };
+        window.calcularMargem = function() { const custo = parseFloat(document.getElementById('p-custo').value)||0; const venda = parseFloat(document.getElementById('p-venda').value)||0; if (custo > 0) document.getElementById('p-margem').value = (((venda - custo) / custo) * 100).toFixed(2); else document.getElementById('p-margem').value = ""; };
+        window.gerarQRCode = function(texto) { if(!texto || texto.trim() === '') return alert("Sem código."); const win = window.open("", "_blank", "width=300,height=350"); win.document.write(`<html><body style="font-family: sans-serif; text-align: center; display: flex; flex-direction: column; align-items: center; padding-top: 20px;"><button onclick="window.print()" style="margin-bottom: 20px; padding: 10px; background: #a855f7; color: white; border: none; border-radius: 5px; cursor: pointer;">🖨️ Imprimir</button><div id="qrcode"></div><p style="margin-top: 10px; font-weight: bold; font-size: 14px;">Cód: ${texto}</p><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>setTimeout(() => { new QRCode(document.getElementById("qrcode"), { text: "${texto}", width: 128, height: 128 }); }, 500);<\/script></body></html>`); }
+        window.imprimirEtiquetasLote = function() { const checkboxes = document.querySelectorAll('.check-etiqueta:checked'); if(checkboxes.length === 0) return alert("Selecione na lista acima."); const itensSelecionados = Array.from(checkboxes).map(cb => ({ codigo: cb.value && cb.value.trim() !== "" ? cb.value : cb.dataset.desc, descricao: cb.dataset.desc })); const win = window.open("", "_blank"); win.document.write(`<html><head><title>Etiquetas KidsPro</title><style>body { font-family: sans-serif; text-align: center; padding: 20px; } .etiqueta-box { display: inline-block; margin: 10px; border: 1px dashed #ccc; padding: 15px; text-align: center; vertical-align: top; border-radius: 8px; background: #fff; width: 130px; } .descricao { font-size: 11px; margin-top: 8px; font-weight: bold; max-width: 120px; word-wrap: break-word; color: #333; } .btn-imprimir { background: #000; color: #fff; padding: 10px 20px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; margin-bottom: 20px; } @media print { .btn-imprimir { display: none; } .etiqueta-box { border: none; } }</style></head><body><button class="btn-imprimir" onclick="window.print()">🖨️ Imprimir Etiquetas</button><div id="container-qrs"></div><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>const itens = ${JSON.stringify(itensSelecionados)}; const container = document.getElementById('container-qrs'); itens.forEach((item, index) => { const wrapper = document.createElement('div'); wrapper.className = 'etiqueta-box'; const qrDiv = document.createElement('div'); qrDiv.id = 'qr-' + index; qrDiv.style.display = 'flex'; qrDiv.style.justifyContent = 'center'; wrapper.appendChild(qrDiv); const descDiv = document.createElement('div'); descDiv.className = 'descricao'; descDiv.innerText = item.descricao; wrapper.appendChild(descDiv); container.appendChild(wrapper); new QRCode(qrDiv, { text: item.codigo, width: 90, height: 90 }); });<\/script></body></html>`); win.document.close(); }
+
+        // RELATÓRIOS
+        window.gerarRelatorio = function() {
+            const dtInicio = document.getElementById('rel-inicio').value; const dtFim = document.getElementById('rel-fim').value; if(!dtInicio || !dtFim) return; 
+            const vendasFiltradas = db.atendimentos.filter(v => v.data >= dtInicio && v.data <= dtFim);
+            const faturamento = vendasFiltradas.reduce((a, b) => a + b.total, 0); const custoPecasVendidas = vendasFiltradas.reduce((a, b) => a + (b.custoTotal || 0), 0);
+            const lucroBruto = faturamento - custoPecasVendidas; const ticketMedio = vendasFiltradas.length > 0 ? (faturamento / vendasFiltradas.length) : 0;
+            const totImobilizado = db.estoque.reduce((acc, p) => acc + ((p.custo || 0) * (p.qtd || 0)), 0);
+            document.getElementById('kpi-faturamento').innerText = `R$ ${faturamento.toFixed(2)}`; document.getElementById('kpi-lucro').innerText = `R$ ${lucroBruto.toFixed(2)}`; document.getElementById('kpi-ticket').innerText = `R$ ${ticketMedio.toFixed(2)}`; document.getElementById('kpi-imobilizado').innerText = `R$ ${totImobilizado.toFixed(2)}`;
+            if(vendasFiltradas.length === 0) document.getElementById('lista-relatorio-vendas').innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Sem vendas.</td></tr>`;
+            else document.getElementById('lista-relatorio-vendas').innerHTML = vendasFiltradas.map(v => `<tr class="border-b border-white/5 hover:bg-white/10"><td class="p-3 font-mono text-slate-300">${v.data.split('-').reverse().join('/')}</td><td class="p-3 font-bold text-white">${v.cliente}</td><td class="p-3"><span class="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-[10px] font-bold uppercase">${v.metodo}</span></td><td class="p-3 text-right text-red-400">R$ ${Math.max(0, (v.itens.reduce((acc, item) => acc + (item.preco * item.qtd), 0)) - v.total).toFixed(2)}</td><td class="p-3 text-right font-black text-purple-400">R$ ${v.total.toFixed(2)}</td></tr>`).join('');
+        }
+        window.gerarRelatorioPDF = function() { if(typeof window.jspdf === 'undefined') return alert("Lib PDF não carregada."); const { jsPDF } = window.jspdf; const doc = new jsPDF(); const dtInicio = document.getElementById('rel-inicio').value.split('-').reverse().join('/'); const dtFim = document.getElementById('rel-fim').value.split('-').reverse().join('/'); doc.setFontSize(16); doc.text("Relatório KidsPro", 14, 16); doc.setFontSize(10); doc.text(`Período: ${dtInicio} a ${dtFim}`, 14, 22); doc.text(`Faturamento: ${document.getElementById('kpi-faturamento').innerText} | Lucro: ${document.getElementById('kpi-lucro').innerText}`, 14, 35); const vendasPeriodo = db.atendimentos.filter(a => a.data >= document.getElementById('rel-inicio').value && a.data <= document.getElementById('rel-fim').value); const dadosVendas = vendasPeriodo.map(v => [ v.data.split('-').reverse().join('/'), v.cliente, v.metodo, `R$ ${v.total.toFixed(2)}` ]); doc.autoTable({ startY: 45, head: [['Data', 'Cliente', 'Forma', 'Total']], body: dadosVendas, headStyles: { fillColor: [168, 85, 247] } }); doc.save(`Relatorio_Vendas_${dtInicio.replace(/\//g,'-')}.pdf`); }
+
+        // CAIXA SUPABASE
+        window.toggleVisibilidadeCaixa = function() { esconderCaixa = !esconderCaixa; window.atualizarInterface(); }
+        window.prepararCaixa = function(tipo) { document.getElementById('tipo-mov-caixa').value = tipo; window.abrirModal('modal-caixa'); }
+        window.confirmarMovimentacaoCaixa = async function() {
+            const val = parseFloat(document.getElementById('valor-mov-caixa').value) || 0;
+            const tipo = document.getElementById('tipo-mov-caixa').value;
+            const desc = document.getElementById('desc-mov-caixa').value || (tipo==='suprimento' ? 'Entrada Manual' : 'Sangria Manual');
+            if(val <= 0) return alert("Valor deve ser > 0");
+            
+            try {
+                await supabase.from('caixa_movimentacoes').insert([{ tipo, valor: val, descricao: desc }]);
+                window.fecharModal('modal-caixa'); await carregarBancoSupabase();
+            } catch (e) { alert("Erro ao movimentar o caixa."); }
+        }
+        window.fecharCaixa = async function() { 
+            if(confirm(`Zerar o caixa atual de R$ ${db.caixa.toFixed(2)}? O valor será marcado como retirado.`)) { 
+                await supabase.from('caixa_movimentacoes').insert([{ tipo: 'sangria', valor: db.caixa, descricao: 'Fechamento de Caixa Total' }]);
+                await carregarBancoSupabase();
+            } 
+        }
+
+        // CLIENTES SUPABASE
+        window.abrirModalCliente = function(id = null) {
+            if(id) { const cli = db.clientes.find(c => c.id == id); document.getElementById('edit-cli-id').value = cli.id; document.getElementById('cli-nome').value = cli.nome; document.getElementById('cli-tel').value = cli.tel; document.getElementById('titulo-modal-cli').innerText = "Editar Cliente";
+            } else { document.getElementById('edit-cli-id').value = ""; document.getElementById('cli-nome').value = ""; document.getElementById('cli-tel').value = ""; document.getElementById('titulo-modal-cli').innerText = "Novo Cliente"; }
+            window.abrirModal('modal-cliente');
+        }
+        window.salvarCliente = async function() {
+            const id = document.getElementById('edit-cli-id').value; const nome = document.getElementById('cli-nome').value.trim(); const tel = document.getElementById('cli-tel').value.trim();
+            if(!nome) return alert("Nome obrigatório!");
+            try {
+                if(id) await supabase.from('clientes').update({ nome, tel }).eq('id', id);
+                else await supabase.from('clientes').insert([{ nome, tel, divida: 0 }]);
+                window.fecharModal('modal-cliente'); await carregarBancoSupabase();
+            } catch (e) { alert("Erro ao salvar cliente."); }
+        }
+        window.abrirModalReceberDivida = function(id) { const cli = db.clientes.find(c => c.id == id); if(!cli) return; document.getElementById('divida-cli-id').value = cli.id; document.getElementById('divida-cli-nome').innerText = cli.nome; document.getElementById('divida-cli-total').innerText = `R$ ${parseFloat(cli.divida).toFixed(2)}`; document.getElementById('divida-valor-pago').value = parseFloat(cli.divida).toFixed(2); window.abrirModal('modal-divida'); }
+        window.confirmarPagamentoDivida = async function() {
+            const id = document.getElementById('divida-cli-id').value; const valorPago = parseFloat(document.getElementById('divida-valor-pago').value) || 0;
+            const cli = db.clientes.find(c => c.id == id);
+            if(cli && valorPago > 0 && valorPago <= parseFloat(cli.divida)) {
+                try {
+                    await supabase.from('clientes').update({ divida: (parseFloat(cli.divida) - valorPago) }).eq('id', id);
+                    await supabase.from('caixa_movimentacoes').insert([{ tipo: 'suprimento', valor: valorPago, descricao: `Recebimento Fiado - ${cli.nome}` }]);
+                    window.fecharModal('modal-divida'); await carregarBancoSupabase();
+                } catch(e) { alert("Erro ao baixar dívida."); }
+            } else { alert("Valor inválido."); }
+        }
+
+        // PRODUTOS SUPABASE
+        window.abrirModalPeca = function(id = null) {
+            if(id) {
+                const p = db.estoque.find(x => x.id == id);
+                document.getElementById('edit-peca-id').value = p.id; document.getElementById('p-desc').value = p.desc; document.getElementById('p-categoria').value = p.categoria; document.getElementById('p-cod').value = p.cod; document.getElementById('p-tamanho').value = p.tamanho; document.getElementById('p-cor').value = p.cor; document.getElementById('p-qtd').value = p.qtd; document.getElementById('p-custo').value = p.custo; document.getElementById('p-margem').value = p.margem || ""; document.getElementById('p-venda').value = p.venda; document.getElementById('p-fornecedor').value = p.fornecedor || ""; document.getElementById('titulo-modal-peca').innerText = "Editar Produto";
+                window.calcularMargem();
+            } else { document.getElementById('edit-peca-id').value = ""; document.getElementById('p-desc').value = ""; document.getElementById('p-cod').value = ""; document.getElementById('p-tamanho').value = ""; document.getElementById('p-cor').value = ""; document.getElementById('p-qtd').value = ""; document.getElementById('p-custo').value = ""; document.getElementById('p-margem').value = ""; document.getElementById('p-venda').value = ""; document.getElementById('p-fornecedor').value = ""; document.getElementById('titulo-modal-peca').innerText = "Novo Produto"; }
+            window.abrirModal('modal-peca');
+        }
+        window.salvarPeca = async function() {
+            const id = document.getElementById('edit-peca-id').value; const desc = document.getElementById('p-desc').value.trim(); if(!desc) return alert("O nome é obrigatório!");
+            const pData = {
+                desc_produto: desc, categoria: document.getElementById('p-categoria').value, tamanho: document.getElementById('p-tamanho').value, cor: document.getElementById('p-cor').value,
+                cod: document.getElementById('p-cod').value, qtd: parseInt(document.getElementById('p-qtd').value) || 0, custo: parseFloat(document.getElementById('p-custo').value) || 0,
+                margem: parseFloat(document.getElementById('p-margem').value) || 0, venda: parseFloat(document.getElementById('p-venda').value) || 0, fornecedor: document.getElementById('p-fornecedor').value
+            };
+            try {
+                if(id) await supabase.from('estoque').update(pData).eq('id', id); else await supabase.from('estoque').insert([pData]);
+                window.fecharModal('modal-peca'); await carregarBancoSupabase();
+            } catch(e) { alert("Erro ao salvar produto."); }
+        }
+        window.excluirPeca = async function(id) {
+            if(confirm("Excluir este produto permanentemente da nuvem?")) {
+                await supabase.from('estoque').delete().eq('id', id); await carregarBancoSupabase();
+            }
+        }
+
+        // PDV SUPABASE
+        window.abrirModalAtendimento = function() { document.getElementById('orc-cliente').innerHTML = `<option value="">Consumidor Final</option>` + db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join(''); document.getElementById('orc-data').value = new Date().toISOString().split('T')[0]; tempOrc = { itens: [], desconto: 0, total: 0 }; document.getElementById('orc-desconto').value = "0"; window.renderItensOrc(); window.filtrarSelectOrc(); window.abrirModal('modal-atendimento'); setTimeout(() => document.getElementById('orc-busca').focus(), 100); }
+        window.filtrarSelectOrc = function() { const termo = document.getElementById('orc-busca').value.toLowerCase(); const filtrados = db.estoque.filter(p => p.qtd > 0 && (p.desc.toLowerCase().includes(termo) || (p.cod && p.cod.toLowerCase().includes(termo)))); if(filtrados.length === 0) { document.getElementById('orc-item-select').innerHTML = `<option value="">Nenhum produto encontrado em estoque</option>`; } else { document.getElementById('orc-item-select').innerHTML = filtrados.map(p => `<option value="${p.id}">[${p.cod||'-'}] ${p.desc} (Tam: ${p.tamanho}) - R$ ${p.venda.toFixed(2)} (Est: ${p.qtd})</option>`).join(''); } }
+        window.handleBuscaOrc = function(event) { if(event.key === 'Enter') { event.preventDefault(); window.adicionarItemAoOrc(); document.getElementById('orc-busca').value = ''; window.filtrarSelectOrc(); } }
+        window.adicionarItemAoOrc = function() { const id = document.getElementById('orc-item-select').value; const obj = db.estoque.find(x => x.id == id); if(!obj) return; const qtdInput = document.getElementById('orc-item-qtd'); const qtd = parseInt(qtdInput.value) || 1; const existe = tempOrc.itens.find(i => i.id === obj.id); const qtdTotalDesejada = existe ? existe.qtd + qtd : qtd; if(qtdTotalDesejada > obj.qtd) return alert(`Apenas ${obj.qtd} uni(s) em estoque.`); if(existe) { existe.qtd += qtd; } else { tempOrc.itens.push({ id: obj.id, desc: obj.desc, preco: obj.venda, custo: obj.custo, qtd }); } qtdInput.value = 1; window.renderItensOrc(); }
+        window.renderItensOrc = function() { const container = document.getElementById('orc-itens-lista'); document.getElementById('orc-qtd-itens').innerText = `${tempOrc.itens.length} itens`; container.innerHTML = tempOrc.itens.map((it, i) => `<div class="flex justify-between items-center bg-white/5 p-3 rounded-xl text-xs border border-white/5"><span class="w-6 font-black text-white">${it.qtd}x</span><span class="flex-1 text-slate-200 truncate">${it.desc}</span><span class="font-bold text-right text-white">R$ ${(it.preco * it.qtd).toFixed(2)}</span><button onclick="tempOrc.itens.splice(${i},1); window.renderItensOrc();" class="text-red-500 ml-2"><i data-lucide="trash-2" size="14"></i></button></div>`).join(''); window.calcularTotalOrc(); lucide.createIcons(); }
+        window.calcularTotalOrc = function() { let sub = tempOrc.itens.reduce((acc, cur) => acc + (cur.preco * cur.qtd), 0); tempOrc.desconto = parseFloat(document.getElementById('orc-desconto').value) || 0; tempOrc.total = Math.max(0, sub - tempOrc.desconto); document.getElementById('orc-total-final').innerText = `R$ ${tempOrc.total.toFixed(2)}`; }
+        
+        window.abrirFinalizacao = function() { if(tempOrc.itens.length === 0) return alert("Carrinho vazio!"); document.getElementById('pag-valor-total').innerText = `R$ ${tempOrc.total.toFixed(2)}`; pagamentosMultiplos = [{ metodo: 'Dinheiro', valor: tempOrc.total }]; window.renderPagamentosMistos(); window.abrirModal('modal-pagamento'); }
+        window.adicionarLinhaPagamento = function() { pagamentosMultiplos.push({ metodo: 'PIX', valor: 0 }); window.renderPagamentosMistos(); }
+        window.renderPagamentosMistos = function() { document.getElementById('lista-pagamentos-multiplos').innerHTML = pagamentosMultiplos.map((p, index) => `<div class="flex gap-2 items-center bg-white/5 p-2 rounded-xl"><select onchange="pagamentosMultiplos[${index}].metodo=this.value" class="flex-1 bg-black/40 text-white rounded-lg p-2 font-bold text-xs [&>option]:text-black"><option value="Dinheiro" ${p.metodo==='Dinheiro'?'selected':''}>💵 Dinheiro</option><option value="PIX" ${p.metodo==='PIX'?'selected':''}>💎 PIX</option><option value="Cartão de Crédito" ${p.metodo==='Cartão de Crédito'?'selected':''}>💳 Cartão de Crédito</option><option value="Cartão de Débito" ${p.metodo==='Cartão de Débito'?'selected':''}>💳 Cartão de Débito</option><option value="Crédito Loja" ${p.metodo==='Crédito Loja'?'selected':''}>🏠 Fiado na Loja</option></select><input type="number" oninput="pagamentosMultiplos[${index}].valor=parseFloat(this.value)||0; window.calcularTotaisPagamento()" value="${p.valor}" class="w-24 bg-white/10 text-white rounded-lg p-2 text-right font-black text-sm text-green-400">${index > 0 ? `<button onclick="pagamentosMultiplos.splice(${index}, 1); window.renderPagamentosMistos();" class="text-red-500 p-2"><i data-lucide="trash-2" size="14"></i></button>` : `<div class="w-8"></div>`}</div>`).join(''); window.calcularTotaisPagamento(); lucide.createIcons(); }
+        window.calcularTotaisPagamento = function() { const recebido = pagamentosMultiplos.reduce((a, b) => a + (b.valor||0), 0); const diferenca = tempOrc.total - recebido; document.getElementById('pag-total-recebido').innerText = `R$ ${recebido.toFixed(2)}`; const st = document.getElementById('pag-status-restante'); if(diferenca > 0) st.innerHTML = `<span class="text-red-400">Falta Pagar:</span> <span class="text-red-400">R$ ${diferenca.toFixed(2)}</span>`; else if (diferenca < 0) st.innerHTML = `<span class="text-blue-400">Troco:</span> <span class="text-blue-400 font-black">R$ ${Math.abs(diferenca).toFixed(2)}</span>`; else st.innerHTML = `<span class="text-green-400">Conta Exata:</span> <span class="text-green-400">R$ 0,00</span>`; }
+
+        window.confirmarFinalizacao = async function() {
+            const btn = document.getElementById('btn-confirma-finalizacao'); btn.innerText = "Processando..."; btn.disabled = true;
+
+            let valorFisico = 0, valorFiado = 0;
+            pagamentosMultiplos.forEach(p => { if(p.metodo === 'Crédito Loja') valorFiado += p.valor; else valorFisico += p.valor; });
+            const recebido = valorFisico + valorFiado; if(recebido < tempOrc.total) { btn.innerText = "Confirmar Venda"; btn.disabled = false; return alert("O valor recebido é menor que o total!"); }
+
+            const cliId = document.getElementById('orc-cliente').value; const cliente = db.clientes.find(c => c.id == cliId);
+            if(valorFiado > 0 && (!cliente || cliente.id == 1)) { btn.innerText = "Confirmar Venda"; btn.disabled = false; return alert("Selecione um cliente para vender fiado!"); }
+
+            let troco = recebido > tempOrc.total ? recebido - tempOrc.total : 0;
+            const novaOSId = Date.now();
+            const novaOS = { id: novaOSId, data: document.getElementById('orc-data').value || new Date().toISOString().split('T')[0], cliente: cliente ? cliente.nome : "Consumidor Final", itens: tempOrc.itens, total: tempOrc.total, custo_total: tempOrc.itens.reduce((acc, cur) => acc + (cur.custo * cur.qtd), 0), metodo: pagamentosMultiplos.length > 1 ? 'Misto' : pagamentosMultiplos[0].metodo, status: "Concluído" };
+
+            try {
+                // Insere venda
+                await supabase.from('atendimentos').insert([novaOS]);
+                // Insere no caixa
+                if((valorFisico - troco) > 0) { await supabase.from('caixa_movimentacoes').insert([{tipo: 'venda', valor: (valorFisico - troco), descricao: `Venda #${novaOSId}`}]); }
+                // Atualiza Fiado se houver
+                if(valorFiado > 0) { await supabase.from('clientes').update({ divida: (parseFloat(cliente.divida) + valorFiado) }).eq('id', cliId); }
+                // Atualiza Estoque
+                for (let itemVendido of tempOrc.itens) {
+                    const prodEstoque = db.estoque.find(p => p.id === itemVendido.id);
+                    if(prodEstoque) { await supabase.from('estoque').update({ qtd: Math.max(0, prodEstoque.qtd - itemVendido.qtd) }).eq('id', itemVendido.id); }
+                }
+
+                window.fecharModal('modal-pagamento'); window.fecharModal('modal-atendimento'); 
+                await carregarBancoSupabase(); // Recarrega do banco pra atualizar UI
+                
+                document.getElementById('last-os-id').value = novaOSId; window.abrirModal('modal-recibo');
+            } catch (e) { alert("Erro ao finalizar a venda."); }
+
+            btn.innerText = "Confirmar Venda"; btn.disabled = false;
+        }
+
+        window.imprimirTermica = function(idOS) { const os = db.atendimentos.find(o => o.id == idOS); if(!os) return; let itensHTML = os.itens.map(it => `<tr><td style="padding: 4px 0;">${it.desc}</td><td style="padding: 4px 0; text-align: center;">${it.qtd}</td><td style="padding: 4px 0; text-align: right;">R$ ${it.preco.toFixed(2)}</td><td style="padding: 4px 0; text-align: right;">R$ ${(it.preco * it.qtd).toFixed(2)}</td></tr>`).join(''); const recibo = `<html><head><title>CUPOM DE VENDA</title><style>@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap'); body { font-family: 'Courier Prime', monospace; width: 80mm; margin: 0 auto; padding: 10px; font-size: 12px; } h2 { text-align: center; margin: 0 0 5px 0; font-size: 16px; font-weight: bold; } .logo-print { max-width: 120px; display: block; margin: 0 auto 10px auto; } .title-box { text-align: center; font-weight: bold; margin-bottom: 10px; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; } table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; } th { border-bottom: 1px solid #000; padding-bottom: 4px; text-align: left; } th.center { text-align: center; } th.right { text-align: right; } .divider { border-bottom: 1px dashed #000; margin: 10px 0; } .total-box { font-weight: bold; font-size: 14px; margin-top: 10px; } @media print { .btn-print { display: none; } }</style></head><body><button class="btn-print" onclick="window.print()" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer;">🖨️ IMPRIMIR</button><img src="logo.png" class="logo-print" onerror="this.style.display='none'"><h2>KIDS PRO</h2><div class="title-box">CUPOM NÃO FISCAL</div><div style="margin-bottom: 10px;"><div>Data: ${os.data.split('-').reverse().join('/')}</div><div>Cliente: ${os.cliente}</div></div><table><thead><tr><th>Descrição</th><th class="center">Qtd</th><th class="right">Un(R$)</th><th class="right">Sub(R$)</th></tr></thead><tbody>${itensHTML}</tbody></table><div class="divider"></div><div class="total-box">TOTAL: R$ ${os.total.toFixed(2)}</div><div>Método: ${os.metodo || 'N/A'}</div><div class="divider"></div><div style="text-align: center; font-size: 10px; margin-top: 20px;">Obrigado pela preferência!</div></body></html>`; const win = window.open('', '_blank', 'width=400,height=600'); win.document.write(recibo); win.document.close(); }
+
+        window.atualizarInterface = function() {
+            const totDivida = db.clientes.reduce((acc, c) => acc + parseFloat(c.divida || 0), 0);
+            document.getElementById('dash-caixa').innerText = esconderCaixa ? "R$ *****" : `R$ ${db.caixa.toFixed(2)}`;
+            document.getElementById('dash-credito').innerText = esconderCaixa ? "R$ *****" : `R$ ${totDivida.toFixed(2)}`;
+            document.getElementById('btn-olho-caixa').innerHTML = esconderCaixa ? '<i data-lucide="eye-off" size="16"></i>' : '<i data-lucide="eye" size="16"></i>';
+
+            const baixoEstoque = db.estoque.filter(p => p.qtd < 3); 
+            document.getElementById('dash-alertas').innerHTML = baixoEstoque.length > 0 ? baixoEstoque.map(p => `<div class="flex justify-between items-center bg-black/20 p-2 rounded border border-yellow-500/20 text-white shrink-0"><span class="truncate pr-2 text-[10px]">${p.desc}</span><span class="font-black ${p.qtd === 0 ? 'text-red-500' : 'text-yellow-500'} bg-black/40 px-2 py-1 rounded">${p.qtd} un</span></div>`).join('') : `<p class="text-slate-300 py-2 shrink-0">Estoque normal.</p>`;
+
+            document.getElementById('dash-atividades').innerHTML = db.atendimentos.slice(0, 5).map(v => `<div class="text-[10px] p-2 bg-white/5 rounded-xl border border-white/5 shrink-0"><div class="flex justify-between text-slate-300 mb-1"><span>${v.data.split('-').reverse().join('/')}</span><span class="font-bold text-blue-300">${v.metodo}</span></div><span class="font-bold text-xs text-white">${v.cliente}</span> <p class="text-purple-400 font-black mt-1">R$ ${v.total.toFixed(2)}</p></div>`).join('');
+
+            document.getElementById('lista-etiquetas-selecao').innerHTML = db.estoque.map(p => `<label class="flex items-center gap-2 hover:bg-white/10 p-1 rounded cursor-pointer text-xs text-white"><input type="checkbox" class="check-etiqueta rounded bg-black/50 border-white/20" value="${p.cod || ''}" data-desc="${p.desc} - ${p.tamanho}"><span class="flex-1 truncate">${p.desc} (Tam: ${p.tamanho}) ${p.cod ? `[Cód: ${p.cod}]` : ''}</span></label>`).join('');
+
+            const termoCliente = document.getElementById('busca-cliente') ? document.getElementById('busca-cliente').value.trim().toLowerCase() : "";
+            const clientesFiltrados = db.clientes.filter(c => c.nome.toLowerCase().includes(termoCliente) || (c.tel && c.tel.includes(termoCliente)));
+            document.getElementById('grid-clientes').innerHTML = clientesFiltrados.map(c => `<div class="glass p-5 rounded-3xl space-y-3 relative border border-white/10 hover:border-white/20 transition-all"><button onclick="window.abrirModalCliente('${c.id}')" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"><i data-lucide="edit-3" size="14"></i></button><div class="flex justify-between items-start pr-6"><div><h4 class="font-black text-white truncate max-w-[150px]">${c.nome}</h4><p class="text-[10px] text-green-400 font-bold">${c.tel || 'Sem telefone'}</p></div><div class="text-right"><p class="text-[9px] text-slate-300 font-bold uppercase">Dívida (Fiado)</p><p class="text-sm font-black ${parseFloat(c.divida) > 0 ? 'text-red-500' : 'text-slate-300'}">R$ ${parseFloat(c.divida).toFixed(2)}</p>${parseFloat(c.divida) > 0 ? `<button onclick="window.abrirModalReceberDivida('${c.id}')" class="mt-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 w-full py-1 rounded text-[10px] font-bold uppercase transition-colors">Receber</button>` : ''}</div></div></div>`).join('');
+
+            const termoEstoque = document.getElementById('busca-estoque-geral') ? document.getElementById('busca-estoque-geral').value.trim().toLowerCase() : "";
+            document.getElementById('lista-pecas').innerHTML = db.estoque.filter(p => p.desc.toLowerCase().includes(termoEstoque) || (p.cod && p.cod.toLowerCase().includes(termoEstoque))).map(p => `<tr class="border-b border-white/5 hover:bg-white/10 text-xs"><td class="py-3">${p.cod || 'S/N'} - <b>${p.desc}</b></td><td><span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-[10px] mr-1">${p.categoria}</span><span class="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-[10px]">${p.tamanho || 'U'}</span></td><td class="font-black text-purple-400">R$ ${p.venda.toFixed(2)}</td><td class="font-bold ${p.qtd < 3 ? 'text-red-500' : 'text-slate-200'}">${p.qtd}</td><td class="text-right"><button onclick="window.gerarQRCode('${p.cod}')" class="text-slate-300 hover:text-white mr-2" title="Imprimir QR"><i data-lucide="qr-code" size="16"></i></button><button onclick="window.abrirModalPeca('${p.id}')" class="text-blue-400 mr-2" title="Editar"><i data-lucide="edit" size="16"></i></button><button onclick="window.excluirPeca('${p.id}')" class="text-slate-400 hover:text-red-500" title="Excluir"><i data-lucide="trash-2" size="16"></i></button></td></tr>`).join('');
+            
+            document.getElementById('lista-atendimentos').innerHTML = db.atendimentos.map(v => `<tr class="border-b border-white/5 hover:bg-white/10 text-xs"><td class="p-4">${v.data.split('-').reverse().join('/')}</td><td class="font-bold text-slate-200">${v.cliente}</td><td><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold uppercase">${v.metodo}</span></td><td class="font-black text-purple-400">R$ ${v.total.toFixed(2)}</td><td class="p-4"><button onclick="window.imprimirTermica('${v.id}')" class="text-slate-300 hover:text-white" title="Reimprimir Cupom"><i data-lucide="printer" size="16"></i></button></td></tr>`).join('');
+            
+            if(document.getElementById('tab-relatorios').classList.contains('active')) window.gerarRelatorio();
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
