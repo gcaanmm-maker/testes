@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KidsPro - PDV Mobile</title>
+    <title>KidsPro - PDV Mobile (Supabase)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <!-- Biblioteca para Leitura de QR Code e Código de Barras -->
+    <!-- Leitura QR Code e Supabase -->
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; overscroll-behavior-y: none; }
@@ -20,6 +21,8 @@
         ::-webkit-scrollbar { display: none; }
         #reader video { border-radius: 0.75rem; object-fit: cover; }
         #reader { border: none !important; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .metodo-btn.selecionado { background: rgba(168, 85, 247, 0.2); border-color: #a855f7; color: #c084fc; }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden">
@@ -37,7 +40,7 @@
         </div>
     </header>
 
-    <!-- ÁREA PRINCIPAL (CONTEÚDO DAS ABAS) -->
+    <!-- ÁREA PRINCIPAL -->
     <main class="flex-1 overflow-y-auto relative z-10" id="main-content">
         
         <!-- ABA: VENDAS (PDV MOBILE) -->
@@ -52,22 +55,19 @@
                 </button>
             </div>
             
-            <!-- Resultados da Busca -->
             <div id="pdv-resultados" class="space-y-2 shrink-0 max-h-40 overflow-y-auto"></div>
 
-            <!-- Carrinho -->
             <div class="flex-1 flex flex-col bg-black/20 border border-white/5 rounded-2xl p-4 mt-2 min-h-[300px]">
                 <h3 class="text-xs font-bold text-slate-400 uppercase mb-3 flex justify-between">Carrinho <span id="cart-qtd">0 itens</span></h3>
                 <div id="pdv-carrinho" class="flex-1 overflow-y-auto space-y-2">
                     <p class="text-slate-500 text-xs text-center mt-10">Carrinho vazio.</p>
                 </div>
-                
                 <div class="mt-4 pt-4 border-t border-white/10 shrink-0">
                     <div class="flex justify-between items-center mb-4">
                         <span class="text-sm font-bold text-slate-300">Total</span>
                         <span class="text-2xl font-black text-purple-400" id="pdv-total">R$ 0,00</span>
                     </div>
-                    <button onclick="window.abrirPagamento()" class="w-full bg-green-500 hover:bg-green-600 text-white font-black uppercase text-sm py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                    <button id="btn-cobrar" onclick="window.abrirPagamento()" class="w-full bg-green-500 hover:bg-green-600 text-white font-black uppercase text-sm py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
                         <i data-lucide="check-circle" size="18"></i> Cobrar
                     </button>
                 </div>
@@ -97,13 +97,11 @@
                 </button>
             </div>
 
-            <div id="lista-balanco" class="space-y-3 pb-8">
-                <!-- Itens injetados via JS -->
-            </div>
+            <div id="lista-balanco" class="space-y-3 pb-8"></div>
         </section>
     </main>
 
-    <!-- MENU INFERIOR (BOTTOM NAV) -->
+    <!-- MENU INFERIOR -->
     <nav class="glass fixed bottom-0 w-full h-[72px] flex items-center justify-around border-t border-white/10 z-30 pb-2">
         <button onclick="window.switchTab('vendas')" id="btn-vendas" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors w-1/2 mt-1">
             <i data-lucide="shopping-cart" size="22"></i>
@@ -115,23 +113,19 @@
         </button>
     </nav>
 
-    <!-- MODAL DO SCANNER (CÂMERA) -->
+    <!-- MODAL SCANNER -->
     <div id="modal-scanner" class="hidden fixed inset-0 bg-black/95 z-[150] flex flex-col items-center justify-center p-4">
         <div class="w-full max-w-sm bg-slate-900 rounded-3xl p-4 border border-white/10 flex flex-col gap-4 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
             <div class="flex justify-between items-center px-2">
                 <h3 class="text-lg font-black text-white italic flex items-center gap-2"><i data-lucide="scan"></i> Ler Código</h3>
                 <button onclick="window.fecharScanner()" class="text-slate-400 p-2 bg-white/5 rounded-full hover:text-white"><i data-lucide="x" size="20"></i></button>
             </div>
-            
-            <div class="bg-black rounded-xl overflow-hidden min-h-[250px] relative border-2 border-dashed border-slate-700" id="reader-container">
-                <div id="reader" class="w-full h-full"></div>
-            </div>
-            
-            <p class="text-[10px] text-slate-400 text-center font-bold uppercase">Aponte a câmera para o QR Code ou Código de Barras do produto.</p>
+            <div class="bg-black rounded-xl overflow-hidden min-h-[250px] relative border-2 border-dashed border-slate-700" id="reader-container"><div id="reader" class="w-full h-full"></div></div>
+            <p class="text-[10px] text-slate-400 text-center font-bold uppercase">Aponte a câmera para o QR Code ou Código de Barras.</p>
         </div>
     </div>
 
-    <!-- MODAL DE SUCESSO / RECIBO (PERGUNTA IMPRESSÃO) -->
+    <!-- MODAL RECIBO -->
     <div id="modal-recibo" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md z-[150] flex items-center justify-center p-4">
         <div class="glass w-full max-w-sm rounded-3xl p-8 space-y-4 text-center border border-green-500/30">
             <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-2"><i data-lucide="check-circle" size="32"></i></div>
@@ -145,19 +139,17 @@
         </div>
     </div>
 
-    <!-- MODAL DE PAGAMENTO MÓVEL -->
+    <!-- MODAL PAGAMENTO -->
     <div id="modal-pagamento" class="hidden fixed inset-0 bg-black/95 z-[100] flex items-end justify-center">
         <div class="w-full bg-slate-900 rounded-t-3xl p-6 border-t border-white/10 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transform transition-transform animate-[slideUp_0.3s_ease-out]">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-black italic text-white">Finalizar Venda</h3>
                 <button onclick="window.fecharModal('modal-pagamento')" class="text-slate-400 p-2"><i data-lucide="x"></i></button>
             </div>
-            
             <div class="text-center mb-6">
                 <p class="text-xs text-slate-400 font-bold uppercase mb-1">Total a Receber</p>
                 <h2 class="text-4xl font-black text-green-400" id="pag-total">R$ 0,00</h2>
             </div>
-
             <label class="text-[10px] font-bold text-slate-300 uppercase block mb-2">Forma de Pagamento</label>
             <div class="grid grid-cols-2 gap-3 mb-6">
                 <button onclick="window.selecionarMetodo('PIX')" id="metodo-PIX" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white transition-colors">PIX</button>
@@ -165,44 +157,71 @@
                 <button onclick="window.selecionarMetodo('Cartão de Crédito')" id="metodo-Cartão de Crédito" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white transition-colors">Crédito</button>
                 <button onclick="window.selecionarMetodo('Cartão de Débito')" id="metodo-Cartão de Débito" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white transition-colors">Débito</button>
             </div>
-
-            <button onclick="window.confirmarVenda()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-sm py-4 rounded-xl shadow-lg mt-2 active:scale-95 transition-all">
-                Confirmar Pagamento
-            </button>
+            <button id="btn-confirma-pagamento" onclick="window.confirmarVenda()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-sm py-4 rounded-xl shadow-lg mt-2 active:scale-95 transition-all">Confirmar Pagamento</button>
         </div>
     </div>
-    
-    <style>
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .metodo-btn.selecionado { background: rgba(168, 85, 247, 0.2); border-color: #a855f7; color: #c084fc; }
-    </style>
 
     <script>
-        const DB_KEY = 'kidspro_db_v1';
-        let db = JSON.parse(localStorage.getItem(DB_KEY)) || { clientes: [], estoque: [], atendimentos: [], caixa: 0 };
+        // CONFIGURAÇÃO SUPABASE
+        const SUPABASE_URL = 'https://ikttfbdtdhvtpmlyxdpl.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrdHRmYm5kdGRodnRwbWx4ZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3MDMxNTYsImV4cCI6MjEwNjI3OTE1Nn0.Yr8R9hl6n9Uw71o_LWaYGco6f6dV3TXsorFbUvxUt3Y';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let db = { estoque: [], atendimentos: [], caixa: 0 };
         let carrinho = [];
         let totalVenda = 0;
         let metodoSelecionado = 'PIX';
-        
         let html5QrCode;
         let scannerContexto = ''; 
 
-        function salvarBanco() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+        // Carrega dados da Nuvem
+        async function carregarBancoSupabase() {
+            try {
+                const [resEstoque, resAtendimentos, resCaixa] = await Promise.all([
+                    supabaseClient.from('estoque').select('*').order('created_at', { ascending: false }),
+                    supabaseClient.from('atendimentos').select('*').order('created_at', { ascending: false }),
+                    supabaseClient.from('caixa_movimentacoes').select('tipo, valor')
+                ]);
+
+                // Mapeia o banco pro formato que o frontend espera
+                if(resEstoque.data) {
+                    db.estoque = resEstoque.data.map(p => ({
+                        id: p.id, desc: p.desc_produto, categoria: p.categoria,
+                        tamanho: p.tamanho, cor: p.cor, cod: p.cod, qtd: p.qtd,
+                        custo: parseFloat(p.custo), margem: parseFloat(p.margem), venda: parseFloat(p.venda)
+                    }));
+                }
+                
+                if(resAtendimentos.data) {
+                    db.atendimentos = resAtendimentos.data.map(a => ({
+                        id: a.id, data: a.data, cliente: a.cliente, itens: a.itens,
+                        total: parseFloat(a.total), custoTotal: parseFloat(a.custo_total), metodo: a.metodo, status: a.status
+                    }));
+                }
+
+                let saldo = 0;
+                if (resCaixa.data) {
+                    resCaixa.data.forEach(mov => { saldo += (mov.tipo === 'sangria' ? -parseFloat(mov.valor) : parseFloat(mov.valor)); });
+                }
+                db.caixa = saldo;
+                
+                document.getElementById('header-caixa').innerText = `R$ ${db.caixa.toFixed(2)}`;
+                if(document.getElementById('tab-balanco').classList.contains('block')) window.renderizarBalanco();
+                
+            } catch (error) { console.error("Erro ao carregar do Supabase:", error); }
+        }
 
         window.onload = () => {
             lucide.createIcons();
-            document.getElementById('header-caixa').innerText = `R$ ${db.caixa.toFixed(2)}`;
-            window.switchTab('vendas');
-            window.renderizarBalanco();
+            document.getElementById('header-caixa').innerText = "Carregando...";
+            carregarBancoSupabase().then(() => { window.switchTab('vendas'); });
         };
 
         window.switchTab = function(tab) {
             document.getElementById('tab-vendas').classList.add('hidden');
             document.getElementById('tab-vendas').classList.remove('flex');
-            
             document.getElementById('tab-balanco').classList.add('hidden');
             document.getElementById('tab-balanco').classList.remove('block');
-            
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
             
             if(tab === 'vendas') {
@@ -213,118 +232,52 @@
                 document.getElementById('tab-balanco').classList.add('block');
                 window.renderizarBalanco();
             }
-            
             document.getElementById('btn-' + tab).classList.add('active');
         }
 
         window.fecharModal = function(id) { document.getElementById(id).classList.add('hidden'); }
         window.abrirModal = function(id) { document.getElementById(id).classList.remove('hidden'); }
 
-        // ==========================
-        // CÂMERA / LEITOR DE QR
-        // ==========================
+        // CAMERA
         window.abrirScanner = function(contexto) {
-            scannerContexto = contexto;
-            window.abrirModal('modal-scanner');
-            
-            if(!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
-            
-            const config = { fps: 10, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 };
-            
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                config,
-                (decodedText, decodedResult) => {
-                    window.processarLeitura(decodedText);
-                },
-                (errorMessage) => { }
-            ).catch((err) => {
-                alert("Não foi possível acessar a câmera. Verifique as permissões do navegador.");
-                window.fecharScanner();
-            });
+            scannerContexto = contexto; window.abrirModal('modal-scanner');
+            if(!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 200, height: 200 }, aspectRatio: 1.0 },
+                (decodedText) => { window.processarLeitura(decodedText); }, (errorMessage) => { }
+            ).catch(() => { alert("Erro ao acessar a câmera."); window.fecharScanner(); });
         }
-
         window.fecharScanner = function() {
-            if(html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    window.fecharModal('modal-scanner');
-                }).catch(err => {
-                    window.fecharModal('modal-scanner');
-                });
-            } else {
-                window.fecharModal('modal-scanner');
-            }
+            if(html5QrCode) { html5QrCode.stop().then(() => window.fecharModal('modal-scanner')).catch(() => window.fecharModal('modal-scanner')); } 
+            else window.fecharModal('modal-scanner');
         }
-
         window.processarLeitura = function(textoQR) {
             window.fecharScanner(); 
-
             if(scannerContexto === 'pdv') {
                 const prod = db.estoque.find(p => p.cod && p.cod.trim().toLowerCase() === textoQR.trim().toLowerCase());
-                if(prod) {
-                    window.adicionarAoCarrinho(prod.id);
-                    alert(`✅ Produto bipado: ${prod.desc}`);
-                } else {
-                    alert(`❌ Produto não encontrado com o código: ${textoQR}`);
-                }
+                if(prod) { window.adicionarAoCarrinho(prod.id); alert(`✅ Produto bipado: ${prod.desc}`); } else alert(`❌ Código não encontrado: ${textoQR}`);
             } else if (scannerContexto === 'balanco') {
-                const inputBusca = document.getElementById('balanco-busca');
-                inputBusca.value = textoQR;
-                window.renderizarBalanco();
+                document.getElementById('balanco-busca').value = textoQR; window.renderizarBalanco();
             }
         }
 
-        // ==========================
-        // ABA DE VENDAS (PDV MOBILE)
-        // ==========================
+        // PDV
         window.buscarProdutoPDV = function() {
             const termo = document.getElementById('pdv-busca').value.trim().toLowerCase();
             const container = document.getElementById('pdv-resultados');
-            
             if(termo.length < 1) { container.innerHTML = ''; return; }
-
-            // Procura tanto pelo nome (desc) quanto por código exato ou parcial (cod)
-            const filtrados = db.estoque.filter(p => p.qtd > 0 && (
-                p.desc.toLowerCase().includes(termo) || 
-                (p.cod && p.cod.toLowerCase().includes(termo))
-            ));
-            
-            container.innerHTML = filtrados.slice(0, 5).map(p => `
-                <div onclick="window.adicionarAoCarrinho(${p.id})" class="bg-white/10 p-3 rounded-xl flex justify-between items-center active:bg-white/20 transition-colors border border-white/5 cursor-pointer">
-                    <div>
-                        <p class="text-sm font-bold text-white">${p.desc}</p>
-                        <p class="text-[10px] text-slate-400">Cód: ${p.cod || 'S/N'} | Estoque: ${p.qtd} | Tam: ${p.tamanho || 'U'}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-black text-purple-400">R$ ${p.venda.toFixed(2)}</p>
-                        <button class="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center mt-1 ml-auto"><i data-lucide="plus" size="14"></i></button>
-                    </div>
-                </div>
-            `).join('');
+            const filtrados = db.estoque.filter(p => p.qtd > 0 && (p.desc.toLowerCase().includes(termo) || (p.cod && p.cod.toLowerCase().includes(termo))));
+            container.innerHTML = filtrados.slice(0, 5).map(p => `<div onclick="window.adicionarAoCarrinho(${p.id})" class="bg-white/10 p-3 rounded-xl flex justify-between items-center active:bg-white/20 transition-colors border border-white/5 cursor-pointer"><div><p class="text-sm font-bold text-white">${p.desc}</p><p class="text-[10px] text-slate-400">Cód: ${p.cod || 'S/N'} | Est: ${p.qtd}</p></div><div class="text-right"><p class="text-sm font-black text-purple-400">R$ ${p.venda.toFixed(2)}</p><button class="bg-purple-600 text-white w-6 h-6 rounded-full flex items-center justify-center mt-1 ml-auto"><i data-lucide="plus" size="14"></i></button></div></div>`).join('');
             lucide.createIcons();
         }
 
-        // Gatilho para adicionar direto ao pressionar Enter na busca
         window.tratarTecladoBusca = function(event) {
             if(event.key === 'Enter') {
-                event.preventDefault();
-                const termo = document.getElementById('pdv-busca').value.trim().toLowerCase();
-                if(!termo) return;
-
-                // Tenta achar um produto que tenha o código exatamente igual ou o nome correspondente
+                event.preventDefault(); const termo = document.getElementById('pdv-busca').value.trim().toLowerCase(); if(!termo) return;
                 const prod = db.estoque.find(p => (p.cod && p.cod.toLowerCase() === termo) || p.desc.toLowerCase() === termo);
-                if(prod) {
-                    window.adicionarAoCarrinho(prod.id);
-                } else {
-                    // Se houver apenas 1 resultado na lista filtrada, adiciona ele
-                    const filtrados = db.estoque.filter(p => p.qtd > 0 && (p.desc.toLowerCase().includes(termo) || (p.cod && p.cod.toLowerCase().includes(termo))));
-                    if(filtrados.length === 1) {
-                        window.adicionarAoCarrinho(filtrados[0].id);
-                    } else {
-                        alert("Muitos resultados ou produto não encontrado. Selecione na lista abaixo.");
-                    }
+                if(prod) window.adicionarAoCarrinho(prod.id);
+                else {
+                    const f = db.estoque.filter(p => p.qtd > 0 && (p.desc.toLowerCase().includes(termo) || (p.cod && p.cod.toLowerCase().includes(termo))));
+                    if(f.length === 1) window.adicionarAoCarrinho(f[0].id); else alert("Selecione na lista.");
                 }
             }
         }
@@ -332,181 +285,98 @@
         window.adicionarAoCarrinho = function(id) {
             const prod = db.estoque.find(p => p.id === id);
             if(!prod) return;
-            
             const existe = carrinho.find(i => i.id === prod.id);
-            if(existe) {
-                if(existe.qtd + 1 > prod.qtd) return alert(`Estoque insuficiente! Máximo: ${prod.qtd}`);
-                existe.qtd += 1;
-            } else {
-                carrinho.push({ id: prod.id, desc: prod.desc, preco: prod.venda, custo: prod.custo, qtd: 1, max: prod.qtd });
-            }
-            
-            document.getElementById('pdv-busca').value = '';
-            document.getElementById('pdv-resultados').innerHTML = '';
-            window.renderizarCarrinho();
+            if(existe) { if(existe.qtd + 1 > prod.qtd) return alert(`Estoque max: ${prod.qtd}`); existe.qtd += 1; } 
+            else { carrinho.push({ id: prod.id, desc: prod.desc, preco: prod.venda, custo: prod.custo, qtd: 1, max: prod.qtd }); }
+            document.getElementById('pdv-busca').value = ''; document.getElementById('pdv-resultados').innerHTML = ''; window.renderizarCarrinho();
         }
 
         window.alterarQtdCarrinho = function(index, delta) {
-            const item = carrinho[index];
-            const novaQtd = item.qtd + delta;
-            
-            if(novaQtd <= 0) {
-                carrinho.splice(index, 1);
-            } else if (novaQtd > item.max) {
-                return alert(`Apenas ${item.max} unidades em estoque.`);
-            } else {
-                item.qtd = novaQtd;
-            }
+            const item = carrinho[index]; const novaQtd = item.qtd + delta;
+            if(novaQtd <= 0) carrinho.splice(index, 1); else if (novaQtd > item.max) return alert(`Máx ${item.max} unidades.`); else item.qtd = novaQtd;
             window.renderizarCarrinho();
         }
 
         window.renderizarCarrinho = function() {
-            const container = document.getElementById('pdv-carrinho');
-            document.getElementById('cart-qtd').innerText = `${carrinho.length} itens`;
-            
-            if(carrinho.length === 0) {
-                container.innerHTML = '<p class="text-slate-500 text-xs text-center mt-10">Carrinho vazio.</p>';
-                totalVenda = 0;
-            } else {
-                container.innerHTML = carrinho.map((item, i) => `
-                    <div class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center">
-                        <div class="flex-1 overflow-hidden pr-2">
-                            <p class="text-xs font-bold text-white truncate">${item.desc}</p>
-                            <p class="text-[10px] text-purple-400 font-bold mt-0.5">R$ ${(item.preco * item.qtd).toFixed(2)}</p>
-                        </div>
-                        <div class="flex items-center gap-3 bg-black/40 rounded-lg p-1 shrink-0">
-                            <button onclick="window.alterarQtdCarrinho(${i}, -1)" class="w-6 h-6 flex items-center justify-center text-slate-400 active:text-white"><i data-lucide="minus" size="14"></i></button>
-                            <span class="text-xs font-black text-white w-4 text-center">${item.qtd}</span>
-                            <button onclick="window.alterarQtdCarrinho(${i}, 1)" class="w-6 h-6 flex items-center justify-center text-slate-400 active:text-white"><i data-lucide="plus" size="14"></i></button>
-                        </div>
-                    </div>
-                `).join('');
+            const container = document.getElementById('pdv-carrinho'); document.getElementById('cart-qtd').innerText = `${carrinho.length} itens`;
+            if(carrinho.length === 0) { container.innerHTML = '<p class="text-slate-500 text-xs text-center mt-10">Carrinho vazio.</p>'; totalVenda = 0; } 
+            else {
+                container.innerHTML = carrinho.map((item, i) => `<div class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center"><div class="flex-1 overflow-hidden pr-2"><p class="text-xs font-bold text-white truncate">${item.desc}</p><p class="text-[10px] text-purple-400 font-bold mt-0.5">R$ ${(item.preco * item.qtd).toFixed(2)}</p></div><div class="flex items-center gap-3 bg-black/40 rounded-lg p-1 shrink-0"><button onclick="window.alterarQtdCarrinho(${i}, -1)" class="w-6 h-6 flex items-center justify-center text-slate-400 active:text-white"><i data-lucide="minus" size="14"></i></button><span class="text-xs font-black text-white w-4 text-center">${item.qtd}</span><button onclick="window.alterarQtdCarrinho(${i}, 1)" class="w-6 h-6 flex items-center justify-center text-slate-400 active:text-white"><i data-lucide="plus" size="14"></i></button></div></div>`).join('');
                 totalVenda = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0);
             }
-            document.getElementById('pdv-total').innerText = `R$ ${totalVenda.toFixed(2)}`;
-            lucide.createIcons();
+            document.getElementById('pdv-total').innerText = `R$ ${totalVenda.toFixed(2)}`; lucide.createIcons();
         }
 
-        window.abrirPagamento = function() {
-            if(carrinho.length === 0) return alert("Carrinho vazio!");
-            document.getElementById('pag-total').innerText = `R$ ${totalVenda.toFixed(2)}`;
-            window.selecionarMetodo('PIX'); 
-            window.abrirModal('modal-pagamento');
-        }
+        window.abrirPagamento = function() { if(carrinho.length === 0) return alert("Carrinho vazio!"); document.getElementById('pag-total').innerText = `R$ ${totalVenda.toFixed(2)}`; window.selecionarMetodo('PIX'); window.abrirModal('modal-pagamento'); }
+        window.selecionarMetodo = function(metodo) { metodoSelecionado = metodo; document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('selecionado')); document.getElementById(`metodo-${metodo}`).classList.add('selecionado'); }
 
-        window.selecionarMetodo = function(metodo) {
-            metodoSelecionado = metodo;
-            document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('selecionado'));
-            document.getElementById(`metodo-${metodo}`).classList.add('selecionado');
-        }
-
-        window.confirmarVenda = function() {
-            carrinho.forEach(itemVendido => {
-                const prodEstoque = db.estoque.find(p => p.id === itemVendido.id);
-                if(prodEstoque) {
-                    prodEstoque.qtd -= itemVendido.qtd;
-                    if(prodEstoque.qtd < 0) prodEstoque.qtd = 0;
-                }
-            });
+        // CONFIRMAR VENDA SUPABASE
+        window.confirmarVenda = async function() {
+            const btn = document.getElementById('btn-confirma-pagamento');
+            btn.innerText = "Processando..."; btn.disabled = true;
 
             const novaOSId = Date.now();
             const novaOS = {
-                id: novaOSId,
-                data: new Date().toISOString().split('T')[0],
-                cliente: "Venda Mobile",
-                itens: [...carrinho],
-                total: totalVenda,
-                custoTotal: carrinho.reduce((acc, cur) => acc + (cur.custo * cur.qtd), 0),
-                metodo: metodoSelecionado,
-                status: "Concluído"
+                id: novaOSId, data: new Date().toISOString().split('T')[0], cliente: "Venda Mobile",
+                itens: carrinho, total: totalVenda, custo_total: carrinho.reduce((acc, cur) => acc + (cur.custo * cur.qtd), 0),
+                metodo: metodoSelecionado, status: "Concluído"
             };
-            db.atendimentos.unshift(novaOS);
-            db.caixa += totalVenda;
-            salvarBanco();
 
-            window.fecharModal('modal-pagamento');
-            carrinho = [];
-            window.renderizarCarrinho();
-            document.getElementById('header-caixa').innerText = `R$ ${db.caixa.toFixed(2)}`;
-
-            document.getElementById('last-os-id').value = novaOSId;
-            window.abrirModal('modal-recibo');
+            try {
+                await supabaseClient.from('atendimentos').insert([novaOS]);
+                await supabaseClient.from('caixa_movimentacoes').insert([{ tipo: 'venda', valor: totalVenda, descricao: `Mobile #${novaOSId}` }]);
+                
+                for (let itemVendido of carrinho) {
+                    const prodEstoque = db.estoque.find(p => p.id === itemVendido.id);
+                    if(prodEstoque) {
+                        let novaQtd = prodEstoque.qtd - itemVendido.qtd;
+                        await supabaseClient.from('estoque').update({ qtd: novaQtd < 0 ? 0 : novaQtd }).eq('id', itemVendido.id);
+                    }
+                }
+                
+                carrinho = []; window.renderizarCarrinho();
+                window.fecharModal('modal-pagamento');
+                await carregarBancoSupabase(); // recarrega UI
+                
+                document.getElementById('last-os-id').value = novaOSId;
+                window.abrirModal('modal-recibo');
+            } catch (e) { alert("Erro ao finalizar venda."); }
+            
+            btn.innerText = "Confirmar Pagamento"; btn.disabled = false;
         }
 
         window.imprimirTermica = function(idOS) { 
-            const os = db.atendimentos.find(o => o.id == idOS); 
-            if(!os) return; 
-            
+            const os = db.atendimentos.find(o => o.id == idOS); if(!os) return; 
             let itensHTML = os.itens.map(it => `<tr><td style="padding: 4px 0;">${it.desc}</td><td style="padding: 4px 0; text-align: center;">${it.qtd}</td><td style="padding: 4px 0; text-align: right;">R$ ${it.preco.toFixed(2)}</td><td style="padding: 4px 0; text-align: right;">R$ ${(it.preco * it.qtd).toFixed(2)}</td></tr>`).join(''); 
-            
-            const recibo = `<html><head><title>CUPOM DE VENDA</title><style>@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap'); body { font-family: 'Courier Prime', monospace; width: 80mm; margin: 0 auto; padding: 10px; font-size: 12px; } h2 { text-align: center; margin: 0 0 5px 0; font-size: 16px; font-weight: bold; } .logo-print { max-width: 120px; display: block; margin: 0 auto 10px auto; } .title-box { text-align: center; font-weight: bold; margin-bottom: 10px; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; } table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; } th { border-bottom: 1px solid #000; padding-bottom: 4px; text-align: left; } th.center { text-align: center; } th.right { text-align: right; } .divider { border-bottom: 1px dashed #000; margin: 10px 0; } .total-box { font-weight: bold; font-size: 14px; margin-top: 10px; } @media print { .btn-print { display: none; } }</style></head><body><button class="btn-print" onclick="window.print()" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer;">🖨️ IMPRIMIR</button><img src="logo.png" class="logo-print" onerror="this.style.display='none'"><h2>KIDS PRO</h2><div class="title-box">CUPOM NÃO FISCAL</div><div style="margin-bottom: 10px;"><div>Data: ${os.data.split('-').reverse().join('/')}</div><div>Cliente: ${os.cliente}</div></div><table><thead><tr><th>Descrição</th><th class="center">Qtd</th><th class="right">Un(R$)</th><th class="right">Sub(R$)</th></tr></thead><tbody>${itensHTML}</tbody></table><div class="divider"></div><div class="total-box">TOTAL: R$ ${os.total.toFixed(2)}</div><div>Método: ${os.metodo || 'N/A'}</div><div class="divider"></div><div style="text-align: center; font-size: 10px; margin-top: 20px;">Obrigado pela preferência!</div></body></html>`; 
-            
-            const win = window.open('', '_blank', 'width=400,height=600'); 
-            win.document.write(recibo); 
-            win.document.close();
+            const recibo = `<html><head><title>CUPOM</title><style>@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap'); body { font-family: 'Courier Prime', monospace; width: 80mm; margin: 0 auto; padding: 10px; font-size: 12px; } h2 { text-align: center; margin: 0 0 5px 0; font-size: 16px; font-weight: bold; } .logo-print { max-width: 120px; display: block; margin: 0 auto 10px auto; } .title-box { text-align: center; font-weight: bold; margin-bottom: 10px; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 5px 0; } table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; } th { border-bottom: 1px solid #000; padding-bottom: 4px; text-align: left; } th.center { text-align: center; } th.right { text-align: right; } .divider { border-bottom: 1px dashed #000; margin: 10px 0; } .total-box { font-weight: bold; font-size: 14px; margin-top: 10px; } @media print { .btn-print { display: none; } }</style></head><body><button class="btn-print" onclick="window.print()" style="width: 100%; padding: 10px; margin-bottom: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer;">🖨️ IMPRIMIR</button><img src="logo.png" class="logo-print" onerror="this.style.display='none'"><h2>KIDS PRO</h2><div class="title-box">CUPOM NÃO FISCAL</div><div style="margin-bottom: 10px;"><div>Data: ${os.data.split('-').reverse().join('/')}</div><div>Cliente: ${os.cliente}</div></div><table><thead><tr><th>Descrição</th><th class="center">Qtd</th><th class="right">Un(R$)</th><th class="right">Sub(R$)</th></tr></thead><tbody>${itensHTML}</tbody></table><div class="divider"></div><div class="total-box">TOTAL: R$ ${os.total.toFixed(2)}</div><div>Método: ${os.metodo || 'N/A'}</div><div class="divider"></div><div style="text-align: center; font-size: 10px; margin-top: 20px;">Obrigado pela preferência!</div></body></html>`; 
+            const win = window.open('', '_blank', 'width=400,height=600'); win.document.write(recibo); win.document.close();
         }
 
-        // ==========================
-        // ABA DE BALANÇO (ESTOQUE)
-        // ==========================
+        // BALANÇO SUPABASE
         window.renderizarBalanco = function() {
             const termo = document.getElementById('balanco-busca').value.toLowerCase();
             const filtrados = db.estoque.filter(p => p.desc.toLowerCase().includes(termo) || (p.cod && p.cod.toLowerCase().includes(termo)));
-            
             document.getElementById('balanco-total-itens').innerText = db.estoque.length;
-
-            document.getElementById('lista-balanco').innerHTML = filtrados.map(p => `
-                <div class="glass p-4 rounded-xl flex flex-col gap-2 border-l-4 ${p.qtd === 0 ? 'border-red-500' : 'border-purple-500'}">
-                    <h4 class="font-bold text-sm text-white">${p.desc}</h4>
-                    <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase border-b border-white/5 pb-2">
-                        <span>Cód: ${p.cod || 'S/N'} | Tam: ${p.tamanho || 'U'}</span>
-                        <span class="text-green-400">Venda: R$ ${p.venda.toFixed(2)}</span>
-                    </div>
-                    
-                    <div class="flex items-center justify-between mt-1 gap-2">
-                        <div class="text-xs text-slate-400">Sistema: <span class="text-white font-black ml-1 text-sm bg-black/40 px-2 py-1 rounded" id="label-qtd-${p.id}">${p.qtd}</span></div>
-                        
-                        <div class="flex items-center gap-2">
-                            <label class="text-[10px] font-bold uppercase text-slate-400">Real:</label>
-                            <input type="number" id="balanco-input-${p.id}" value="${p.qtd}" class="w-16 h-9 bg-white/10 border border-white/20 rounded-lg text-center text-white font-black text-sm focus:border-purple-500 outline-none">
-                            <button onclick="window.atualizarQtdReal(${p.id}, event)" class="bg-purple-600 hover:bg-purple-500 h-9 px-4 rounded-lg text-xs font-black text-white uppercase shadow flex items-center justify-center transition-colors">
-                                Salvar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+            document.getElementById('lista-balanco').innerHTML = filtrados.map(p => `<div class="glass p-4 rounded-xl flex flex-col gap-2 border-l-4 ${p.qtd === 0 ? 'border-red-500' : 'border-purple-500'}"><h4 class="font-bold text-sm text-white">${p.desc}</h4><div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase border-b border-white/5 pb-2"><span>Cód: ${p.cod || 'S/N'} | Tam: ${p.tamanho || 'U'}</span><span class="text-green-400">R$ ${p.venda.toFixed(2)}</span></div><div class="flex items-center justify-between mt-1 gap-2"><div class="text-xs text-slate-400">Sistema: <span class="text-white font-black ml-1 text-sm bg-black/40 px-2 py-1 rounded" id="label-qtd-${p.id}">${p.qtd}</span></div><div class="flex items-center gap-2"><label class="text-[10px] font-bold uppercase text-slate-400">Real:</label><input type="number" id="balanco-input-${p.id}" value="${p.qtd}" class="w-16 h-9 bg-white/10 border border-white/20 rounded-lg text-center text-white font-black text-sm focus:border-purple-500 outline-none"><button onclick="window.atualizarQtdReal(${p.id}, event)" class="bg-purple-600 hover:bg-purple-500 h-9 px-4 rounded-lg text-xs font-black text-white uppercase shadow flex items-center justify-center transition-colors">Salvar</button></div></div></div>`).join('');
             lucide.createIcons();
         }
 
-        window.atualizarQtdReal = function(id, event) {
-            const index = db.estoque.findIndex(p => p.id === id);
-            if(index === -1) return;
-            
-            const inputVal = document.getElementById(`balanco-input-${id}`).value;
-            const novaQtd = parseInt(inputVal);
-            
-            if(isNaN(novaQtd) || novaQtd < 0) {
-                alert("Insira uma quantidade válida (maior ou igual a zero).");
-                return;
-            }
+        window.atualizarQtdReal = async function(id, event) {
+            const btn = event.currentTarget; const textOrig = btn.innerText; btn.innerText = "...";
+            const novaQtd = parseInt(document.getElementById(`balanco-input-${id}`).value);
+            if(isNaN(novaQtd) || novaQtd < 0) return alert("Quantidade inválida.");
 
-            db.estoque[index].qtd = novaQtd;
-            salvarBanco();
-            
-            const label = document.getElementById(`label-qtd-${id}`);
-            label.innerText = novaQtd;
-            
-            const btn = event.currentTarget;
-            const textOrig = btn.innerText;
-            btn.innerHTML = '<i data-lucide="check" size="14"></i> OK';
-            btn.classList.replace('bg-purple-600', 'bg-green-500');
-            lucide.createIcons();
-            
-            setTimeout(() => {
-                btn.innerText = textOrig;
-                btn.classList.replace('bg-green-500', 'bg-purple-600');
-            }, 1500);
+            try {
+                await supabaseClient.from('estoque').update({ qtd: novaQtd }).eq('id', id);
+                document.getElementById(`label-qtd-${id}`).innerText = novaQtd;
+                
+                const index = db.estoque.findIndex(p => p.id === id);
+                if(index > -1) db.estoque[index].qtd = novaQtd;
+
+                btn.innerHTML = '<i data-lucide="check" size="14"></i> OK';
+                btn.classList.replace('bg-purple-600', 'bg-green-500'); lucide.createIcons();
+                setTimeout(() => { btn.innerText = textOrig; btn.classList.replace('bg-green-500', 'bg-purple-600'); }, 1500);
+            } catch (e) { alert("Erro ao atualizar!"); btn.innerText = textOrig; }
         }
     </script>
 </body>
