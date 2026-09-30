@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KidsPro - Gestão & Caixa</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.383.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -256,7 +256,11 @@
     <script>
         const SUPABASE_URL = 'https://ikttfbndtdhvtpmlxdpl.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrdHRmYm5kdGRodnRwbWx4ZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3MDMxNTYsImV4cCI6MjEwNjI3OTE1Nn0.Yr8R9hl6n9Uw71o_LWaYGco6f6dV3TXsorFbUvxUt3Y';
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let supabaseClient;
+        function criarCliente(){ const t=localStorage.getItem('kidspro_token')||''; supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{'x-session-token':t}}}); }
+        criarCliente();
+        const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const hoje=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().split('T')[0]};
         let db = { clientes: [], estoque: [], atendimentos: [], caixa: 0 };
         let esconderCaixa = false; let pagamentosMultiplos = []; let tempOrc = { itens: [], desconto: 0, total: 0 }; 
         let tempVariacoes = []; let usuarioAtual = null; let syncChannel = null; let securityInterval = null;
@@ -274,16 +278,9 @@
         };
 
         async function validarSessaoNuvem() {
-            if(!usuarioAtual || !usuarioAtual.id) return false;
-            try {
-                const { data } = await supabaseClient.from('usuarios').select('*').eq('id', usuarioAtual.id).single();
-                if(data && data.ativo) {
-                    usuarioAtual = data;
-                    localStorage.setItem('kidspro_user', JSON.stringify(usuarioAtual));
-                    return true;
-                }
-            } catch(e) {}
-            localStorage.removeItem('kidspro_user');
+            if(!localStorage.getItem('kidspro_token')) return false;
+            try { const { data } = await supabaseClient.rpc('validar_sessao'); if(data && data.id) { usuarioAtual = data; localStorage.setItem('kidspro_user', JSON.stringify(data)); return true; } } catch(e) {}
+            localStorage.removeItem('kidspro_user'); localStorage.removeItem('kidspro_token');
             return false;
         }
 
@@ -293,7 +290,7 @@
             const p = document.getElementById('login-pass').value.trim(); 
             const erroMsg = document.getElementById('login-erro'); erroMsg.classList.add('hidden'); 
             
-            const { data } = await supabaseClient.from('usuarios').select('*').eq('username', u).eq('senha', p); 
+            let data = null; try { const { data: r } = await supabaseClient.rpc('login', {p_user:u, p_pass:p}); if(r && r.token) { localStorage.setItem('kidspro_token', r.token); criarCliente(); delete r.token; data = [r]; } } catch(e) {} 
             if(data && data.length > 0 && data[0].ativo) { 
                 usuarioAtual = data[0]; 
                 localStorage.setItem('kidspro_user', JSON.stringify(usuarioAtual)); 
@@ -304,7 +301,7 @@
             } 
         }
 
-        window.sair = function() { 
+        window.sair = async function() { try { await supabaseClient.rpc('logout'); } catch(e) {} localStorage.removeItem('kidspro_token'); 
             localStorage.removeItem('kidspro_user'); 
             if(securityInterval) clearInterval(securityInterval);
             location.reload(); 
@@ -313,8 +310,8 @@
         function iniciarApp() { 
             document.getElementById('login-container').style.display = 'none'; 
             const h = new Date(); 
-            document.getElementById('rel-inicio').value = new Date(h.getFullYear(), h.getMonth(), 1).toISOString().split('T')[0]; 
-            document.getElementById('rel-fim').value = h.toISOString().split('T')[0]; 
+            document.getElementById('rel-inicio').value = hoje().slice(0,8)+'01'; 
+            document.getElementById('rel-fim').value = hoje(); 
             
             const logoImg = document.getElementById('app-logo');
             if(usuarioAtual.logo_url) { logoImg.src = usuarioAtual.logo_url; logoImg.style.display = 'block'; }
@@ -329,8 +326,7 @@
                 }
             }, 300000);
 
-            if(syncChannel) supabaseClient.removeChannel(syncChannel);
-            syncChannel = supabaseClient.channel(`loja_sync_${usuarioAtual.loja_id}`).on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => { await carregarBancoSupabase(); const toast = document.getElementById('toast-sync'); if(toast) { toast.classList.remove('translate-x-[150%]'); setTimeout(() => toast.classList.add('translate-x-[150%]'), 3000); } }).subscribe();
+            if(syncChannel) clearInterval(syncChannel); syncChannel = setInterval(() => carregarBancoSupabase(), 20000);
             
             carregarBancoSupabase().then(() => { window.switchTab('pdv'); }); 
         }
@@ -341,20 +337,20 @@
                 const [resCli, resEst, resAtend, resCaixa] = await Promise.all([ supabaseClient.from('clientes').select('*').eq('loja_id', lojaId).order('nome', { ascending: true }), supabaseClient.from('estoque').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false }), supabaseClient.from('atendimentos').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false }), supabaseClient.from('caixa_movimentacoes').select('tipo, valor').eq('loja_id', lojaId) ]);
                 if(resCli.data) db.clientes = resCli.data;
                 if(resEst.data) { db.estoque = resEst.data.map(p => { let vars = p.variacoes || []; if(vars.length === 0 && p.qtd > 0) { vars.push({ tamanho: p.tamanho||'U', cor: p.cor||'N/A', cod: p.cod||'', qtd: p.qtd, qtd_defeito: 0 }); } return { id: p.id, desc: p.desc_produto, categoria: p.categoria, custo: parseFloat(p.custo), margem: parseFloat(p.margem), venda: parseFloat(p.venda), fornecedor: p.fornecedor, variacoes: vars }; }); }
-                if(resAtend.data) { db.atendimentos = resAtend.data.map(a => ({ id: a.id, data: a.data, cliente: a.cliente, itens: a.itens, total: parseFloat(a.total), custoTotal: parseFloat(a.custo_total), metodo: a.metodo, status: a.status })); }
+                if(resAtend.data) { db.atendimentos = resAtend.data.map(a => ({ id: a.id, data: a.data, cliente: a.cliente, itens: a.itens, total: parseFloat(a.total), custoTotal: parseFloat(a.custo_total), metodo: a.metodo, status: a.status, desconto: parseFloat(a.desconto||0) })); }
                 let saldo = 0; if (resCaixa.data) { resCaixa.data.forEach(mov => { saldo += (mov.tipo === 'sangria' ? -parseFloat(mov.valor) : parseFloat(mov.valor)); }); } db.caixa = saldo; window.atualizarInterface();
             } catch (e) { console.error("Erro:", e); }
         }
 
         window.abrirModalDevolucao = function() {
-            document.getElementById('dev-cliente').innerHTML = `<option value="">Selecione (Obrigatório para Crédito)</option>` + db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+            document.getElementById('dev-cliente').innerHTML = `<option value="">Selecione (Obrigatório para Crédito)</option>` + db.clientes.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('');
             document.getElementById('dev-item-select').innerHTML = '<option value="">Digite para buscar no estoque...</option>';
             window.abrirModal('modal-devolucao');
         }
         window.filtrarSelectDev = function() {
             const termo = document.getElementById('dev-busca').value.toLowerCase(); const todos = window.obterListaVariaveis(true);
             const filtrados = todos.filter(v => v.desc.toLowerCase().includes(termo) || (v.cod && v.cod.toLowerCase().includes(termo)) || v.tamanho.toLowerCase().includes(termo));
-            document.getElementById('dev-item-select').innerHTML = filtrados.map(v => `<option value="${v.id_produto}|${v.idx_var}">[${v.cod||'-'}] ${v.desc} (Tam: ${v.tamanho}) - R$ ${v.preco.toFixed(2)}</option>`).join('');
+            document.getElementById('dev-item-select').innerHTML = filtrados.map(v => `<option value="${v.id_produto}|${v.idx_var}">[${esc(v.cod||'-')}] ${esc(v.desc)} (Tam: ${esc(v.tamanho)}) - R$ ${v.preco.toFixed(2)}</option>`).join('');
         }
         window.confirmarDevolucao = async function() {
             const val = document.getElementById('dev-item-select').value; if(!val) return alert("Selecione a peça!");
@@ -368,9 +364,7 @@
             if(acao === 'credito' && !cliId) return alert("Para gerar Crédito de Troca, selecione o cliente!");
 
             try {
-                if(motivo === 'defeito') { p.variacoes[idx].qtd_defeito = (p.variacoes[idx].qtd_defeito || 0) + qtd; } 
-                else { p.variacoes[idx].qtd += qtd; }
-                await supabaseClient.from('estoque').update({ variacoes: p.variacoes }).eq('id', p.id);
+                await supabaseClient.rpc('ajustar_estoque', {p_id: p.id, p_idx: idx, p_campo: motivo === 'defeito' ? 'qtd_defeito' : 'qtd', p_delta: qtd});
 
                 if(acao === 'estorno') {
                     await supabaseClient.from('caixa_movimentacoes').insert([{tipo: 'sangria', valor: valorDevolvido, descricao: `Devolução: ${p.desc} (${motivo})`, loja_id: usuarioAtual.loja_id}]);
@@ -402,14 +396,14 @@
             
             let troco = rec > totalAPagar ? rec - totalAPagar : 0;
             const novaOSId = Date.now();
-            const novaOS = { id: novaOSId, data: document.getElementById('orc-data').value, cliente: cliente ? cliente.nome : "Consumidor Final", itens: tempOrc.itens, total: tempOrc.total, custo_total: tempOrc.itens.reduce((acc, cur) => acc + (cur.custo * cur.qtd), 0), metodo: saldoUsado > 0 ? (rec>0 ? 'Misto c/ Saldo' : 'Troca') : pagamentosMultiplos[0].metodo, status: "Concluído", loja_id: usuarioAtual.loja_id };
+            const novaOS = { id: novaOSId, data: document.getElementById('orc-data').value, cliente: cliente ? cliente.nome : "Consumidor Final", itens: tempOrc.itens, total: tempOrc.total, custo_total: tempOrc.itens.reduce((acc, cur) => acc + (cur.custo * cur.qtd), 0), metodo: saldoUsado > 0 ? (rec>0 ? 'Misto c/ Saldo' : 'Troca') : [...new Set(pagamentosMultiplos.map(x => x.metodo))].join('+'), desconto: tempOrc.desconto, pagamentos: pagamentosMultiplos, status: "Concluído", loja_id: usuarioAtual.loja_id };
             
             try {
                 await supabaseClient.from('atendimentos').insert([novaOS]);
                 if((fis - troco) > 0) { await supabaseClient.from('caixa_movimentacoes').insert([{tipo: 'venda', valor: (fis - troco), descricao: `Venda #${novaOSId}`, loja_id: usuarioAtual.loja_id}]); }
                 if(fia > 0) { await supabaseClient.from('clientes').update({ divida: (parseFloat(cliente.divida) + fia) }).eq('id', cliId); }
                 if(saldoUsado > 0) { await supabaseClient.from('clientes').update({ credito_loja: (parseFloat(cliente.credito_loja) - saldoUsado) }).eq('id', cliId); }
-                for (let iv of tempOrc.itens) { const p = db.estoque.find(x => x.id === iv.id); if(p) { p.variacoes[iv.idx_var].qtd = Math.max(0, p.variacoes[iv.idx_var].qtd - iv.qtd); await supabaseClient.from('estoque').update({ variacoes: p.variacoes }).eq('id', iv.id); } }
+                for (let iv of tempOrc.itens) { const p = db.estoque.find(x => x.id === iv.id); if(p) { await supabaseClient.rpc('ajustar_estoque', {p_id: iv.id, p_idx: iv.idx_var, p_campo: 'qtd', p_delta: -iv.qtd}); } }
                 window.fecharModal('modal-pagamento'); window.fecharModal('modal-atendimento'); await carregarBancoSupabase(); document.getElementById('last-os-id').value = novaOSId; window.abrirModal('modal-recibo');
             } catch (e) { alert("Erro ao finalizar a venda."); }
             document.getElementById('btn-confirma-finalizacao').disabled = false;
@@ -457,21 +451,37 @@
         window.prepararCaixa = function(t) { document.getElementById('tipo-mov-caixa').value = t; window.abrirModal('modal-caixa'); }
         window.abrirModalCliente = function(id = null) { if(id){ const c = db.clientes.find(x=>x.id==id); document.getElementById('edit-cli-id').value=c.id; document.getElementById('cli-nome').value=c.nome; document.getElementById('cli-tel').value=c.tel; }else{ document.getElementById('edit-cli-id').value=""; document.getElementById('cli-nome').value=""; document.getElementById('cli-tel').value="";} window.abrirModal('modal-cliente');}
         window.abrirModalReceberDivida = function(id) { const c = db.clientes.find(x=>x.id==id); document.getElementById('divida-cli-id').value=c.id; document.getElementById('divida-cli-total').innerText=`R$ ${parseFloat(c.divida).toFixed(2)}`; window.abrirModal('modal-divida');}
-        window.renderVarTemp = function() { const html = tempVariacoes.map((v, i) => `<div class="grid grid-cols-12 text-xs items-center bg-black/40 p-2 rounded border border-white/5"><div class="col-span-3 text-white truncate">${v.tamanho}</div><div class="col-span-3 text-white truncate">${v.cor}</div><div class="col-span-3 text-slate-400 text-[10px] truncate">${v.cod || '-'}</div><div class="col-span-2 text-center font-bold text-white">${v.qtd}</div><div class="col-span-1 text-right"><button onclick="tempVariacoes.splice(${i},1); window.renderVarTemp();" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button></div></div>`).join(''); document.getElementById('lista-var-temp').innerHTML = html; lucide.createIcons(); }
+        window.renderVarTemp = function() { const html = tempVariacoes.map((v, i) => `<div class="grid grid-cols-12 text-xs items-center bg-black/40 p-2 rounded border border-white/5"><div class="col-span-3 text-white truncate">${esc(v.tamanho)}</div><div class="col-span-3 text-white truncate">${esc(v.cor)}</div><div class="col-span-3 text-slate-400 text-[10px] truncate">${esc(v.cod || '-')}</div><div class="col-span-2 text-center font-bold text-white">${v.qtd}</div><div class="col-span-1 text-right"><button onclick="tempVariacoes.splice(${i},1); window.renderVarTemp();" class="text-red-500"><i data-lucide="trash-2" size="14"></i></button></div></div>`).join(''); document.getElementById('lista-var-temp').innerHTML = html; lucide.createIcons(); }
         window.addVarTemp = function() { const tam = document.getElementById('var-tam').value.trim() || 'U'; const cor = document.getElementById('var-cor').value.trim() || 'Padrão'; const cod = document.getElementById('var-cod').value.trim(); const qtd = parseInt(document.getElementById('var-qtd').value) || 0; tempVariacoes.push({ tamanho: tam, cor: cor, cod: cod, qtd: qtd, qtd_defeito: 0 }); document.getElementById('var-tam').value = ''; document.getElementById('var-cor').value = ''; document.getElementById('var-cod').value = ''; document.getElementById('var-qtd').value = ''; window.renderVarTemp(); }
         window.abrirModalPeca = function(id = null) { tempVariacoes = []; if(id) { const p = db.estoque.find(x => x.id == id); document.getElementById('edit-peca-id').value = p.id; document.getElementById('p-desc').value = p.desc; document.getElementById('p-categoria').value = p.categoria; document.getElementById('p-fornecedor').value = p.fornecedor; document.getElementById('p-custo').value = p.custo; document.getElementById('p-venda').value = p.venda; window.calcularMargem(); tempVariacoes = JSON.parse(JSON.stringify(p.variacoes)); } else { document.getElementById('edit-peca-id').value = ""; document.getElementById('p-desc').value = ""; document.getElementById('p-custo').value = ""; document.getElementById('p-venda').value = ""; document.getElementById('p-margem').value = ""; } window.renderVarTemp(); window.abrirModal('modal-peca'); }
         window.excluirPeca = async function(id) { if(confirm("Excluir o produto inteiro?")) { await supabaseClient.from('estoque').delete().eq('id', id); await carregarBancoSupabase(); } }
         window.obterListaVariaveis = function(ignorarEstoque = false) { let lista = []; db.estoque.forEach(p => { p.variacoes.forEach((v, idx) => { if(ignorarEstoque || v.qtd > 0) lista.push({ id_produto: p.id, idx_var: idx, desc: p.desc, tamanho: v.tamanho, cor: v.cor, cod: v.cod, qtd: v.qtd, preco: p.venda, custo: p.custo }); }); }); return lista; }
-        window.abrirModalAtendimento = function() { document.getElementById('orc-cliente').innerHTML = `<option value="">Consumidor Final</option>` + db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join(''); document.getElementById('orc-data').value = new Date().toISOString().split('T')[0]; tempOrc = { itens: [], desconto: 0, total: 0 }; document.getElementById('orc-desconto').value = "0"; window.renderItensOrc(); window.filtrarSelectOrc(); window.abrirModal('modal-atendimento'); setTimeout(() => document.getElementById('orc-busca').focus(), 100); }
-        window.filtrarSelectOrc = function() { const termo = document.getElementById('orc-busca').value.toLowerCase(); const todos = window.obterListaVariaveis(); const filtrados = todos.filter(v => v.desc.toLowerCase().includes(termo) || (v.cod && v.cod.toLowerCase().includes(termo)) || v.tamanho.toLowerCase().includes(termo)); document.getElementById('orc-item-select').innerHTML = filtrados.map(v => `<option value="${v.id_produto}|${v.idx_var}">[${v.cod||'-'}] ${v.desc} (Tam: ${v.tamanho}) - R$ ${v.preco.toFixed(2)} (Est: ${v.qtd})</option>`).join(''); }
+        window.abrirModalAtendimento = function() { document.getElementById('orc-cliente').innerHTML = `<option value="">Consumidor Final</option>` + db.clientes.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join(''); document.getElementById('orc-data').value = hoje(); tempOrc = { itens: [], desconto: 0, total: 0 }; document.getElementById('orc-desconto').value = "0"; window.renderItensOrc(); window.filtrarSelectOrc(); window.abrirModal('modal-atendimento'); setTimeout(() => document.getElementById('orc-busca').focus(), 100); }
+        window.filtrarSelectOrc = function() { const termo = document.getElementById('orc-busca').value.toLowerCase(); const todos = window.obterListaVariaveis(); const filtrados = todos.filter(v => v.desc.toLowerCase().includes(termo) || (v.cod && v.cod.toLowerCase().includes(termo)) || v.tamanho.toLowerCase().includes(termo)); document.getElementById('orc-item-select').innerHTML = filtrados.map(v => `<option value="${v.id_produto}|${v.idx_var}">[${esc(v.cod||'-')}] ${esc(v.desc)} (Tam: ${esc(v.tamanho)}) - R$ ${v.preco.toFixed(2)} (Est: ${v.qtd})</option>`).join(''); }
         window.handleBuscaOrc = function(event) { if(event.key === 'Enter') { event.preventDefault(); window.adicionarItemAoOrc(); document.getElementById('orc-busca').value = ''; window.filtrarSelectOrc(); } }
         window.adicionarItemAoOrc = function() { const val = document.getElementById('orc-item-select').value; if(!val) return; const [id_produto, idx_var] = val.split('|').map(Number); const p = db.estoque.find(x => x.id === id_produto); const v = p.variacoes[idx_var]; const qtdDesejada = parseInt(document.getElementById('orc-item-qtd').value) || 1; const uniqueKey = `${id_produto}-${idx_var}`; const existe = tempOrc.itens.find(i => i.key === uniqueKey); const totalSolicitado = existe ? existe.qtd + qtdDesejada : qtdDesejada; if(totalSolicitado > v.qtd) return alert(`Apenas ${v.qtd} unidades.`); if(existe) existe.qtd += qtdDesejada; else tempOrc.itens.push({ key: uniqueKey, id: p.id, idx_var: idx_var, desc: `${p.desc} (${v.tamanho}/${v.cor})`, preco: p.venda, custo: p.custo, qtd: qtdDesejada }); document.getElementById('orc-item-qtd').value = 1; window.renderItensOrc(); }
-        window.renderItensOrc = function() { const c = document.getElementById('orc-itens-lista'); document.getElementById('orc-qtd-itens').innerText = `${tempOrc.itens.length} itens`; c.innerHTML = tempOrc.itens.map((it, i) => `<div class="flex justify-between items-center bg-white/5 p-3 rounded-xl text-xs border border-white/5"><span class="w-6 font-black text-white">${it.qtd}x</span><span class="flex-1 text-slate-200 truncate">${it.desc}</span><span class="font-bold text-right text-white">R$ ${(it.preco * it.qtd).toFixed(2)}</span><button onclick="tempOrc.itens.splice(${i},1); window.renderItensOrc();" class="text-red-500 ml-2"><i data-lucide="trash-2" size="14"></i></button></div>`).join(''); window.calcularTotalOrc(); lucide.createIcons(); }
+        window.renderItensOrc = function() { const c = document.getElementById('orc-itens-lista'); document.getElementById('orc-qtd-itens').innerText = `${tempOrc.itens.length} itens`; c.innerHTML = tempOrc.itens.map((it, i) => `<div class="flex justify-between items-center bg-white/5 p-3 rounded-xl text-xs border border-white/5"><span class="w-6 font-black text-white">${it.qtd}x</span><span class="flex-1 text-slate-200 truncate">${esc(it.desc)}</span><span class="font-bold text-right text-white">R$ ${(it.preco * it.qtd).toFixed(2)}</span><button onclick="tempOrc.itens.splice(${i},1); window.renderItensOrc();" class="text-red-500 ml-2"><i data-lucide="trash-2" size="14"></i></button></div>`).join(''); window.calcularTotalOrc(); lucide.createIcons(); }
         window.calcularTotalOrc = function() { let sub = tempOrc.itens.reduce((acc, cur) => acc + (cur.preco * cur.qtd), 0); tempOrc.desconto = parseFloat(document.getElementById('orc-desconto').value) || 0; tempOrc.total = Math.max(0, sub - tempOrc.desconto); document.getElementById('orc-total-final').innerText = `R$ ${tempOrc.total.toFixed(2)}`; }
         window.adicionarLinhaPagamento = function() { pagamentosMultiplos.push({ metodo: 'PIX', valor: 0 }); window.renderPagamentosMistos(); }
         window.renderPagamentosMistos = function() { document.getElementById('lista-pagamentos-multiplos').innerHTML = pagamentosMultiplos.map((p, index) => `<div class="flex gap-2 items-center bg-white/5 p-2 rounded-xl"><select onchange="pagamentosMultiplos[${index}].metodo=this.value" class="flex-1 bg-black/40 text-white rounded-lg p-2 font-bold text-xs"><option value="Dinheiro" ${p.metodo==='Dinheiro'?'selected':''}>Dinheiro</option><option value="PIX" ${p.metodo==='PIX'?'selected':''}>PIX</option><option value="Crédito" ${p.metodo==='Crédito'?'selected':''}>Crédito</option><option value="Débito" ${p.metodo==='Débito'?'selected':''}>Débito</option><option value="Crédito Loja" ${p.metodo==='Crédito Loja'?'selected':''}>Fiado</option></select><input type="number" oninput="pagamentosMultiplos[${index}].valor=parseFloat(this.value)||0; window.calcularTotaisPagamento()" value="${p.valor}" class="w-24 bg-white/10 text-white rounded-lg p-2 text-right font-black text-sm text-green-400"><button onclick="pagamentosMultiplos.splice(${index}, 1); window.renderPagamentosMistos();" class="text-red-500 p-2"><i data-lucide="trash-2" size="14"></i></button></div>`).join(''); window.calcularTotaisPagamento(); lucide.createIcons(); }
-        window.imprimirTermica = function(idOS) { const os = db.atendimentos.find(o => o.id == idOS); if(!os) return; let itensHTML = os.itens.map(it => `<tr><td style="padding: 4px 0;">${it.desc}</td><td style="padding: 4px 0; text-align: center;">${it.qtd}</td><td style="padding: 4px 0; text-align: right;">R$ ${it.preco.toFixed(2)}</td><td style="padding: 4px 0; text-align: right;">R$ ${(it.preco * it.qtd).toFixed(2)}</td></tr>`).join(''); const recibo = `<html><head><title>CUPOM DE VENDA</title><style>body { font-family: monospace; width: 80mm; padding: 10px; font-size: 12px; } h2 { text-align: center; margin: 0 0 5px 0; } .logo-print { max-width: 120px; display: block; margin: 0 auto 10px auto; }</style></head><body><img src="${usuarioAtual.logo_url || 'logo.png'}" class="logo-print" onerror="this.style.display='none'"><h2>${usuarioAtual.nome}</h2><div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:10px;">CUPOM NÃO FISCAL</div><div>Data: ${os.data}</div><div>Cliente: ${os.cliente}</div><table style="width:100%; border-collapse:collapse; margin-top:10px;"><thead><tr><th style="border-bottom:1px solid #000; text-align:left;">Item</th><th style="border-bottom:1px solid #000; text-align:center;">Qtd</th><th style="border-bottom:1px solid #000; text-align:right;">Sub</th></tr></thead><tbody>${itensHTML}</tbody></table><div style="border-top:1px dashed #000; margin-top:10px; padding-top:5px; font-weight:bold; font-size:14px;">TOTAL: R$ ${os.total.toFixed(2)}</div></body></html>`; const win = window.open('', '_blank', 'width=400,height=600'); win.document.write(recibo); win.document.close(); }
-        window.gerarRelatorio = function() { const i = document.getElementById('rel-inicio').value; const f = document.getElementById('rel-fim').value; if(!i || !f) return; const vf = db.atendimentos.filter(v => v.data >= i && v.data <= f); const fat = vf.reduce((a, b) => a + b.total, 0); const cus = vf.reduce((a, b) => a + (b.custoTotal || 0), 0); const luc = fat - cus; let totEstoque = 0; db.estoque.forEach(p => { p.variacoes.forEach(v => { totEstoque += (v.qtd * p.custo); }); }); document.getElementById('kpi-faturamento').innerText = `R$ ${fat.toFixed(2)}`; document.getElementById('kpi-lucro').innerText = `R$ ${luc.toFixed(2)}`; document.getElementById('kpi-ticket').innerText = `R$ ${(vf.length?fat/vf.length:0).toFixed(2)}`; document.getElementById('kpi-imobilizado').innerText = `R$ ${totEstoque.toFixed(2)}`; document.getElementById('lista-relatorio-vendas').innerHTML = vf.map(v => `<tr class="border-b border-white/5"><td class="p-3">${v.data}</td><td class="p-3">${v.cliente}</td><td class="p-3">${v.metodo}</td><td class="p-3 text-right text-purple-400 font-bold">R$ ${v.total.toFixed(2)}</td></tr>`).join(''); }
+        window.imprimirTermica = function(idOS) { const os = db.atendimentos.find(o => o.id == idOS); if(!os) return; let itensHTML = os.itens.map(it => `<tr><td style="padding: 4px 0;">${esc(it.desc)}</td><td style="padding: 4px 0; text-align: center;">${it.qtd}</td><td style="padding: 4px 0; text-align: right;">R$ ${it.preco.toFixed(2)}</td><td style="padding: 4px 0; text-align: right;">R$ ${(it.preco * it.qtd).toFixed(2)}</td></tr>`).join(''); const recibo = `<html><head><title>CUPOM DE VENDA</title><style>body { font-family: monospace; width: 80mm; padding: 10px; font-size: 12px; } h2 { text-align: center; margin: 0 0 5px 0; } .logo-print { max-width: 120px; display: block; margin: 0 auto 10px auto; }</style></head><body><img src="${esc(usuarioAtual.logo_url || 'logo.png')}" class="logo-print" onerror="this.style.display='none'"><h2>${esc(usuarioAtual.nome)}</h2><div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:10px;">CUPOM NÃO FISCAL</div><div>Data: ${esc(os.data)}</div><div>Cliente: ${esc(os.cliente)}</div><table style="width:100%; border-collapse:collapse; margin-top:10px;"><thead><tr><th style="border-bottom:1px solid #000; text-align:left;">Item</th><th style="border-bottom:1px solid #000; text-align:center;">Qtd</th><th style="border-bottom:1px solid #000; text-align:right;">Sub</th></tr></thead><tbody>${itensHTML}</tbody></table><div style="border-top:1px dashed #000; margin-top:10px; padding-top:5px; font-weight:bold; font-size:14px;">TOTAL: R$ ${os.total.toFixed(2)}</div></body></html>`; const win = window.open('', '_blank', 'width=400,height=600'); win.document.write(recibo); win.document.close(); }
+        window.gerarRelatorio = function() { const i = document.getElementById('rel-inicio').value; const f = document.getElementById('rel-fim').value; if(!i || !f) return; const vf = db.atendimentos.filter(v => v.data >= i && v.data <= f); const fat = vf.reduce((a, b) => a + b.total, 0); const cus = vf.reduce((a, b) => a + (b.custoTotal || 0), 0); const luc = fat - cus; let totEstoque = 0; db.estoque.forEach(p => { p.variacoes.forEach(v => { totEstoque += (v.qtd * p.custo); }); }); document.getElementById('kpi-faturamento').innerText = `R$ ${fat.toFixed(2)}`; document.getElementById('kpi-lucro').innerText = `R$ ${luc.toFixed(2)}`; document.getElementById('kpi-ticket').innerText = `R$ ${(vf.length?fat/vf.length:0).toFixed(2)}`; document.getElementById('kpi-imobilizado').innerText = `R$ ${totEstoque.toFixed(2)}`; document.getElementById('lista-relatorio-vendas').innerHTML = vf.map(v => `<tr class="border-b border-white/5"><td class="p-3">${esc(v.data)}</td><td class="p-3">${esc(v.cliente)}</td><td class="p-3">${esc(v.metodo)}</td><td class="p-3 text-right">R$ ${(v.desconto||0).toFixed(2)}</td><td class="p-3 text-right text-purple-400 font-bold">R$ ${v.total.toFixed(2)}</td></tr>`).join(''); }
+
+        window.gerarRelatorioPDF = function() {
+            const i = document.getElementById('rel-inicio').value, f = document.getElementById('rel-fim').value; if(!i || !f) return alert("Informe o período.");
+            const vf = db.atendimentos.filter(v => v.data >= i && v.data <= f); const { jsPDF } = window.jspdf; const d = new jsPDF();
+            const fat = vf.reduce((a, b) => a + b.total, 0), luc = fat - vf.reduce((a, b) => a + (b.custoTotal || 0), 0);
+            d.setFontSize(16); d.text(`${esc(usuarioAtual.nome)} - Relatório de Vendas`, 14, 16); d.setFontSize(10); d.text(`Período: ${i} a ${f}`, 14, 23);
+            d.text(`Faturamento: R$ ${fat.toFixed(2)}   Lucro bruto: R$ ${luc.toFixed(2)}   Vendas: ${vf.length}   Ticket médio: R$ ${(vf.length ? fat / vf.length : 0).toFixed(2)}`, 14, 30);
+            d.autoTable({ startY: 36, head: [['Data', 'Cliente', 'Método', 'Desc. (R$)', 'Total (R$)']], body: vf.map(v => [v.data, v.cliente, v.metodo, (v.desconto || 0).toFixed(2), v.total.toFixed(2)]) });
+            d.save(`relatorio_${i}_${f}.pdf`);
+        }
+        window.imprimirEtiquetasLote = function() {
+            const sel = [...document.querySelectorAll('.check-etiqueta:checked')]; if(!sel.length) return alert("Selecione ao menos um item.");
+            const w = window.open('', '_blank', 'width=600,height=700'); let h = '';
+            sel.forEach(c => { const tmp = document.createElement('div'); new QRCode(tmp, { text: c.value || c.dataset.desc, width: 90, height: 90 }); const cv = tmp.querySelector('canvas'); const img = cv ? cv.toDataURL() : (tmp.querySelector('img') ? tmp.querySelector('img').src : ''); h += `<div class="e"><img src="${img}"><div>${esc(c.dataset.desc)}</div><small>${esc(c.value)}</small></div>`; });
+            w.document.write(`<html><head><title>Etiquetas</title><style>body{font-family:sans-serif;display:flex;flex-wrap:wrap;gap:6px}.e{width:45mm;border:1px dashed #999;padding:4px;text-align:center;font-size:10px}</style></head><body>${h}</body></html>`); w.document.close(); setTimeout(() => w.print(), 400);
+        }
 
         window.atualizarInterface = function() {
             const totDivida = db.clientes.reduce((acc, c) => acc + parseFloat(c.divida || 0), 0);
@@ -479,24 +489,24 @@
             document.getElementById('dash-credito').innerText = esconderCaixa ? "R$ *****" : `R$ ${totDivida.toFixed(2)}`;
             let alertas = ''; let etiquetas = '';
             db.estoque.forEach(p => { p.variacoes.forEach(v => { 
-                if(v.qtd < 3 && v.qtd >= 0) alertas += `<div class="flex justify-between items-center bg-black/20 p-2 rounded border border-yellow-500/20 text-white shrink-0"><span class="truncate pr-2 text-[10px]">${p.desc} (${v.tamanho})</span><span class="font-black text-yellow-500">${v.qtd} un</span></div>`; 
-                etiquetas += `<label class="flex items-center gap-2 hover:bg-white/10 p-1 rounded cursor-pointer text-xs text-white"><input type="checkbox" class="check-etiqueta rounded" value="${v.cod || ''}" data-desc="${p.desc} - ${v.tamanho}"><span class="flex-1 truncate">${p.desc} (${v.tamanho})</span></label>`; 
+                if(v.qtd < 3 && v.qtd >= 0) alertas += `<div class="flex justify-between items-center bg-black/20 p-2 rounded border border-yellow-500/20 text-white shrink-0"><span class="truncate pr-2 text-[10px]">${esc(p.desc)} (${esc(v.tamanho)})</span><span class="font-black text-yellow-500">${v.qtd} un</span></div>`; 
+                etiquetas += `<label class="flex items-center gap-2 hover:bg-white/10 p-1 rounded cursor-pointer text-xs text-white"><input type="checkbox" class="check-etiqueta rounded" value="${esc(v.cod || '')}" data-desc="${esc(p.desc)} - ${esc(v.tamanho)}"><span class="flex-1 truncate">${esc(p.desc)} (${esc(v.tamanho)})</span></label>`; 
             }); });
             document.getElementById('dash-alertas').innerHTML = alertas || `<p class="text-slate-300 py-2">Estoque normal.</p>`;
             document.getElementById('lista-etiquetas-selecao').innerHTML = etiquetas;
-            document.getElementById('dash-atividades').innerHTML = db.atendimentos.slice(0, 5).map(v => `<div class="text-[10px] p-2 bg-white/5 rounded-xl border border-white/5 shrink-0"><div class="flex justify-between text-slate-300 mb-1"><span>${v.data}</span><span class="font-bold text-blue-300">${v.metodo}</span></div><span class="font-bold text-xs text-white">${v.cliente}</span> <p class="text-purple-400 font-black mt-1">R$ ${v.total.toFixed(2)}</p></div>`).join('');
+            document.getElementById('dash-atividades').innerHTML = db.atendimentos.slice(0, 5).map(v => `<div class="text-[10px] p-2 bg-white/5 rounded-xl border border-white/5 shrink-0"><div class="flex justify-between text-slate-300 mb-1"><span>${esc(v.data)}</span><span class="font-bold text-blue-300">${esc(v.metodo)}</span></div><span class="font-bold text-xs text-white">${esc(v.cliente)}</span> <p class="text-purple-400 font-black mt-1">R$ ${v.total.toFixed(2)}</p></div>`).join('');
             
             const tc = document.getElementById('busca-cliente') ? document.getElementById('busca-cliente').value.trim().toLowerCase() : "";
-            document.getElementById('grid-clientes').innerHTML = db.clientes.filter(c => c.nome.toLowerCase().includes(tc)).map(c => `<div class="glass p-5 rounded-3xl space-y-3 relative border border-white/10"><button onclick="window.abrirModalCliente('${c.id}')" class="absolute top-4 right-4 text-slate-400"><i data-lucide="edit-3" size="14"></i></button><div class="flex justify-between pr-6"><div><h4 class="font-black text-white">${c.nome}</h4><p class="text-[10px] text-green-400 font-bold">${c.tel || 'Sem tel'}</p></div><div class="text-right"><p class="text-[9px] text-slate-300 font-bold uppercase">Fiado</p><p class="text-sm font-black ${parseFloat(c.divida) > 0 ? 'text-red-500' : 'text-slate-300'}">R$ ${parseFloat(c.divida).toFixed(2)}</p>${parseFloat(c.divida) > 0 ? `<button onclick="window.abrirModalReceberDivida('${c.id}')" class="mt-1 bg-green-500/20 text-green-400 w-full py-1 rounded text-[10px] font-bold">Receber</button>` : ''}</div></div><div class="pt-2 border-t border-white/10 flex justify-between items-center"><span class="text-[10px] text-slate-400 uppercase font-bold">Saldo de Troca:</span><span class="text-purple-400 font-black text-sm">R$ ${parseFloat(c.credito_loja||0).toFixed(2)}</span></div></div>`).join('');
+            document.getElementById('grid-clientes').innerHTML = db.clientes.filter(c => c.nome.toLowerCase().includes(tc)).map(c => `<div class="glass p-5 rounded-3xl space-y-3 relative border border-white/10"><button onclick="window.abrirModalCliente('${c.id}')" class="absolute top-4 right-4 text-slate-400"><i data-lucide="edit-3" size="14"></i></button><div class="flex justify-between pr-6"><div><h4 class="font-black text-white">${esc(c.nome)}</h4><p class="text-[10px] text-green-400 font-bold">${esc(c.tel || 'Sem tel')}</p></div><div class="text-right"><p class="text-[9px] text-slate-300 font-bold uppercase">Fiado</p><p class="text-sm font-black ${parseFloat(c.divida) > 0 ? 'text-red-500' : 'text-slate-300'}">R$ ${parseFloat(c.divida).toFixed(2)}</p>${parseFloat(c.divida) > 0 ? `<button onclick="window.abrirModalReceberDivida('${c.id}')" class="mt-1 bg-green-500/20 text-green-400 w-full py-1 rounded text-[10px] font-bold">Receber</button>` : ''}</div></div><div class="pt-2 border-t border-white/10 flex justify-between items-center"><span class="text-[10px] text-slate-400 uppercase font-bold">Saldo de Troca:</span><span class="text-purple-400 font-black text-sm">R$ ${parseFloat(c.credito_loja||0).toFixed(2)}</span></div></div>`).join('');
             
             const te = document.getElementById('busca-estoque-geral') ? document.getElementById('busca-estoque-geral').value.trim().toLowerCase() : "";
             document.getElementById('lista-pecas').innerHTML = db.estoque.filter(p => p.desc.toLowerCase().includes(te)).map(p => { 
                 const totalQtd = p.variacoes.reduce((sum, v) => sum + v.qtd, 0); 
                 const totalDefeito = p.variacoes.reduce((sum, v) => sum + (v.qtd_defeito||0), 0); 
-                return `<tr class="border-b border-white/5 hover:bg-white/10 text-xs"><td class="py-3"><b>${p.desc}</b></td><td><span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-[10px]">${p.categoria}</span></td><td class="font-black text-purple-400">R$ ${p.venda.toFixed(2)}</td><td><span class="font-bold text-white block">${totalQtd} prateleira</span>${totalDefeito > 0 ? `<span class="text-[10px] text-red-500 font-bold block bg-red-500/10 px-1 rounded inline-block mt-1">${totalDefeito} defeitos</span>` : ''}</td><td class="text-right"><button onclick="window.abrirModalPeca('${p.id}')" class="text-blue-400 mr-2"><i data-lucide="edit" size="16"></i></button><button onclick="window.excluirPeca('${p.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2" size="16"></i></button></td></tr>`; 
+                return `<tr class="border-b border-white/5 hover:bg-white/10 text-xs"><td class="py-3"><b>${esc(p.desc)}</b></td><td><span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-[10px]">${esc(p.categoria)}</span></td><td class="font-black text-purple-400">R$ ${p.venda.toFixed(2)}</td><td><span class="font-bold text-white block">${totalQtd} prateleira</span>${totalDefeito > 0 ? `<span class="text-[10px] text-red-500 font-bold block bg-red-500/10 px-1 rounded inline-block mt-1">${totalDefeito} defeitos</span>` : ''}</td><td class="text-right"><button onclick="window.abrirModalPeca('${p.id}')" class="text-blue-400 mr-2"><i data-lucide="edit" size="16"></i></button><button onclick="window.excluirPeca('${p.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2" size="16"></i></button></td></tr>`; 
             }).join('');
             
-            document.getElementById('lista-atendimentos').innerHTML = db.atendimentos.map(v => `<tr class="border-b border-white/5 hover:bg-white/10 text-xs"><td class="p-4">${v.data}</td><td class="font-bold text-slate-200">${v.cliente}</td><td><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold uppercase">${v.metodo}</span></td><td class="font-black text-purple-400">R$ ${v.total.toFixed(2)}</td><td class="p-4"><button onclick="window.imprimirTermica('${v.id}')" class="text-slate-300"><i data-lucide="printer" size="16"></i></button></td></tr>`).join('');
+            document.getElementById('lista-atendimentos').innerHTML = db.atendimentos.map(v => `<tr class="border-b border-white/5 hover:bg-white/10 text-xs"><td class="p-4">${esc(v.data)}</td><td class="font-bold text-slate-200">${esc(v.cliente)}</td><td><span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold uppercase">${esc(v.metodo)}</span></td><td class="font-black text-purple-400">R$ ${v.total.toFixed(2)}</td><td class="p-4"><button onclick="window.imprimirTermica('${v.id}')" class="text-slate-300"><i data-lucide="printer" size="16"></i></button></td></tr>`).join('');
             if(document.getElementById('tab-relatorios').classList.contains('active')) window.gerarRelatorio();
             lucide.createIcons();
         }
