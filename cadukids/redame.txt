@@ -1,1 +1,59 @@
+Documentação Técnica e Funcional - KidsPro (SaaS de Gestão & Caixa)
+1. Visão Geral do Sistema
+O KidsPro é um sistema completo de Frente de Caixa (PDV) e Gestão de Estoque estruturado no modelo SaaS (Software as a Service), desenvolvido para o comércio de vestuário, acessórios e brinquedos infantis. A arquitetura divide-se em duas interfaces principais:
 
+Versão Desktop (index.html): Focada na retaguarda gerencial completa (cadastros, relatórios financeiros avançados, controle de fiados, entradas/sangrias de caixa e gestão de estoque pai/filho) e operação de caixa.
+
+Versão Mobile (app.html): Otimizada para smartphones e leitores de código de barras portáteis/câmera, voltada para operações rápidas de PDV e contagem de balanço de estoque no chão de loja.
+
+2. Arquitetura e Segurança
+Camada de Dados: Integrada ao Supabase (PostgreSQL na nuvem), garantindo persistência em tempo real via WebSockets.
+
+Isolamento Multi-tenant: Os dados são segmentados por loja_id, assegurando que cada cliente visualize apenas o seu próprio estoque, clientes e movimentações financeiras.
+
+Segurança de Acesso (Anti-fraude):
+
+Validação inicial e revalidação remota periódica (a cada 5 minutos) contra a tabela usuarios no banco de dados.
+
+Caso o acesso de um lojista seja revogado (ativo = false no painel master), o sistema interrompe automaticamente a sessão, deslogando o usuário e bloqueando a comunicação com a nuvem.
+
+3. Módulos Funcionais do Sistema
+3.1. Frente de Caixa (PDV) e Vendas
+Busca e Leitura: Pesquisa dinâmica por descrição do produto, tamanho ou código de barras, com suporte integrado a leitores ópticos/câmera na versão mobile.
+
+Múltiplas Formas de Pagamento: Permite dividir o pagamento de uma venda entre Dinheiro, PIX, Cartão de Crédito, Cartão de Débito, Fiado (Crediário) e Uso de Saldo de Troca/Crédito de Loja do cliente.
+
+Baixa Automática: O estoque correspondente à variação exata (tamanho/cor) é abatido em tempo real e os valores entram no fluxo do caixa ativo.
+
+Cupom Não Fiscal: Emissão de recibo formatado para impressoras térmicas com a logomarca personalizada da loja.
+
+3.2. Gestão de Estoque (Pai e Subestoque)
+Estrutura Hierárquica: Cadastro de produtos "Pai" (ex: Vestido Floral) associados a múltiplas variações de "Filho" (Tamanho, Cor, Código de Barras e Quantidade individualizada).
+
+Margem e Custos: Cálculo automático do preço de venda com base no preço de custo e na margem de lucro percentual informada.
+
+Estoque de Defeitos: Sistema de separação física/lógica que diferencia o saldo disponível na prateleira do saldo de peças avariadas ou com defeito durante o processo de devolução.
+
+Alertas de Repor Estoque: Notificações automáticas na dashboard para itens com estoque igual ou inferior a 3 unidades.
+
+3.3. Gestão de Clientes, Fiado e Crédito de Troca
+Controle de Fiado: Registro de vendas a prazo vinculadas ao cadastro do cliente, permitindo acompanhar o saldo devedor total e realizar baixas parciais ou totais com entrada imediata no caixa.
+
+Crédito de Loja (Vale-Trocas): Módulo integrado de devolução que permite reintroduzir o item na prateleira ou enviá-lo para o estoque de defeitos, gerando automaticamente um saldo de crédito em Reais na conta do cliente para compras futuras ou estornando o valor do caixa.
+
+3.4. Relatórios e Dashboard Gerencial
+Filtro por Período: Seleção de datas para apuração de resultados financeiros customizados.
+
+Indicadores Chave (KPIs):
+
+Faturamento Total no período.
+
+Lucro Bruto (calculado com base no custo das mercadorias vendidas).
+
+Ticket Médio por atendimento.
+
+Capital Imobilizado (valor total do estoque avaliado a preço de custo).
+
+Emissão de Relatórios: Geração e exportação de dados analíticos em formato PDF utilizando bibliotecas integradas (jspdf e jspdf-autotable).
+
+Impressão de Etiquetas: Seleção em lote de produtos para impressão rápida de etiquetas com códigos de barras.
