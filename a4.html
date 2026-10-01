@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Incêndio - Brigada VR</title>
+    <!-- Incluindo as bibliotecas necessárias para WebXR -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #111; color: #eee; }
+        /* Painel do Instrutor - Visível fora do VR */
+        #instructor-panel {
+            position: absolute; top: 10px; right: 10px;
+            width: 320px; padding: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            border: 2px solid #555; border-radius: 10px;
+            z-index: 1000; display: block;
+        }
+        #instructor-panel h2 { margin-top: 0; color: #ffaa00; text-align: center; }
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #ccc; }
+        .control-group button {
+            width: 100%; padding: 10px;
+            background: #ffaa00; color: #222;
+            border: none; border-radius: 5px;
+            font-size: 16px; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .control-group button:hover { background: #ffcc66; }
+        .control-group button:active { background: #dd8800; }
+        .control-group button.active { background: #ff3300; color: white; } /* Cor do fogo ativo */
+        #vr-status { text-align: center; color: #888; font-size: 14px; margin-top: 10px; }
+
+        /* Interface do Brigadista - Visível APENAS no Celular (quando não em VR) */
+        #brigadista-ui {
+            position: absolute; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000; text-align: center; display: none;
+        }
+        #trigger-button {
+            width: 150px; height: 75px;
+            background: #00cccc; color: #111;
+            border: 3px solid #eee; border-radius: 10px;
+            font-size: 24px; font-weight: bold;
+            cursor: pointer; display: none;
+        }
+        #status-display { color: cyan; font-size: 18px; display: none; margin-bottom: 10px; }
+
+        /* Estilo para quando estiver em modo VR */
+        [a-scene][vr-mode-ui="enabled"] #instructor-panel { display: none; }
+        [a-scene][vr-mode-ui="enabled"] #brigadista-ui { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- PAINEL DO INSTRUTOR -->
+    <div id="instructor-panel">
+        <h2>Painel do Instrutor</h2>
+        <div class="control-group">
+            <label>Cenário de Fogo</label>
+            <button id="toggle-fire" onclick="toggleFire()">LIGAR FOGO</button>
+        </div>
+        <div class="control-group">
+            <label>Jato de Extintor</label>
+            <button id="toggle-water" onclick="toggleWater()">TESTAR ÁGUA (Mock)</button>
+        </div>
+        <div id="vr-status">Modo Brigadista (Abra esta página no celular)</div>
+    </div>
+
+    <!-- UI DO BRIGADISTA -->
+    <div id="brigadista-ui">
+        <div id="status-display">Mirando...</div>
+        <button id="trigger-button">SEGURE GATILHO</button>
+    </div>
+
+    <!-- CENA VR (A-Frame) -->
+    <a-scene embedded vr-mode-ui="enabled" fog="type: exponential; color: #1a1a1a; density: 0.02">
+        
+        <!-- Ativos (Texturas, Modelos) -->
+        <a-assets>
+            <img id="concrete-floor" src="https://cdn.aframe.io/examples/ar/textures/floor.png">
+            <img id="warehouse-sky" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg">
+        </a-assets>
+
+        <!-- CÂMERA E CONTROLES (Rastreamento 3DoF de Celular) -->
+        <a-entity id="rig" position="0 0 0">
+            <a-camera id="camera" look-controls raycaster="objects: .collidables; interval: 100; far: 10" cursor="fuse: false; rayOrigin: mouse;"></a-camera>
+            
+            <!-- Jato de Água (Sistema de Partículas acoplado à câmera) -->
+            <a-entity id="water-jet" position="0 0.2 -1.2" rotation="-15 0 0"
+                      particle-system="preset: snow; color: #00ffff; particleCount: 500; size: 0.08; velocity: 20; direction: -1; duration: -1"
+                      visible="false"></a-entity>
+        </a-entity>
+
+        <!-- CENÁRIO DETALHADO (Texturizado) -->
+        <!-- Chão de Concreto -->
+        <a-plane src="#concrete-floor" rotation="-90 0 0" width="50" height="50" repeat="20 20" material="roughness: 0.9; metalness: 0.1"></a-plane>
+        
+        <!-- Fundo de Céu/Cenário -->
+        <a-sky src="#warehouse-sky" rotation="0 -90 0" color="#1a1a1a"></a-sky>
+
+        <!-- OBJETOS DE CENÁRIO (Realismo) -->
+        <!-- Barril de Metal -->
+        <a-cylinder position="0 0.3 -4" radius="0.4" height="0.6" color="#333" material="metalness: 0.8; roughness: 0.2"></a-cylinder>
+        <a-cylinder position="0 0.01 -4" radius="0.5" height="0.1" color="#111"></a-cylinder> <!-- Base -->
+
+        <!-- Paletes de Madeira -->
+        <a-box position="-3 0.1 -6" width="1.2" height="0.2" depth="1.2" color="#663300" rotation="0 15 0"></a-box>
+        <a-box position="3 0.1 -6" width="1.2" height="0.2" depth="1.2" color="#663300" rotation="0 -15 0"></a-box>
+
+        <!-- FOGO (Sistemas de Partículas Volumétrico e Luz Dinâmica) -->
+        <a-entity id="fire-origin" position="0 0.6 -4" class="collidables">
+            <!-- Partículas de Fogo -->
+            <a-entity particle-system="preset: fire; color: #ff3300, #ffaa00; particleCount: 1500; size: 1.5; velocity: 3; direction: -1; duration: -1" 
+                      visible="false"></a-entity>
+            
+            <!-- Luz Dinâmica que pisca (Realismo) -->
+            <a-entity id="fire-light" light="type: point; color: #ff9900; intensity: 0; distance: 15; decay: 1" visible="false"></a-entity>
+            
+            <!-- Smoke Particles -->
+            <a-entity particle-system="preset: dust; color: #444, #111; particleCount: 300; size: 2.5; velocity: 0.5; direction: -1; duration: -1"
+                      position="0 1.5 0" visible="false"></a-entity>
+        </a-entity>
+
+    </a-scene>
+
+    <script>
+        // Variáveis de Estado
+        let fireActive = false;
+        let waterActive = false;
+        let fireIntensity = 100; // Porcentagem do fogo restante
+        const raycaster = document.querySelector('#camera').components.raycaster;
+
+        // Elementos DOM
+        const toggleFireBtn = document.getElementById('toggle-fire');
+        const waterJet = document.getElementById('water-jet');
+        const fireOrigin = document.getElementById('fire-origin');
+        const fireParticles = fireOrigin.children[0];
+        const fireLight = document.getElementById('fire-light');
+        const smokeParticles = fireOrigin.children[2];
+        const brigadistaUI = document.getElementById('brigadista-ui');
+        const triggerBtn = document.getElementById('trigger-button');
+        const statusDisplay = document.getElementById('status-display');
+
+        // Configuração inicial (Fogo desligado)
+        function updateFireState(active) {
+            fireActive = active;
+            fireIntensity = 100;
+            fireParticles.setAttribute('visible', active);
+            fireLight.setAttribute('visible', active);
+            smokeParticles.setAttribute('visible', active);
+            
+            toggleFireBtn.innerText = active ? "DESLIGAR FOGO" : "LIGAR FOGO";
+            toggleFireBtn.className = active ? "active" : "";
+            fireLight.setAttribute('light', 'intensity', active ? 2.5 : 0);
+        }
+        updateFireState(false); // Desligado por padrão
+
+        // FUNÇÕES DO INSTRUTOR (Sincronização via LocalStorage)
+        function toggleFire() {
+            updateFireState(!fireActive);
+            // Salva o estado para o LocalStorage
+            localStorage.setItem('fire_sim_active', fireActive);
+            if (fireActive) localStorage.setItem('fire_sim_intensity', 100);
+        }
+
+        // FUNÇÃO DE TESTE DO INSTRUTOR (Mock)
+        function toggleWater() {
+            waterActive = !waterActive;
+            waterJet.setAttribute('visible', waterActive);
+        }
+
+        // LÓGICA DO BRIGADISTA (Mobile VR)
+        const sceneEl = document.querySelector('a-scene');
+
+        // Detecta se entrou no modo VR (no celular)
+        sceneEl.addEventListener('enter-vr', function () {
+            brigadistaUI.style.display = 'block';
+            triggerBtn.style.display = 'block';
+            statusDisplay.style.display = 'block';
+        });
+
+        // Detecta se saiu do modo VR
+        sceneEl.addEventListener('exit-vr', function () {
+            brigadistaUI.style.display = 'none';
+        });
+
+        // Controle do Gatilho (Touch ou Botão de VR)
+        // Quando segura
+        const activateWater = () => {
+            if (!waterActive) {
+                waterActive = true;
+                waterJet.setAttribute('visible', true);
+            }
+        };
+
+        // Quando solta
+        const deactivateWater = () => {
+            if (waterActive) {
+                waterActive = false;
+                waterJet.setAttribute('visible', false);
+            }
+        };
+
+        // Eventos de toque no celular para segurar o gatilho
+        triggerBtn.addEventListener('mousedown', activateWater);
+        triggerBtn.addEventListener('touchstart', (e) => { e.preventDefault(); activateWater(); });
+        triggerBtn.addEventListener('mouseup', deactivateWater);
+        triggerBtn.addEventListener('touchend', deactivateWater);
+
+        // LÓGICA DE APAGAR O FOGO (Loop de Jogo)
+        sceneEl.addEventListener('tick', function (time, deltaTime) {
+            
+            // 1. Sincronização LocalStorage (Lê se o instrutor ligou/desligou)
+            const storedFireActive = localStorage.getItem('fire_sim_active') === 'true';
+            if (storedFireActive !== fireActive) {
+                updateFireState(storedFireActive);
+            }
+
+            // 2. Verificação de Mirar e Apagar
+            if (fireActive && waterActive) {
+                const intersection = raycaster.intersections[0];
+                
+                // Se a água estiver ligada E a mira estiver no fogo
+                if (intersection && intersection.object.el === fireOrigin) {
+                    statusDisplay.innerText = "Apagando Fogo...";
+                    statusDisplay.style.color = 'lime';
+
+                    // Diminui a intensidade do fogo com o tempo
+                    // DeltaTime está em milissegundos
+                    fireIntensity -= (0.01 * deltaTime); 
+
+                    // Escala o fogo e a luz conforme ele apaga
+                    const scaleFactor = Math.max(0.1, fireIntensity / 100);
+                    fireParticles.setAttribute('particle-system', 'size', 1.5 * scaleFactor);
+                    fireLight.setAttribute('light', 'intensity', 2.5 * scaleFactor);
+
+                    // Se apagou completamente
+                    if (fireIntensity <= 0) {
+                        updateFireState(false);
+                        localStorage.setItem('fire_sim_active', false);
+                        statusDisplay.innerText = "FOGO APAGADO! Bom trabalho.";
+                        statusDisplay.style.color = 'cyan';
+                    }
+                } else {
+                    // Mirando fora
+                    statusDisplay.innerText = "Acerte a base do fogo!";
+                    statusDisplay.style.color = 'orange';
+                }
+            } else if (fireActive) {
+                // Fogo ligado, mas sem água
+                statusDisplay.innerText = "Segure o gatilho para usar o extintor!";
+                statusDisplay.style.color = 'cyan';
+            } else {
+                // Fogo desligado
+                statusDisplay.innerText = "Aguarde instruções.";
+                statusDisplay.style.color = 'cyan';
+            }
+        });
+        
+        // Limpa o LocalStorage ao iniciar para garantir consistência
+        localStorage.removeItem('fire_sim_active');
+    </script>
+</body>
+</html>
