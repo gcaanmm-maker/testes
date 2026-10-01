@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Teste Base VR</title>
+    <!-- Versão mais estável do A-Frame -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        /* Botão gigante para não ter erro de toque */
+        #btn-esguichar {
+            position: absolute; bottom: 10%; left: 10%; width: 80%; padding: 20px;
+            font-size: 24px; font-weight: bold; background: #0088ff; color: white;
+            border: 3px solid white; border-radius: 10px; z-index: 9999;
+            text-align: center; text-transform: uppercase;
+        }
+        #btn-esguichar:active { background: #0055aa; }
+    </style>
+</head>
+<body>
+
+    <!-- Botão de Ação -->
+    <button id="btn-esguichar">ESGUICHAR ÁGUA</button>
+
+    <!-- Cena VR Básica -->
+    <a-scene background="color: #222">
+        
+        <!-- Câmera com Mira (Cursor) nativo do A-Frame -->
+        <a-camera position="0 1.6 0">
+            <a-cursor color="yellow" raycaster="objects: .alvo"></a-cursor>
+        </a-camera>
+
+        <!-- O "Fogo" (Uma caixa vermelha) -->
+        <a-box id="fogo" class="alvo" position="0 1.5 -3" rotation="0 45 0" color="#ff0000" scale="1 1 1"></a-box>
+
+        <!-- O Chão -->
+        <a-plane position="0 0 -4" rotation="-90 0 0" width="10" height="10" color="#444"></a-plane>
+
+    </a-scene>
+
+    <script>
+        const btn = document.getElementById('btn-esguichar');
+        const fogo = document.getElementById('fogo');
+        const cursor = document.querySelector('a-cursor');
+
+        let esguichando = false;
+        let escalaFogo = 1.0;
+
+        // Ativa a água
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); esguichando = true; btn.innerText = "JOGANDO ÁGUA..."; });
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); esguichando = true; btn.innerText = "JOGANDO ÁGUA..."; });
+        
+        // Desativa a água
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); esguichando = false; btn.innerText = "ESGUICHAR ÁGUA"; });
+        btn.addEventListener('mouseup', (e) => { e.preventDefault(); esguichando = false; btn.innerText = "ESGUICHAR ÁGUA"; });
+
+        // Loop principal
+        document.querySelector('a-scene').addEventListener('tick', function () {
+            if (esguichando && escalaFogo > 0) {
+                // Verifica se a mira amarela está encostando na caixa vermelha
+                const intersecoes = cursor.components.raycaster.intersectedEls;
+                
+                if (intersecoes.length > 0 && intersecoes[0].id === 'fogo') {
+                    // Diminui a caixa vermelha
+                    escalaFogo -= 0.01;
+                    fogo.setAttribute('scale', `${escalaFogo} ${escalaFogo} ${escalaFogo}`);
+                    
+                    if (escalaFogo <= 0) {
+                        fogo.setAttribute('visible', 'false');
+                        btn.innerText = "APAGADO!";
+                        btn.style.background = "green";
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
