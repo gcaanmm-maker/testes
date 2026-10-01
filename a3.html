@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulador VR - Extintor de Incêndio</title>
+
+    <!-- Tailwind CSS para UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- A-Frame (Versão 1.4.0) -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    
+    <!-- A-Frame Particle System Component (Para Fogo e Água) -->
+    <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+    
+    <!-- Ícones -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; margin: 0; overflow: hidden; user-select: none; }
+        .hidden-ui { display: none !important; }
+        
+        /* Camadas de Z-Index para separar VR da Interface HTML */
+        #vr-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; background-color: #0f172a; overflow-y: auto; }
+        #vr-overlay-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; display: none; pointer-events: none; }
+        
+        /* Elementos clicáveis no VR Overlay */
+        #btn-action { pointer-events: auto; touch-action: none; }
+        
+        /* Transições da mira/progresso */
+        #crosshair-ui { transition: transform 0.1s, background-color 0.2s; }
+        .aiming { transform: scale(1.5); background-color: rgba(239, 68, 68, 0.8) !important; border-color: #fca5a5 !important; }
+    </style>
+
+    <script>
+        const STORAGE_KEY = 'vr_fire_state';
+        
+        // Estado local do jogador VR
+        window.vrState = {
+            isShooting: false,
+            isAimingAtFire: false,
+            fireHealth: 100,
+            fireActive: false
+        };
+
+        // 1. COMPONENTE: Correção do Touch Look (Permite olhar para cima e baixo fora do VR)
+        AFRAME.registerComponent('custom-touch-look', {
+            schema: { speed: { default: 0.3 } },
+            init: function () {
+                this.isDragging = false;
+                this.previousPosition = { x: 0, y: 0 };
+                
+                this.onTouchStart = this.onTouchStart.bind(this);
+                this.onTouchMove = this.onTouchMove.bind(this);
+                this.onTouchEnd = this.onTouchEnd.bind(this);
+                
+                if (this.el.sceneEl.canvas) {
+                    this.attachEvents();
+                } else {
+                    this.el.sceneEl.addEventListener('loaded', () => this.attachEvents());
+                }
+            },
+            attachEvents: function() {
+                let canvas = this.el.sceneEl.canvas;
+                canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
+                canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
+                canvas.addEventListener('touchend', this.onTouchEnd);
+            },
+            onTouchStart: function (e) {
+                this.isDragging = true;
+                this.previousPosition = { x: e.touches[0].screenX, y: e.touches[0].screenY };
+            },
+            onTouchMove: function (e) {
+                if (!this.isDragging) return;
+                
+                let deltaX = e.touches[0].screenX - this.previousPosition.x;
+                let deltaY = e.touches[0].screenY - this.previousPosition.y;
+                this.previousPosition = { x: e.touches[0].screenX, y: e.touches[0].screenY };
+
+                let lookControls = this.el.components['look-controls'];
+                if (lookControls) {
+                    lookControls.yawObject.rotation.y -= THREE.MathUtils.degToRad(deltaX * this.data.speed);
+                    lookControls.pitchObject.rotation.x -= THREE.MathUtils.degToRad(deltaY * this.data.speed);
+                    lookControls.pitchObject.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, lookControls.pitchObject.rotation.x));
+                }
+            },
+            onTouchEnd: function () { this.isDragging = false; }
+        });
+
+        // 2. COMPONENTE: Gerencia a vida do fogo e a colisão com o extintor
+        AFRAME.registerComponent('fire-interaction', {
+            init: function () {
+                let el = this.el;
+                
+                // Detecta quando o raycaster entra no fogo
+                el.addEventListener('raycaster-intersected', () => {
+                    window.vrState.isAimingAtFire = true;
+                    document.getElementById('crosshair-ui').classList.add('aiming');
+                });
+                
+                // Detecta quando o raycaster sai do fogo
+                el.addEventListener('raycaster-intersected-cleared', () => {
+                    window.vrState.isAimingAtFire = false;
+                    document.getElementById('crosshair-ui').classList.remove('aiming');
+                });
+            },
+            tick: function(time, delta) {
+                // Se o fogo está ativo, o gatilho está pressionado e estamos mirando no fogo
+                if (window.vrState.fireActive && window.vrState.isShooting && window.vrState.isAimingAtFire) {
+                    
+                    // Reduz a vida do fogo
+                    window.vrState.fireHealth -= (delta * 0.02); // Velocidade de apagar
+                    
+                    if (window.vrState.fireHealth <= 0) {
+                        window.vrState.fireHealth = 0;
+                        apagarFogoPorVR();
+                    }
+                    
+                    // Atualiza o tamanho do sistema de partículas baseado na "vida" do fogo
+                    let scale = Math.max(0.1, window.vrState.fireHealth / 100);
+                    let particles = document.getElementById('fire-particles');
+                    if (particles) {
+                        particles.setAttribute('scale', `${scale} ${scale} ${scale}`);
+                    }
+                }
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <!-- CAMADA 1: Menus e Interfaces HTML -->
+    <div id="ui-layer">
+        
+        <!-- Tela: Seleção de Papel -->
+        <div id="screen-role" class="min-h-screen flex flex-col items-center justify-center p-6 text-white">
+            <h1 class="text-4xl font-black mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Simulador de Brigada</h1>
+            <p class="text-slate-400 mb-12 text-center max-w-md">Escolha sua função na simulação</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
+                <button onclick="selecionarPapel('instrutor')" class="group bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-3xl p-10 flex flex-col items-center transition-all hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-900/20">
+                    <div class="p-6 bg-blue-500/10 rounded-full mb-6 group-hover:scale-110 transition-transform">
+                        <i class="ph-fill ph-desktop text-7xl text-blue-500"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">Instrutor</h2>
+                    <p class="text-slate-400 text-center text-sm">Controle as simulações, dispare incêndios e monitore.</p>
+                </button>
+
+                <button onclick="selecionarPapel('vr')" class="group bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-3xl p-10 flex flex-col items-center transition-all hover:border-emerald-500 hover:shadow-2xl hover:shadow-emerald-900/20">
+                    <div class="p-6 bg-emerald-500/10 rounded-full mb-6 group-hover:scale-110 transition-transform">
+                        <i class="ph-fill ph-goggles text-7xl text-emerald-500"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">Brigadista (VR)</h2>
+                    <p class="text-slate-400 text-center text-sm">Entre no ambiente virtual imersivo com o extintor.</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tela: Painel do Instrutor -->
+        <div id="screen-instructor" class="hidden-ui min-h-screen p-8 text-white">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex items-center justify-between mb-10 bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-lg">
+                    <div>
+                        <h1 class="text-3xl font-black text-white">Painel de Controle</h1>
+                        <p class="text-slate-400 mt-1">Sincronizado via LocalStorage</p>
+                    </div>
+                    <div id="instructor-status" class="px-4 py-2 bg-slate-900 text-slate-300 rounded-lg border border-slate-700 font-bold flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-slate-500" id="status-dot"></div>
+                        Aguardando Cenário
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Controles de Incêndio -->
+                    <div class="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-lg">
+                        <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="ph-fill ph-fire text-orange-500"></i> Simulação de Fogo</h2>
+                        
+                        <button onclick="instrutorIniciarFogo()" class="w-full flex items-center justify-center gap-3 py-5 bg-orange-600 hover:bg-orange-500 rounded-xl font-bold text-lg transition-colors shadow-lg shadow-orange-900/50 mb-4">
+                            <i class="ph-bold ph-play"></i> Iniciar Incêndio
+                        </button>
+
+                        <button onclick="instrutorApagarFogo()" class="w-full flex items-center justify-center gap-3 py-5 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-lg transition-colors border border-slate-600">
+                            <i class="ph-bold ph-stop"></i> Encerrar / Limpar Fogo
+                        </button>
+                    </div>
+
+                    <!-- Instruções e Logs -->
+                    <div class="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-lg flex flex-col">
+                        <h2 class="text-xl font-bold mb-4 text-slate-200">Como funciona:</h2>
+                        <ul class="space-y-4 text-slate-400 text-sm flex-1">
+                            <li class="flex gap-3"><i class="ph-fill ph-check-circle text-blue-500 text-xl"></i> Abra este mesmo link em um celular.</li>
+                            <li class="flex gap-3"><i class="ph-fill ph-check-circle text-blue-500 text-xl"></i> Escolha "Brigadista" no celular.</li>
+                            <li class="flex gap-3"><i class="ph-fill ph-check-circle text-orange-500 text-xl"></i> Clique em "Iniciar Incêndio" aqui. O fogo aparecerá instantaneamente no VR.</li>
+                            <li class="flex gap-3"><i class="ph-fill ph-check-circle text-emerald-500 text-xl"></i> Quando o brigadista apagar o fogo usando o gatilho, o status aqui mudará sozinho.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tela: Calibração VR (Permissão de Sensores Mobile) -->
+        <div id="screen-pre-vr" class="hidden-ui min-h-screen flex flex-col items-center justify-center p-6 text-white">
+            <div class="bg-slate-800 p-10 rounded-3xl max-w-md w-full border border-slate-700 text-center shadow-2xl">
+                <div class="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="ph-fill ph-device-rotate text-5xl text-emerald-400"></i>
+                </div>
+                <h2 class="text-2xl font-black mb-4">Ativar Visão 360º</h2>
+                <p class="text-slate-400 text-sm mb-8 leading-relaxed">
+                    Para usar o simulador no celular, precisamos da sua permissão para acessar os sensores de movimento (giroscópio).<br><br>Você também poderá mover a câmera arrastando o dedo na tela.
+                </p>
+                <button onclick="solicitarSensores()" class="w-full py-5 bg-emerald-600 hover:bg-emerald-500 font-bold rounded-xl text-lg transition-colors shadow-lg shadow-emerald-900/50">
+                    Permitir e Iniciar Simulação
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CAMADA 2: Overlay HUD do VR (Fica transparente em cima do jogo 3D) -->
+    <div id="vr-overlay-ui" class="flex flex-col justify-between items-center h-full w-full pointer-events-none pb-8 pt-8">
+        
+        <!-- Crosshair Central via UI -->
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+            <div id="crosshair-ui" class="w-6 h-6 border-2 border-white/50 rounded-full bg-black/20 backdrop-blur-sm pointer-events-none"></div>
+        </div>
+
+        <div class="w-full px-6 flex justify-between items-start pointer-events-auto">
+            <div class="bg-black/50 backdrop-blur px-4 py-2 rounded-lg border border-white/10 text-white text-sm font-bold">
+                Status: <span id="vr-status-text" class="text-emerald-400">Seguro</span>
+            </div>
+            <!-- Botão de Sair do VR -->
+            <button onclick="location.reload()" class="bg-red-500/80 p-3 rounded-full text-white shadow-lg backdrop-blur">
+                <i class="ph-bold ph-x text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Botão de Ação (Gatilho do Extintor) -->
+        <div class="w-full px-6 flex justify-center pointer-events-auto mt-auto">
+            <button id="btn-action" 
+                    class="w-full max-w-sm py-6 bg-blue-600/90 active:bg-blue-500 active:scale-95 transition-all backdrop-blur-md border-2 border-blue-400 text-white font-black text-xl rounded-2xl shadow-[0_0_30px_rgba(37,99,235,0.5)] flex items-center justify-center gap-3 select-none">
+                <i class="ph-bold ph-drop text-3xl"></i> SEGURAR GATILHO
+            </button>
+        </div>
+    </div>
+
+    <!-- CAMADA 3: Cena A-Frame (3D) -->
+    <div id="vr-layer">
+        <a-scene embedded 
+                 renderer="colorManagement: true; antialias: true;"
+                 light="defaultLightsEnabled: false">
+            
+            <a-assets>
+                <!-- Texturas base para o chão e paredes -->
+                <img id="floor-tex" src="https://placehold.co/512x512/1e293b/334155?text=+" crossorigin="anonymous">
+                <img id="wall-tex" src="https://placehold.co/512x512/0f172a/1e293b?text=." crossorigin="anonymous">
+            </a-assets>
+
+            <!-- Iluminação do Ambiente -->
+            <a-light type="ambient" color="#222"></a-light>
+            <a-light type="directional" position="2 4 3" intensity="0.5" color="#fff"></a-light>
+            <!-- Luz avermelhada para o fogo (será ativada via JS) -->
+            <a-light id="fire-light" type="point" position="0 1 -3" intensity="0" color="#ff4400" distance="10"></a-light>
+
+            <!-- Câmera do Jogador -->
+            <a-entity position="0 1.6 0">
+                <a-camera id="vr-camera" 
+                          look-controls="touchEnabled: false; pointerLockEnabled: false" 
+                          custom-touch-look>
+                    
+                    <!-- O Raycaster (invisível, mira reta da câmera) -->
+                    <a-entity raycaster="objects: .interactable; showLine: false; far: 10" 
+                              position="0 0 0"></a-entity>
+
+                    <!-- O Jato de Água/Extintor (Atrelado à câmera) -->
+                    <!-- Usando o preset 'rain' com velocidade para frente (z negativo) e aceleração para baixo para simular gravidade -->
+                    <a-entity id="water-stream"
+                              position="0 -0.3 -0.5"
+                              particle-system="preset: rain; color: #aaddff, #ffffff; velocityValue: 0 0 -10; accelerationValue: 0 -2 0; particleCount: 500; size: 0.5; maxAge: 1; enabled: false">
+                    </a-entity>
+                </a-camera>
+            </a-entity>
+
+            <!-- O Ambiente (Sala de Treinamento) -->
+            <a-sky color="#050810"></a-sky>
+            <a-plane src="#floor-tex" repeat="20 20" position="0 0 0" rotation="-90 0 0" width="30" height="30" material="roughness: 0.9; metalness: 0.1"></a-plane>
+            
+            <!-- Paredes básicas -->
+            <a-box src="#wall-tex" repeat="5 2" position="0 2 -8" width="16" height="4" depth="0.2" material="roughness: 1;"></a-box>
+            <a-box src="#wall-tex" repeat="5 2" position="8 2 0" width="16" height="4" depth="0.2" rotation="0 90 0" material="roughness: 1;"></a-box>
+            <a-box src="#wall-tex" repeat="5 2" position="-8 2 0" width="16" height="4" depth="0.2" rotation="0 90 0" material="roughness: 1;"></a-box>
+
+            <!-- O FOCO DE INCÊNDIO -->
+            <a-entity id="fire-container" position="0 0 -5" visible="false">
+                
+                <!-- Hitbox (Caixa de Colisão Invisível para o Raycaster) -->
+                <!-- É aqui que a mira precisa bater para apagar o fogo -->
+                <a-box id="fire-hitbox" class="interactable" fire-interaction 
+                       width="2" height="3" depth="2" position="0 1.5 0" 
+                       material="opacity: 0; transparent: true"></a-box>
+                
+                <!-- Base do Fogo (Barris/Caixas em chamas) -->
+                <a-cylinder position="0 0.4 0" radius="0.8" height="0.8" color="#331100" material="roughness: 0.9"></a-cylinder>
+                <a-cylinder position="0 0.4 0" radius="0.8" height="0.8" color="#111" material="wireframe: true"></a-cylinder>
+
+                <!-- Partículas do Fogo Realista -->
+                <!-- scale dinâmico alterado no JS conforme a vida cai -->
+                <a-entity id="fire-particles" 
+                          position="0 1 0"
+                          particle-system="preset: fire; particleCount: 1500; size: 2; texture: https://raw.githubusercontent.com/IdeaSpaceVR/aframe-particle-system-component/master/dist/images/smokeparticle.png; color: #ff9900, #ff0000">
+                </a-entity>
+            </a-entity>
+
+        </a-scene>
+    </div>
+
+    <script>
+        let papelAtual = null;
+        let lastSyncTimestamp = 0;
+        let syncInterval = null;
+
+        // UI Elementos
+        const uiLayer = document.getElementById('ui-layer');
+        const screenRole = document.getElementById('screen-role');
+        const screenInstructor = document.getElementById('screen-instructor');
+        const screenPreVR = document.getElementById('screen-pre-vr');
+        const vrLayer = document.getElementById('vr-layer');
+        const vrOverlayUI = document.getElementById('vr-overlay-ui');
+        
+        const btnAction = document.getElementById('btn-action');
+        const waterStream = document.getElementById('water-stream');
+        const fireContainer = document.getElementById('fire-container');
+        const fireLight = document.getElementById('fire-light');
+        const fireParticles = document.getElementById('fire-particles');
+        
+        const vrStatusText = document.getElementById('vr-status-text');
+        const instructorStatus = document.getElementById('instructor-status');
+        const statusDot = document.getElementById('status-dot');
+
+        // Inicializa estado no LocalStorage se não existir
+        if (!localStorage.getItem(STORAGE_KEY)) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ fireActive: false, extinguishedByVR: false, ts: Date.now() }));
+        }
+
+        // --- NAVEGAÇÃO ENTRE TELAS ---
+        function selecionarPapel(papel) {
+            papelAtual = papel;
+            screenRole.classList.add('hidden-ui');
+
+            if (papel === 'instrutor') {
+                screenInstructor.classList.remove('hidden-ui');
+                iniciarSincronizacao();
+            } else if (papel === 'vr') {
+                screenPreVR.classList.remove('hidden-ui');
+            }
+        }
+
+        // --- LÓGICA DO INSTRUTOR ---
+        function instrutorIniciarFogo() {
+            const state = { fireActive: true, extinguishedByVR: false, ts: Date.now() };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            atualizarUIInstrutor(state);
+        }
+
+        function instrutorApagarFogo() {
+            const state = { fireActive: false, extinguishedByVR: false, ts: Date.now() };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            atualizarUIInstrutor(state);
+        }
+
+        function atualizarUIInstrutor(state) {
+            if (state.fireActive) {
+                instructorStatus.className = 'px-4 py-2 bg-red-900/30 text-red-400 rounded-lg border border-red-500/50 font-bold flex items-center gap-2';
+                statusDot.className = 'w-3 h-3 rounded-full bg-red-500 animate-pulse';
+                instructorStatus.innerHTML = instructorStatus.innerHTML.replace(/[^>]*$/, ' Incêndio Ativo!');
+            } else if (state.extinguishedByVR) {
+                instructorStatus.className = 'px-4 py-2 bg-emerald-900/30 text-emerald-400 rounded-lg border border-emerald-500/50 font-bold flex items-center gap-2';
+                statusDot.className = 'w-3 h-3 rounded-full bg-emerald-500';
+                instructorStatus.innerHTML = instructorStatus.innerHTML.replace(/[^>]*$/, ' Fogo Apagado pelo Aluno');
+            } else {
+                instructorStatus.className = 'px-4 py-2 bg-slate-900 text-slate-300 rounded-lg border border-slate-700 font-bold flex items-center gap-2';
+                statusDot.className = 'w-3 h-3 rounded-full bg-slate-500';
+                instructorStatus.innerHTML = instructorStatus.innerHTML.replace(/[^>]*$/, ' Ambiente Limpo');
+            }
+        }
+
+        // --- LÓGICA DO BRIGADISTA (VR) ---
+        function solicitarSensores() {
+            // Requer permissão explícita no iOS 13+
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        iniciarVR();
+                    })
+                    .catch(console.error);
+            } else {
+                iniciarVR(); // Android e PC não requerem permissão prévia desta forma
+            }
+        }
+
+        function iniciarVR() {
+            uiLayer.style.display = 'none';
+            vrLayer.style.display = 'block';
+            vrOverlayUI.style.display = 'flex';
+            window.dispatchEvent(new Event('resize')); // Força o A-Frame a se ajustar à tela cheia
+            iniciarSincronizacao();
+        }
+
+        // Eventos do Gatilho do Extintor
+        function startShooting(e) {
+            e.preventDefault();
+            window.vrState.isShooting = true;
+            btnAction.classList.replace('bg-blue-600/90', 'bg-blue-400');
+            // Ativa partículas de água
+            waterStream.setAttribute('particle-system', 'enabled: true');
+        }
+        
+        function stopShooting(e) {
+            e.preventDefault();
+            window.vrState.isShooting = false;
+            btnAction.classList.replace('bg-blue-400', 'bg-blue-600/90');
+            // Desativa partículas de água
+            waterStream.setAttribute('particle-system', 'enabled: false');
+        }
+
+        // Suporte a toque (celular) e mouse (PC)
+        btnAction.addEventListener('touchstart', startShooting, { passive: false });
+        btnAction.addEventListener('mousedown', startShooting);
+        window.addEventListener('touchend', stopShooting);
+        window.addEventListener('mouseup', stopShooting);
+
+        function apagarFogoPorVR() {
+            window.vrState.fireActive = false;
+            
+            // Oculta fogo no VR
+            fireContainer.setAttribute('visible', 'false');
+            fireLight.setAttribute('intensity', '0');
+
+            // Avisa o instrutor via LocalStorage
+            const state = { fireActive: false, extinguishedByVR: true, ts: Date.now() };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            
+            vrStatusText.innerText = "Fogo Extinto!";
+            vrStatusText.className = "text-emerald-400";
+        }
+
+        function aplicarEstadoFogoVR(active) {
+            window.vrState.fireActive = active;
+            
+            if (active) {
+                // Reseta a vida e tamanho do fogo
+                window.vrState.fireHealth = 100;
+                fireParticles.setAttribute('scale', '1 1 1');
+                
+                // Exibe no cenário
+                fireContainer.setAttribute('visible', 'true');
+                fireLight.setAttribute('intensity', '1.5');
+                
+                vrStatusText.innerText = "INCÊNDIO DETECTADO!";
+                vrStatusText.className = "text-red-400 animate-pulse";
+            } else {
+                fireContainer.setAttribute('visible', 'false');
+                fireLight.setAttribute('intensity', '0');
+                
+                vrStatusText.innerText = "Seguro";
+                vrStatusText.className = "text-emerald-400";
+            }
+        }
+
+        // --- SINCRONIZAÇÃO EM TEMPO REAL ---
+        function iniciarSincronizacao() {
+            if (syncInterval) clearInterval(syncInterval);
+            
+            // Verifica o LocalStorage 4 vezes por segundo
+            syncInterval = setInterval(() => {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const state = JSON.parse(raw);
+                
+                // Só processa se houver uma nova atualização (timestamp mais recente)
+                if (state.ts === lastSyncTimestamp) return;
+                lastSyncTimestamp = state.ts;
+
+                if (papelAtual === 'instrutor') {
+                    atualizarUIInstrutor(state);
+                }
+
+                if (papelAtual === 'vr') {
+                    aplicarEstadoFogoVR(state.fireActive);
+                }
+            }, 250);
+        }
+
+        // Configuração inicial para garantir estado limpo ao abrir
+        instrutorApagarFogo();
+
+    </script>
+</body>
+</html>
