@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simulador VR - Realista</title>
+    <!-- Usando a versão 1.2.0 que é 100% estável com as partículas -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <!-- Biblioteca de Partículas para o Fogo e Água -->
+    <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        
+        #btn-esguichar {
+            position: absolute; bottom: 10%; left: 10%; width: 80%; padding: 20px;
+            font-size: 24px; font-weight: bold; background: #0088ff; color: white;
+            border: 3px solid white; border-radius: 10px; z-index: 9999;
+            text-align: center; text-transform: uppercase; user-select: none;
+            box-shadow: 0px 5px 15px rgba(0,0,0,0.5);
+        }
+        #btn-esguichar:active { background: #0055aa; transform: scale(0.98); }
+    </style>
+</head>
+<body>
+
+    <!-- Botão de Ação -->
+    <button id="btn-esguichar">ESGUICHAR ÁGUA</button>
+
+    <a-scene background="color: #050505" loading-screen="enabled: false">
+        
+        <a-assets>
+            <img id="chao-tex" src="https://cdn.aframe.io/examples/ar/textures/floor.png" crossorigin="anonymous">
+            <img id="madeira-tex" src="https://cdn.aframe.io/examples/ar/textures/wood.jpg" crossorigin="anonymous">
+        </a-assets>
+
+        <!-- Câmera do Jogador -->
+        <a-entity position="0 1.6 0">
+            <a-camera look-controls="magicWindowTrackingEnabled: true">
+                <!-- A Mira Amarela (Cursor) -->
+                <a-cursor color="yellow" raycaster="objects: .alvo" scale="0.8 0.8 0.8"></a-cursor>
+
+                <!-- Mangueira Fixada na Tela -->
+                <a-cylinder position="0.3 -0.4 -0.6" rotation="90 0 0" radius="0.04" height="0.5" color="#cc0000">
+                    <a-cylinder position="0 -0.26 0" radius="0.03" height="0.1" color="#222"></a-cylinder> <!-- Bico preto -->
+                    
+                    <!-- Jato de Água (Escondido por padrão) -->
+                    <a-entity id="jato-agua" position="0 -0.4 0" rotation="-90 0 0"
+                              particle-system="preset: snow; color: #ffffff, #00ffff; particleCount: 500; size: 0.5; velocity: 15; direction: -1; duration: -1"
+                              visible="false"></a-entity>
+                </a-cylinder>
+            </a-camera>
+        </a-entity>
+
+        <!-- A FOGUEIRA COMPLETA -->
+        <a-entity id="fogueira-hitbox" class="alvo" position="0 0.5 -3">
+            
+            <!-- CAIXA INVISÍVEL: É nela que o laser bate (Garante que a mira não falhe) -->
+            <a-box visible="false" scale="1.5 1.5 1.5"></a-box>
+
+            <!-- O Visual da Fogueira (Que vai diminuir de tamanho) -->
+            <a-entity id="visual-fogo">
+                <!-- Lenhas -->
+                <a-cylinder src="#madeira-tex" position="0 -0.4 0" rotation="90 0 45" radius="0.1" height="1"></a-cylinder>
+                <a-cylinder src="#madeira-tex" position="0 -0.4 0" rotation="90 0 -45" radius="0.1" height="1"></a-cylinder>
+                <a-cylinder src="#madeira-tex" position="0 -0.3 0" rotation="0 0 90" radius="0.1" height="0.8"></a-cylinder>
+
+                <!-- Partículas de Fogo Real -->
+                <a-entity particle-system="preset: fire; color: #ff3300, #ffaa00; particleCount: 1500; size: 1.5; velocity: 1.5"></a-entity>
+                
+                <!-- Luz Laranja do Fogo -->
+                <a-entity light="type: point; color: #ff8800; intensity: 3; distance: 10"></a-entity>
+            </a-entity>
+            
+        </a-entity>
+
+        <!-- O Chão -->
+        <a-plane src="#chao-tex" rotation="-90 0 0" width="20" height="20" repeat="10 10" material="roughness: 0.8"></a-plane>
+
+    </a-scene>
+
+    <script>
+        const btn = document.getElementById('btn-esguichar');
+        const fogueiraHitbox = document.getElementById('fogueira-hitbox');
+        const visualFogo = document.getElementById('visual-fogo');
+        const jatoAgua = document.getElementById('jato-agua');
+        const cursor = document.querySelector('a-cursor');
+
+        let esguichando = false;
+        let escalaFogo = 1.0;
+
+        // FUNÇÕES PARA LIGAR/DESLIGAR A ÁGUA
+        const ligarAgua = (e) => { 
+            e.preventDefault(); 
+            esguichando = true; 
+            btn.innerText = "JOGANDO ÁGUA..."; 
+            jatoAgua.setAttribute('visible', 'true');
+        };
+        
+        const desligarAgua = (e) => { 
+            e.preventDefault(); 
+            esguichando = false; 
+            btn.innerText = "ESGUICHAR ÁGUA"; 
+            jatoAgua.setAttribute('visible', 'false');
+        };
+
+        // Eventos de Toque (Celular) e Mouse (PC)
+        btn.addEventListener('touchstart', ligarAgua, {passive: false});
+        btn.addEventListener('mousedown', ligarAgua);
+        btn.addEventListener('touchend', desligarAgua);
+        btn.addEventListener('mouseup', desligarAgua);
+        
+        // LOOP DO JOGO (Roda a cada quadro da tela)
+        document.querySelector('a-scene').addEventListener('tick', function () {
+            if (esguichando && escalaFogo > 0) {
+                
+                // Verifica se a mira está encostando na caixa invisível da fogueira
+                const intersecoes = cursor.components.raycaster.intersectedEls;
+                
+                if (intersecoes.length > 0 && intersecoes[0].id === 'fogueira-hitbox') {
+                    
+                    // Diminui o tamanho do fogo e da lenha
+                    escalaFogo -= 0.005;
+                    visualFogo.setAttribute('scale', `${escalaFogo} ${escalaFogo} ${escalaFogo}`);
+                    
+                    // Quando a escala chegar a zero, apaga tudo
+                    if (escalaFogo <= 0) {
+                        visualFogo.setAttribute('visible', 'false');
+                        fogueiraHitbox.classList.remove('alvo'); // Tira a colisão
+                        btn.innerText = "FOGO APAGADO!";
+                        btn.style.background = "#00aa00"; // Fica verde
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
