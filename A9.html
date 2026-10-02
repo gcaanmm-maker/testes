@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simulador - Teste de Fogo e Água</title>
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        
+        /* Botão Gigante na Tela */
+        #painel-acao {
+            position: absolute; bottom: 5%; left: 0; width: 100%;
+            display: flex; justify-content: center; z-index: 9999;
+        }
+        #btn-agua {
+            padding: 20px 40px; font-size: 22px; font-weight: bold;
+            background: #0088ff; color: white; border: 4px solid white;
+            border-radius: 50px; cursor: pointer; user-select: none;
+            box-shadow: 0px 5px 15px rgba(0,136,255,0.5);
+            text-transform: uppercase;
+        }
+        #btn-agua:active { background: #0055aa; transform: scale(0.95); }
+        
+        /* Aviso de instrução */
+        #instrucao {
+            position: absolute; top: 10%; left: 0; width: 100%;
+            text-align: center; color: white; z-index: 9999; pointer-events: none;
+            font-size: 18px; text-shadow: 2px 2px 4px black;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instrucao">Mire no fogo e segure o botão!</div>
+
+    <div id="painel-acao">
+        <button id="btn-agua">JOGAR ÁGUA</button>
+    </div>
+
+    <!-- CENA 3D -->
+    <a-scene background="color: #222" loading-screen="enabled: false">
+        
+        <!-- CÂMERA (Você) -->
+        <a-entity position="0 1.6 0">
+            <a-camera look-controls="magicWindowTrackingEnabled: false">
+                <!-- A Mira (Bolinha branca no centro da tela) -->
+                <a-cursor color="white" scale="1.5 1.5 1.5" raycaster="objects: .alvo"></a-cursor>
+
+                <!-- MANGUEIRA E JATO DE ÁGUA (Grudados na sua visão) -->
+                <a-entity position="0.3 -0.5 -0.8">
+                    <!-- Bico da Mangueira -->
+                    <a-cylinder rotation="90 0 0" radius="0.05" height="0.4" color="#ff0000"></a-cylinder>
+                    
+                    <!-- Jato de Água (Feixe Sólido + Partículas) -->
+                    <a-entity id="jato-agua" visible="false">
+                        <!-- Feixe azul sólido (Garante que você veja a água) -->
+                        <a-cylinder position="0 0 -2.5" rotation="90 0 0" radius="0.03" height="5" color="#00ffff" opacity="0.6"></a-cylinder>
+                        <!-- Efeito de respingos -->
+                        <a-entity position="0 0 -0.2" particle-system="preset: snow; color: #ffffff, #00ffff; particleCount: 500; size: 0.5; velocity: 20; direction: -1" rotation="-90 0 0"></a-entity>
+                    </a-entity>
+                </a-entity>
+            </a-camera>
+        </a-entity>
+
+        <!-- O FOGO (O Alvo) -->
+        <a-entity id="fogo-alvo" class="alvo" position="0 0.5 -4">
+            
+            <!-- CAIXA DE COLISÃO (Invisível, serve para a mira acertar) -->
+            <a-box visible="false" scale="2 2 2"></a-box>
+
+            <!-- VISUAL DO FOGO -->
+            <a-entity id="visual-fogo">
+                <!-- Base / Lenha -->
+                <a-cylinder position="0 -0.4 0" rotation="90 0 45" radius="0.1" height="1.2" color="#553311"></a-cylinder>
+                <a-cylinder position="0 -0.4 0" rotation="90 0 -45" radius="0.1" height="1.2" color="#442200"></a-cylinder>
+
+                <!-- Núcleo Brilhante (Garante que você veja o fogo mesmo sem partículas) -->
+                <a-sphere position="0 0.2 0" radius="0.5" color="#ff4400" material="emissive: #ff4400; emissiveIntensity: 2; opacity: 0.8"></a-sphere>
+
+                <!-- Efeito de Chamas (Partículas) -->
+                <a-entity position="0 0.2 0" particle-system="preset: fire; color: #ff0000, #ffaa00; particleCount: 1000; size: 2; velocity: 1"></a-entity>
+                
+                <!-- Luz Laranja -->
+                <a-entity light="type: point; color: #ff6600; intensity: 3; distance: 8"></a-entity>
+            </a-entity>
+            
+        </a-entity>
+
+        <!-- CHÃO -->
+        <a-plane rotation="-90 0 0" width="20" height="20" color="#333"></a-plane>
+
+    </a-scene>
+
+    <script>
+        const btnAgua = document.getElementById('btn-agua');
+        const jatoAgua = document.getElementById('jato-agua');
+        const visualFogo = document.getElementById('visual-fogo');
+        const fogoAlvo = document.getElementById('fogo-alvo');
+        const cursor = document.querySelector('a-cursor');
+        const instrucao = document.getElementById('instrucao');
+
+        let jogandoAgua = false;
+        let tamanhoFogo = 1.0;
+
+        // FUNÇÕES PARA LIGAR/DESLIGAR ÁGUA
+        const ligarAgua = (e) => {
+            e.preventDefault();
+            jogandoAgua = true;
+            btnAgua.innerText = "ESGUICHANDO!";
+            btnAgua.style.background = "#00ffff";
+            btnAgua.style.color = "#000";
+            jatoAgua.setAttribute('visible', 'true');
+        };
+
+        const desligarAgua = (e) => {
+            e.preventDefault();
+            jogandoAgua = false;
+            btnAgua.innerText = "JOGAR ÁGUA";
+            btnAgua.style.background = "#0088ff";
+            btnAgua.style.color = "#fff";
+            jatoAgua.setAttribute('visible', 'false');
+        };
+
+        // Eventos para o botão (funciona com mouse e dedo)
+        btnAgua.addEventListener('mousedown', ligarAgua);
+        btnAgua.addEventListener('touchstart', ligarAgua, {passive: false});
+        
+        window.addEventListener('mouseup', desligarAgua);
+        window.addEventListener('touchend', desligarAgua);
+
+        // LÓGICA DE APAGAR O FOGO (Roda constantemente)
+        document.querySelector('a-scene').addEventListener('tick', function () {
+            if (jogandoAgua && tamanhoFogo > 0) {
+                
+                // Checa se a bolinha branca da mira está no fogo
+                const intersecoes = cursor.components.raycaster.intersectedEls;
+                
+                if (intersecoes.length > 0 && intersecoes[0].id === 'fogo-alvo') {
+                    
+                    instrucao.innerText = "Apagando o fogo...";
+                    instrucao.style.color = "#00ffff";
+
+                    // Reduz o tamanho da fogueira
+                    tamanhoFogo -= 0.006;
+                    visualFogo.setAttribute('scale', `${tamanhoFogo} ${tamanhoFogo} ${tamanhoFogo}`);
+                    
+                    // Se o tamanho zerar, o fogo é destruído
+                    if (tamanhoFogo <= 0) {
+                        visualFogo.setAttribute('visible', 'false');
+                        fogoAlvo.classList.remove('alvo'); // Desativa a colisão
+                        
+                        instrucao.innerText = "INCÊNDIO CONTROLADO!";
+                        instrucao.style.color = "#00ff00";
+                        
+                        btnAgua.innerText = "FOGO APAGADO";
+                        btnAgua.style.background = "#00cc00";
+                        btnAgua.style.color = "white";
+                    }
+                } else {
+                    instrucao.innerText = "Mire no fogo!";
+                    instrucao.style.color = "#ffaa00";
+                }
+            } else if (tamanhoFogo > 0) {
+                instrucao.innerText = "Mire no fogo e segure o botão!";
+                instrucao.style.color = "white";
+            }
+        });
+    </script>
+</body>
+</html>
