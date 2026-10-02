@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simulador - VR Mobile Ativo</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-particle-system-component@1.1.3/dist/aframe-particle-system-component.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        
+        /* TELA DE INÍCIO OBRIGATÓRIA PARA LIBERAR SENSORES NO CELULAR */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.95); z-index: 99999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #btn-iniciar {
+            padding: 20px 40px; font-size: 24px; font-weight: bold; background: #ff5500;
+            color: white; border: none; border-radius: 10px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255,85,0,0.5); text-transform: uppercase;
+        }
+        
+        /* INTERFACE DO JOGO */
+        #painel-acao { position: absolute; bottom: 5%; left: 0; width: 100%; display: none; justify-content: center; z-index: 9999; }
+        #btn-agua { padding: 20px 40px; font-size: 22px; font-weight: bold; background: #0088ff; color: white; border: 4px solid white; border-radius: 50px; cursor: pointer; user-select: none; box-shadow: 0px 5px 15px rgba(0,136,255,0.5); text-transform: uppercase; }
+        #btn-agua:active { background: #0055aa; transform: scale(0.95); }
+        #instrucao { position: absolute; top: 10%; left: 0; width: 100%; text-align: center; color: white; z-index: 9999; pointer-events: none; font-size: 18px; text-shadow: 2px 2px 4px black; font-weight: bold; display: none; }
+    </style>
+
+    <script>
+        window.jogandoAgua = false;
+        window.tamanhoFogo = 1.0;
+
+        // COMPONENTE DO FOGO (A arquitetura que deu certo no PC)
+        AFRAME.registerComponent('fogo-interativo', {
+            init: function () {
+                this.mirando = false;
+                this.mira = document.querySelector('#mira');
+                this.instrucao = document.querySelector('#instrucao');
+                this.visualFogo = document.querySelector('#visual-fogo');
+
+                this.el.addEventListener('mouseenter', () => {
+                    this.mirando = true;
+                    this.mira.setAttribute('color', '#ff0000');
+                    if (window.tamanhoFogo > 0) this.instrucao.innerText = "MIRA TRAVADA! Atire!";
+                });
+
+                this.el.addEventListener('mouseleave', () => {
+                    this.mirando = false;
+                    this.mira.setAttribute('color', 'white');
+                    if (window.tamanhoFogo > 0) this.instrucao.innerText = "Mire na base escurecida!";
+                });
+            },
+            tick: function () {
+                if (this.mirando && window.jogandoAgua && window.tamanhoFogo > 0) {
+                    this.instrucao.innerText = "Apagando o fogo...";
+                    this.instrucao.style.color = "#00ffff";
+
+                    window.tamanhoFogo -= 0.005;
+                    this.visualFogo.setAttribute('scale', `${window.tamanhoFogo} ${window.tamanhoFogo} ${window.tamanhoFogo}`);
+
+                    if (window.tamanhoFogo <= 0) {
+                        this.visualFogo.setAttribute('visible', 'false');
+                        this.mira.setAttribute('color', 'white');
+                        this.instrucao.innerText = "INCÊNDIO CONTROLADO!";
+                        this.instrucao.style.color = "#00ff00";
+                        document.querySelector('#btn-agua').innerText = "FOGO APAGADO";
+                        document.querySelector('#btn-agua').style.background = "#00cc00";
+                        this.el.removeAttribute('fogo-interativo');
+                        this.el.classList.remove('alvo');
+                    }
+                }
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <!-- TELA DE INÍCIO (Obrigatória para o celular) -->
+    <div id="start-screen">
+        <h1 style="color: white; margin-bottom: 30px; text-align: center;">Simulador VR</h1>
+        <button id="btn-iniciar">INICIAR TREINAMENTO</button>
+        <p style="color: #aaa; margin-top: 20px; font-size: 14px;">Requer permissão de movimento (Giroscópio)</p>
+    </div>
+
+    <!-- UI DO JOGO -->
+    <div id="instrucao">Mire na base escurecida do fogo!</div>
+    <div id="painel-acao">
+        <button id="btn-agua">JOGAR ÁGUA</button>
+    </div>
+
+    <!-- CENA 3D -->
+    <a-scene background="color: #222" loading-screen="enabled: false">
+        
+        <a-entity position="0 1.6 0">
+            <!-- GIROSCÓPIO ATIVADO: magicWindowTrackingEnabled: true -->
+            <a-camera look-controls="magicWindowTrackingEnabled: true; touchEnabled: true">
+                <a-cursor id="mira" color="white" scale="1.5 1.5 1.5" raycaster="objects: .alvo" cursor="fuse: false"></a-cursor>
+
+                <a-entity position="0.3 -0.5 -0.8">
+                    <a-cylinder rotation="90 0 0" radius="0.05" height="0.4" color="#ff0000"></a-cylinder>
+                    <a-entity id="jato-agua" visible="false">
+                        <a-cylinder position="0 0 -2.5" rotation="90 0 0" radius="0.03" height="5" color="#00ffff" opacity="0.6"></a-cylinder>
+                        <a-entity position="0 0 -0.2" particle-system="preset: snow; color: #ffffff, #00ffff; particleCount: 500; size: 0.5; velocity: 20; direction: -1" rotation="-90 0 0"></a-entity>
+                    </a-entity>
+                </a-entity>
+            </a-camera>
+        </a-entity>
+
+        <a-cylinder class="alvo" fogo-interativo position="0 0.05 -4" radius="0.8" height="0.1" color="#333"></a-cylinder>
+
+        <a-entity id="visual-fogo" position="0 0.5 -4">
+            <a-cylinder position="0 -0.4 0" rotation="90 0 45" radius="0.1" height="1.2" color="#553311"></a-cylinder>
+            <a-cylinder position="0 -0.4 0" rotation="90 0 -45" radius="0.1" height="1.2" color="#442200"></a-cylinder>
+            <a-sphere position="0 0.2 0" radius="0.5" color="#ff4400" material="emissive: #ff4400; emissiveIntensity: 2; opacity: 0.8"></a-sphere>
+            <a-entity position="0 0.2 0" particle-system="preset: fire; color: #ff0000, #ffaa00; particleCount: 1000; size: 2; velocity: 1"></a-entity>
+            <a-entity light="type: point; color: #ff6600; intensity: 3; distance: 8"></a-entity>
+        </a-entity>
+
+        <a-plane rotation="-90 0 0" width="20" height="20" color="#1a1a1a"></a-plane>
+
+    </a-scene>
+
+    <script>
+        // SCRIPT DE LIBERAÇÃO DOS SENSORES
+        document.getElementById('btn-iniciar').addEventListener('click', async () => {
+            try {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') {
+                        alert("O giroscópio foi bloqueado. O jogo não funcionará corretamente em modo VR.");
+                    }
+                }
+            } catch (error) {
+                console.log('Navegador não exige requestPermission.', error);
+            } finally {
+                // Tira a tela preta e mostra a interface do jogo
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('painel-acao').style.display = 'flex';
+                document.getElementById('instrucao').style.display = 'block';
+            }
+        });
+
+        // SCRIPT DE ÁGUA
+        const btnAgua = document.getElementById('btn-agua');
+        const jatoAgua = document.getElementById('jato-agua');
+
+        const ligarAgua = (e) => {
+            e.preventDefault();
+            if (window.tamanhoFogo <= 0) return;
+            window.jogandoAgua = true;
+            btnAgua.innerText = "ESGUICHANDO!";
+            btnAgua.style.background = "#00ffff";
+            btnAgua.style.color = "#000";
+            jatoAgua.setAttribute('visible', 'true');
+        };
+
+        const desligarAgua = (e) => {
+            e.preventDefault();
+            if (window.tamanhoFogo <= 0) return;
+            window.jogandoAgua = false;
+            btnAgua.innerText = "JOGAR ÁGUA";
+            btnAgua.style.background = "#0088ff";
+            btnAgua.style.color = "#fff";
+            jatoAgua.setAttribute('visible', 'false');
+        };
+
+        btnAgua.addEventListener('mousedown', ligarAgua);
+        btnAgua.addEventListener('touchstart', ligarAgua, {passive: false});
+        window.addEventListener('mouseup', desligarAgua);
+        window.addEventListener('touchend', desligarAgua);
+    </script>
+</body>
+</html>
