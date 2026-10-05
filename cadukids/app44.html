@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KidsPro - PDV Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.383.0"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; overscroll-behavior-y: none; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .nav-btn.active { color: #a855f7; }
+        .fade-in { animation: fadeIn 0.2s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { display: none; }
+        #reader video { border-radius: 0.75rem; object-fit: cover; }
+        #reader { border: none !important; }
+        .metodo-btn.selecionado { background: rgba(168, 85, 247, 0.2); border-color: #a855f7; color: #c084fc; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-container" class="fixed inset-0 bg-slate-900 z-[9999] flex flex-col items-center justify-center p-6">
+        <div class="glass w-full max-w-sm rounded-3xl p-8 flex flex-col items-center">
+            <div class="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-purple-500/30"><i data-lucide="lock" class="text-white" size="32"></i></div>
+            <h2 class="text-2xl font-black italic text-white mb-2">KIDS<span class="text-purple-400">PRO</span></h2>
+            <p class="text-xs text-slate-400 mb-8 uppercase font-bold tracking-widest">Acesso Mobile</p>
+            <div class="w-full space-y-4">
+                <!-- TRAVAS DE TECLADO ADICIONADAS AQUI -->
+                <input type="text" id="login-user" autocapitalize="none" autocorrect="off" placeholder="Usuário" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-center">
+                <input type="password" id="login-pass" autocapitalize="none" autocorrect="off" placeholder="Senha" class="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white outline-none focus:border-purple-500 text-center">
+                <button onclick="window.fazerLogin()" id="btn-login" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-xl shadow-lg transition-colors mt-2">ENTRAR</button>
+            </div>
+            <p id="login-erro" class="text-red-400 text-xs font-bold mt-4 hidden">Usuário ou senha incorretos.</p>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div id="app-container" class="hidden flex-col h-full w-full">
+        <header class="glass pt-safe pb-3 px-4 flex items-center justify-between shadow-md shrink-0 z-20">
+            <div class="flex items-center gap-2">
+                <img id="app-logo-mobile" src="logo.png" alt="Logo" class="h-8 max-w-[100px] object-contain rounded bg-white/5 p-1" onerror="this.style.display='none'">
+                <h1 class="text-lg font-black italic tracking-tighter text-white">KIDS<span class="text-purple-400">PRO</span></h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="text-[10px] font-bold text-slate-400 bg-black/30 px-2 py-1 rounded-lg flex items-center gap-1">
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div> <span id="header-caixa" class="text-white font-black">R$ 0,00</span>
+                </div>
+                <button onclick="window.sair()" class="text-slate-400 p-1 hover:text-red-400"><i data-lucide="log-out" size="18"></i></button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto relative z-10" id="main-content">
+            <!-- VENDAS -->
+            <section id="tab-vendas" class="fade-in p-4 space-y-4 flex flex-col" style="min-height: calc(100vh - 140px); padding-bottom: 90px;">
+                <div class="flex gap-2 shrink-0">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="absolute left-3 top-3.5 text-slate-400" size="18"></i>
+                        <input type="text" id="pdv-busca" oninput="window.buscarProdutoPDV()" onkeydown="window.tratarTecladoBusca(event)" placeholder="Buscar produto..." class="w-full bg-white/10 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500">
+                    </div>
+                    <button onclick="window.abrirScanner('pdv')" class="bg-purple-600 text-white w-12 rounded-xl flex items-center justify-center shrink-0 shadow-lg"><i data-lucide="qr-code" size="20"></i></button>
+                </div>
+                <div id="pdv-resultados" class="space-y-2 shrink-0 max-h-40 overflow-y-auto"></div>
+                <div class="flex-1 flex flex-col bg-black/20 border border-white/5 rounded-2xl p-4 mt-2 min-h-[300px]">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-3 flex justify-between">Carrinho <span id="cart-qtd">0 itens</span></h3>
+                    <div id="pdv-carrinho" class="flex-1 overflow-y-auto space-y-2"><p class="text-slate-500 text-xs text-center mt-10">Carrinho vazio.</p></div>
+                    <div class="mt-4 pt-4 border-t border-white/10 shrink-0">
+                        <div class="flex justify-between items-center mb-4"><span class="text-sm font-bold text-slate-300">Total</span><span class="text-2xl font-black text-purple-400" id="pdv-total">R$ 0,00</span></div>
+                        <button id="btn-cobrar" onclick="window.abrirPagamento()" class="w-full bg-green-500 text-white font-black uppercase text-sm py-4 rounded-xl shadow-lg flex items-center justify-center gap-2"><i data-lucide="check-circle" size="18"></i> Cobrar</button>
+                    </div>
+                </div>
+            </section>
+            <!-- BALANÇO -->
+            <section id="tab-balanco" class="fade-in hidden p-4 space-y-4" style="padding-bottom: 90px;">
+                <div class="flex justify-between items-center mb-2"><div><h2 class="text-lg font-black text-white italic">Balanço</h2></div><div class="text-right"><p class="text-lg font-black text-purple-400" id="balanco-total-itens">0</p></div></div>
+                <div class="flex gap-2 shrink-0">
+                    <div class="relative flex-1"><i data-lucide="search" class="absolute left-3 top-3.5 text-slate-400" size="18"></i><input type="text" id="balanco-busca" oninput="window.renderizarBalanco()" placeholder="Filtrar..." class="w-full bg-white/10 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-white"></div>
+                    <button onclick="window.abrirScanner('balanco')" class="bg-purple-600 text-white w-12 rounded-xl flex items-center justify-center shrink-0"><i data-lucide="qr-code" size="20"></i></button>
+                </div>
+                <div id="lista-balanco" class="space-y-3 pb-8"></div>
+            </section>
+        </main>
+        <nav class="glass fixed bottom-0 w-full h-[72px] flex items-center justify-around border-t border-white/10 z-30 pb-2">
+            <button onclick="window.switchTab('vendas')" id="btn-vendas" class="nav-btn flex flex-col items-center gap-1 text-slate-400 w-1/2 mt-1 active"><i data-lucide="shopping-cart" size="22"></i><span class="text-[10px] font-bold uppercase">Vendas</span></button>
+            <button onclick="window.switchTab('balanco')" id="btn-balanco" class="nav-btn flex flex-col items-center gap-1 text-slate-400 w-1/2 border-l border-white/10 mt-1"><i data-lucide="clipboard-list" size="22"></i><span class="text-[10px] font-bold uppercase">Balanço</span></button>
+        </nav>
+    </div>
+
+    <!-- MODAIS MOBILE -->
+    <div id="modal-scanner" class="hidden fixed inset-0 bg-black/95 z-[150] flex flex-col items-center justify-center p-4"><div class="w-full max-w-sm bg-slate-900 rounded-3xl p-4 border border-white/10 flex flex-col gap-4"><div class="flex justify-between items-center px-2"><h3 class="text-lg font-black text-white">Ler Código</h3><button onclick="window.fecharScanner()" class="text-slate-400"><i data-lucide="x"></i></button></div><div class="bg-black rounded-xl overflow-hidden min-h-[250px] relative border-2 border-dashed border-slate-700" id="reader-container"><div id="reader" class="w-full h-full"></div></div></div></div>
+    <div id="modal-recibo" class="hidden fixed inset-0 bg-black/90 z-[150] flex items-center justify-center p-4"><div class="glass w-full max-w-sm rounded-3xl p-8 text-center"><div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-2"><i data-lucide="check-circle" size="32"></i></div><h3 class="text-2xl font-black italic text-white">Venda Concluída!</h3><input type="hidden" id="last-os-id"><div class="flex flex-col gap-3 mt-6"><button onclick="window.imprimirTermica(document.getElementById('last-os-id').value); window.fecharModal('modal-recibo');" class="w-full bg-purple-600 p-4 rounded-xl font-black text-white text-sm">Imprimir</button><button onclick="window.fecharModal('modal-recibo')" class="w-full bg-white/10 text-white p-4 rounded-xl font-black text-sm">Finalizar</button></div></div></div>
+    <div id="modal-pagamento" class="hidden fixed inset-0 bg-black/95 z-[100] flex items-end justify-center"><div class="w-full bg-slate-900 rounded-t-3xl p-6 border-t border-white/10 pb-safe"><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-black italic text-white">Finalizar</h3><button onclick="window.fecharModal('modal-pagamento')" class="text-slate-400"><i data-lucide="x"></i></button></div><div class="text-center mb-6"><p class="text-xs text-slate-400 font-bold uppercase mb-1">Total a Receber</p><h2 class="text-4xl font-black text-green-400" id="pag-total">R$ 0,00</h2></div><div class="grid grid-cols-2 gap-3 mb-6"><button onclick="window.selecionarMetodo('PIX')" id="metodo-PIX" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white selecionado">PIX</button><button onclick="window.selecionarMetodo('Dinheiro')" id="metodo-Dinheiro" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white">Dinheiro</button><button onclick="window.selecionarMetodo('Cartão de Crédito')" id="metodo-Cartão de Crédito" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white">Crédito</button><button onclick="window.selecionarMetodo('Cartão de Débito')" id="metodo-Cartão de Débito" class="metodo-btn bg-white/5 border border-white/10 py-3 rounded-xl text-sm font-bold text-white">Débito</button></div><button id="btn-confirma-pagamento" onclick="window.confirmarVenda()" class="w-full bg-purple-600 text-white font-black uppercase text-sm py-4 rounded-xl">Confirmar</button></div></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ikttfbndtdhvtpmlxdpl.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrdHRmYm5kdGRodnRwbWx4ZHBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3MDMxNTYsImV4cCI6MjEwNjI3OTE1Nn0.Yr8R9hl6n9Uw71o_LWaYGco6f6dV3TXsorFbUvxUt3Y';
+        let supabaseClient;
+        function criarCliente(){ const t=localStorage.getItem('kidspro_token')||''; supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{'x-session-token':t}}}); }
+        criarCliente();
+        const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const hoje=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().split('T')[0]};
+
+        let db = { estoque: [], atendimentos: [], caixa: 0 };
+        let carrinho = []; let totalVenda = 0; let metodoSelecionado = 'PIX'; let html5QrCode; let scannerContexto = ''; 
+        let usuarioAtual = null; let securityInterval = null;
+
+        window.onload = async () => { 
+            lucide.createIcons(); 
+            const usr = localStorage.getItem('kidspro_user'); 
+            if(usr) { 
+                usuarioAtual = JSON.parse(usr); 
+                const valido = await validarSessaoNuvem();
+                if(valido) { iniciarApp(); return; } 
+            } 
+            document.getElementById('login-container').classList.remove('hidden'); 
+        };
+
+        async function validarSessaoNuvem() {
+            if(!localStorage.getItem('kidspro_token')) return false;
+            try { const { data } = await supabaseClient.rpc('validar_sessao'); if(data && data.id) { usuarioAtual = data; localStorage.setItem('kidspro_user', JSON.stringify(data)); return true; } } catch(e) {}
+            localStorage.removeItem('kidspro_user'); localStorage.removeItem('kidspro_token');
+            return false;
+        }
+
+        // NOVO MOTOR DE LOGIN COM ALERTA PARA DEPURAÇÃO
+        window.fazerLogin = async function() { 
+            const btn = document.getElementById('btn-login'); 
+            btn.innerText = "Aguarde..."; 
+            const u = document.getElementById('login-user').value.trim(); 
+            const p = document.getElementById('login-pass').value.trim(); 
+            const erroMsg = document.getElementById('login-erro'); 
+            erroMsg.classList.add('hidden'); 
+            
+            try { 
+                const { data: r, error } = await supabaseClient.rpc('login', {p_user:u, p_pass:p}); 
+                
+                if (error) {
+                    alert("ERRO NO SUPABASE: " + error.message);
+                    btn.innerText = "ENTRAR";
+                    return;
+                }
+
+                if (r && r.token) { 
+                    localStorage.setItem('kidspro_token', r.token); 
+                    criarCliente(); 
+                    delete r.token; 
+                    
+                    if (r.ativo) {
+                        usuarioAtual = r;
+                        localStorage.setItem('kidspro_user', JSON.stringify(usuarioAtual)); 
+                        iniciarApp(); 
+                    } else {
+                        alert("ERRO: A sua conta está bloqueada no painel Master.");
+                        btn.innerText = "ENTRAR";
+                    }
+                } else {
+                    erroMsg.classList.remove('hidden'); 
+                    btn.innerText = "ENTRAR"; 
+                }
+                
+            } catch(e) { 
+                alert("ERRO NO TELEMÓVEL: " + e.message);
+                erroMsg.classList.remove('hidden'); 
+                btn.innerText = "ENTRAR"; 
+            } 
+        }
+
+        window.sair = async function() { try { await supabaseClient.rpc('logout'); } catch(e) {} localStorage.removeItem('kidspro_token'); 
+            localStorage.removeItem('kidspro_user'); 
+            if(securityInterval) clearInterval(securityInterval);
+            location.reload(); 
+        }
+
+        function iniciarApp() { 
+            document.getElementById('login-container').classList.add('hidden'); 
+            document.getElementById('app-container').classList.remove('hidden'); 
+            document.getElementById('app-container').classList.add('flex'); 
+            
+            if(usuarioAtual.logo_url) { const lm = document.getElementById('app-logo-mobile'); if(lm) lm.src = usuarioAtual.logo_url; }
+            
+            if(securityInterval) clearInterval(securityInterval);
+            securityInterval = setInterval(async () => {
+                const ok = await validarSessaoNuvem();
+                if(!ok) {
+                    alert("Aviso de Segurança: Licença expirada ou bloqueada.");
+                    window.sair();
+                }
+            }, 300000);
+
+            carregarBancoSupabase().then(() => window.switchTab('vendas')); 
+        }
+
+        async function carregarBancoSupabase() {
+            if(!usuarioAtual) return; const lojaId = usuarioAtual.loja_id;
+            try {
+                const [resEst, resAtend, resCaixa] = await Promise.all([ supabaseClient.from('estoque').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false }), supabaseClient.from('atendimentos').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false }), supabaseClient.from('caixa_movimentacoes').select('tipo, valor').eq('loja_id', lojaId) ]);
+                if(resEst.data) { db.estoque = resEst.data.map(p => { let vars = p.variacoes || []; if(vars.length === 0 && p.qtd > 0) vars.push({ tamanho: p.tamanho||'U', cor: p.cor||'N/A', cod: p.cod||'', qtd: p.qtd, qtd_defeito: 0 }); return { id: p.id, desc: p.desc_produto, categoria: p.categoria, custo: parseFloat(p.custo), margem: parseFloat(p.margem), venda: parseFloat(p.venda), variacoes: vars }; }); }
+                if(resAtend.data) { db.atendimentos = resAtend.data.map(a => ({ id: a.id, data: a.data, cliente: a.cliente, itens: a.itens, total: parseFloat(a.total), custoTotal: parseFloat(a.custo_total), metodo: a.metodo, status: a.status })); }
+                let saldo = 0; if (resCaixa.data) { resCaixa.data.forEach(mov => { saldo += (mov.tipo === 'sangria' ? -parseFloat(mov.valor) : parseFloat(mov.valor)); }); } db.caixa = saldo; document.getElementById('header-caixa').innerText = `R$ ${db.caixa.toFixed(2)}`;
+                if(document.getElementById('tab-balanco').classList.contains('block')) window.renderizarBalanco();
+            } catch (error) { console.error("Erro Supabase:", error); }
+        }
+
+        window.confirmarVenda = async function() {
+            document.getElementById('btn-confirma-pagamento').disabled = true; const novaOSId = Date.now();
+            const novaOS = { id: novaOSId, data: hoje(), cliente: "Mobile: " + (usuarioAtual ? usuarioAtual.nome : 'N/A'), itens: carrinho, total: totalVenda, custo_total: carrinho.reduce((acc, cur) => acc + (cur.custo * cur.qtd), 0), metodo: metodoSelecionado, status: "Concluído", loja_id: usuarioAtual.loja_id };
+            try {
+                await supabaseClient.from('atendimentos').insert([novaOS]);
+                await supabaseClient.from('caixa_movimentacoes').insert([{ tipo: 'venda', valor: totalVenda, descricao: `Mobile #${novaOSId}`, loja_id: usuarioAtual.loja_id }]);
+                for (let itemVendido of carrinho) { const prodEstoque = db.estoque.find(p => p.id === itemVendido.id); if(prodEstoque) { await supabaseClient.rpc('ajustar_estoque', {p_id: itemVendido.id, p_idx: itemVendido.idx_var, p_campo: 'qtd', p_delta: -itemVendido.qtd}); } }
+                carrinho = []; window.renderizarCarrinho(); window.fecharModal('modal-pagamento'); await carregarBancoSupabase(); document.getElementById('last-os-id').value = novaOSId; window.abrirModal('modal-recibo');
+            } catch (e) { alert("Erro ao finalizar venda."); }
+            document.getElementById('btn-confirma-pagamento').disabled = false;
+        }
+
+        window.switchTab = function(tab) { document.getElementById('tab-vendas').classList.add('hidden'); document.getElementById('tab-vendas').classList.remove('flex'); document.getElementById('tab-balanco').classList.add('hidden'); document.getElementById('tab-balanco').classList.remove('block'); document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); if(tab === 'vendas') { document.getElementById('tab-vendas').classList.remove('hidden'); document.getElementById('tab-vendas').classList.add('flex'); } else { document.getElementById('tab-balanco').classList.remove('hidden'); document.getElementById('tab-balanco').classList.add('block'); window.renderizarBalanco(); } document.getElementById('btn-' + tab).classList.add('active'); }
+        window.fecharModal = function(id) { document.getElementById(id).classList.add('hidden'); }
+        window.abrirModal = function(id) { document.getElementById(id).classList.remove('hidden'); }
+        window.abrirScanner = function(contexto) { scannerContexto = contexto; window.abrirModal('modal-scanner'); if(!html5QrCode) html5QrCode = new Html5Qrcode("reader"); html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 200, height: 200 } }, (txt) => window.processarLeitura(txt), () => {}).catch(() => alert("Erro câmera")); }
+        window.fecharScanner = function() { if(html5QrCode) html5QrCode.stop().then(() => window.fecharModal('modal-scanner')).catch(() => window.fecharModal('modal-scanner')); else window.fecharModal('modal-scanner'); }
+        window.processarLeitura = function(textoQR) { window.fecharScanner(); const txt = textoQR.trim().toLowerCase(); if(scannerContexto === 'pdv') { let found = null; db.estoque.forEach(p => { p.variacoes.forEach((v, idx) => { if(v.cod && v.cod.toLowerCase() === txt) found = {id: p.id, idx: idx, v: v, p: p}; }); }); if(found) window.adicionarAoCarrinho(found.id, found.idx); else alert("Não encontrado."); } else { document.getElementById('balanco-busca').value = textoQR.trim(); window.renderizarBalanco(); } }
+        window.obterListaVariaveis = function() { let lista = []; db.estoque.forEach(p => { p.variacoes.forEach((v, idx) => { if(v.qtd > 0) lista.push({ id_produto: p.id, idx_var: idx, desc: p.desc, tamanho: v.tamanho, cor: v.cor, cod: v.cod, qtd: v.qtd, preco: p.venda, custo: p.custo }); }); }); return lista; }
+        window.buscarProdutoPDV = function() { const termo = document.getElementById('pdv-busca').value.trim().toLowerCase(); const container = document.getElementById('pdv-resultados'); if(termo.length < 1) { container.innerHTML = ''; return; } const filtrados = window.obterListaVariaveis().filter(v => v.desc.toLowerCase().includes(termo) || (v.cod && v.cod.toLowerCase().includes(termo))); container.innerHTML = filtrados.slice(0, 8).map(v => `<div onclick="window.adicionarAoCarrinho(${v.id_produto}, ${v.idx_var})" class="bg-white/10 p-3 rounded-xl flex justify-between items-center border border-white/5 cursor-pointer"><div><p class="text-sm font-bold text-white">${esc(v.desc)}</p><p class="text-[10px] text-slate-400">Tam: ${esc(v.tamanho)} | Est: ${v.qtd}</p></div><div class="text-right"><p class="text-sm font-black text-purple-400">R$ ${v.preco.toFixed(2)}</p></div></div>`).join(''); lucide.createIcons(); }
+        window.tratarTecladoBusca = function(event) { if(event.key === 'Enter') { event.preventDefault(); const termo = document.getElementById('pdv-busca').value.trim().toLowerCase(); if(!termo) return; const todos = window.obterListaVariaveis(); const f = todos.filter(v => v.desc.toLowerCase().includes(termo) || (v.cod && v.cod.toLowerCase().includes(termo))); if(f.length === 1) window.adicionarAoCarrinho(f[0].id_produto, f[0].idx_var); } }
+        window.adicionarAoCarrinho = function(id_p, idx) { const prod = db.estoque.find(p => p.id === id_p); if(!prod) return; const variacao = prod.variacoes[idx]; const uniqueKey = `${id_p}-${idx}`; const existe = carrinho.find(i => i.key === uniqueKey); if(existe) { if(existe.qtd + 1 > variacao.qtd) return alert(`Máx: ${variacao.qtd}`); existe.qtd += 1; } else { carrinho.push({ key: uniqueKey, id: prod.id, idx_var: idx, desc: `${prod.desc} (${variacao.tamanho})`, preco: prod.venda, custo: prod.custo, qtd: 1, max: variacao.qtd }); } document.getElementById('pdv-busca').value = ''; document.getElementById('pdv-resultados').innerHTML = ''; window.renderizarCarrinho(); }
+        window.alterarQtdCarrinho = function(index, delta) { const item = carrinho[index]; const novaQtd = item.qtd + delta; if(novaQtd <= 0) carrinho.splice(index, 1); else if (novaQtd > item.max) return alert(`Máx ${item.max}`); else item.qtd = novaQtd; window.renderizarCarrinho(); }
+        window.renderizarCarrinho = function() { const container = document.getElementById('pdv-carrinho'); document.getElementById('cart-qtd').innerText = `${carrinho.length} itens`; if(carrinho.length === 0) { container.innerHTML = '<p class="text-slate-500 text-xs text-center mt-10">Carrinho vazio.</p>'; totalVenda = 0; } else { container.innerHTML = carrinho.map((item, i) => `<div class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center"><div class="flex-1 overflow-hidden pr-2"><p class="text-xs font-bold text-white truncate">${esc(item.desc)}</p><p class="text-[10px] text-purple-400 font-bold">R$ ${(item.preco * item.qtd).toFixed(2)}</p></div><div class="flex items-center gap-3 bg-black/40 rounded-lg p-1 shrink-0"><button onclick="window.alterarQtdCarrinho(${i}, -1)" class="w-6 h-6 flex items-center justify-center text-slate-400">-</button><span class="text-xs font-black text-white w-4 text-center">${item.qtd}</span><button onclick="window.alterarQtdCarrinho(${i}, 1)" class="w-6 h-6 flex items-center justify-center text-slate-400">+</button></div></div>`).join(''); totalVenda = carrinho.reduce((acc, item) => acc + (item.preco * item.qtd), 0); } document.getElementById('pdv-total').innerText = `R$ ${totalVenda.toFixed(2)}`; lucide.createIcons(); }
+        window.abrirPagamento = function() { if(carrinho.length === 0) return alert("Carrinho vazio!"); document.getElementById('pag-total').innerText = `R$ ${totalVenda.toFixed(2)}`; window.selecionarMetodo('PIX'); window.abrirModal('modal-pagamento'); }
+        window.selecionarMetodo = function(metodo) { metodoSelecionado = metodo; document.querySelectorAll('.metodo-btn').forEach(b => b.classList.remove('selecionado')); document.getElementById(`metodo-${metodo}`).classList.add('selecionado'); }
+        window.imprimirTermica = function(idOS) { const os = db.atendimentos.find(o => o.id == idOS); if(!os) return; let itensHTML = os.itens.map(it => `<tr><td>${esc(it.desc)}</td><td style="text-align:center;">${it.qtd}</td><td style="text-align:right;">R$ ${(it.preco * it.qtd).toFixed(2)}</td></tr>`).join(''); const recibo = `<html><head><style>body { font-family: monospace; width: 80mm; padding: 10px; font-size: 12px; } h2 { text-align: center; } .logo-print { max-width: 120px; display: block; margin: 0 auto 10px auto; }</style></head><body><img src="${esc(usuarioAtual.logo_url || 'logo.png')}" class="logo-print" onerror="this.style.display='none'"><h2>${esc(usuarioAtual.nome)}</h2><div>Data: ${esc(os.data)}</div><table style="width:100%; border-collapse:collapse; margin-top:10px;"><thead><tr><th style="border-bottom:1px solid #000; text-align:left;">Item</th><th style="border-bottom:1px solid #000; text-align:center;">Qtd</th><th style="border-bottom:1px solid #000; text-align:right;">Sub</th></tr></thead><tbody>${itensHTML}</tbody></table><div style="border-top:1px dashed #000; margin-top:10px; padding-top:5px; font-weight:bold; font-size:14px;">TOTAL: R$ ${os.total.toFixed(2)}</div></body></html>`; const win = window.open('', '_blank', 'width=400,height=600'); win.document.write(recibo); win.document.close(); }
+        window.renderizarBalanco = function() { const termo = document.getElementById('balanco-busca').value.toLowerCase(); let html = ''; let count = 0; db.estoque.forEach(p => { p.variacoes.forEach((v, idx) => { if(p.desc.toLowerCase().includes(termo) || (v.cod && v.cod.toLowerCase().includes(termo))) { count++; html += `<div class="glass p-4 rounded-xl flex flex-col gap-2 border-l-4 border-purple-500"><h4 class="font-bold text-sm text-white">${esc(p.desc)}</h4><div class="flex justify-between text-[10px] font-bold text-slate-400"><span>Tam: ${esc(v.tamanho)} | Est: ${v.qtd}</span><span class="text-green-400">R$ ${p.venda.toFixed(2)}</span></div></div>`; } }); }); document.getElementById('balanco-total-itens').innerText = count; document.getElementById('lista-balanco').innerHTML = html; lucide.createIcons(); }
+    </script>
+</body>
+</html>
