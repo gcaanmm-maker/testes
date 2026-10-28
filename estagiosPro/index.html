@@ -3,156 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App do Preceptor - Relacional</title>
+    <title>Gestão de Estágio - Admin Relacional</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px;}
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px;}
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .tab-btn { transition: all 0.2s ease-in-out; }
+        .tab-btn.active { background-color: #581c87; border-left: 4px solid #f97316; }
+
+        @media print {
+            body > div:not(#modal-container) { display: none !important; }
+            #modal-container { position: static !important; display: block !important; background: white !important; padding: 0 !important; }
+            #area-impressao { position: static !important; max-width: 100% !important; max-height: none !important; width: 100% !important; height: auto !important; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+            #modal-conteudo { overflow: visible !important; height: auto !important; padding: 0 !important; }
+            .no-print { display: none !important; }
+            table { page-break-inside: auto; width: 100%; border-collapse: collapse; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: white !important; }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans">
-
+    
     <div id="loading-inicial" class="fixed inset-0 z-[9999] bg-purple-900 flex flex-col items-center justify-center">
         <i class="fas fa-circle-notch fa-spin text-orange-500 text-6xl mb-4"></i>
         <h2 class="text-white text-2xl font-bold mb-2">Iniciando sistema...</h2>
+        <p class="text-purple-300 text-sm" id="loading-status">A carregar dados do Supabase.</p>
     </div>
 
     <!-- Container de Notificação Partilhado -->
     <div id="notification" class="fixed top-4 right-4 z-50 transform transition-transform duration-300 translate-x-full no-print"></div>
 
-    <!-- ECRÃ DE LOGIN -->
-    <div id="screen-login" class="hidden h-screen items-center justify-center px-4 bg-purple-900">
+    <!-- ECRÃ DE LOGIN ADMIN -->
+    <div id="screen-login" class="hidden h-screen items-center justify-center px-4 bg-gray-900">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-            <div class="bg-purple-900 w-full flex justify-center py-6 border-b border-purple-800">
-                <img src="logo.png" alt="Logo" class="h-16 object-contain" onerror="this.src='https://via.placeholder.com/200x60/581c87/ffffff?text=LOGO.PNG'">
+            <div class="bg-gray-900 w-full flex justify-center py-6 border-b border-gray-800">
+                <img src="logo.png" alt="Logo" class="h-16 object-contain" onerror="this.style.display='none'">
             </div>
             <div class="p-8">
                 <div class="text-center mb-8">
-                    <h1 class="text-2xl font-bold text-gray-800">Portal do Preceptor</h1>
-                    <p class="text-sm text-gray-500">Inicie sessão para continuar</p>
+                    <h1 class="text-2xl font-bold text-gray-800">Administração</h1>
+                    <p class="text-sm text-gray-500">Inicie sessão para gerir o sistema</p>
                 </div>
-                <form onsubmit="event.preventDefault(); fazerLogin();" class="space-y-4">
+                <form onsubmit="event.preventDefault(); fazerLoginAdmin();" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">E-mail</label>
-                        <input type="email" id="login-user" required class="w-full p-3 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-purple-500">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">E-mail Administrativo</label>
+                        <input type="email" id="login-admin-email" required class="w-full p-3 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-gray-800">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Palavra-passe</label>
-                        <input type="password" id="login-pass" required class="w-full p-3 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-purple-500">
+                        <input type="password" id="login-admin-pass" required class="w-full p-3 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-gray-800">
                     </div>
-                    <button type="submit" id="btn-login" class="w-full bg-orange-500 text-white p-3 rounded font-bold shadow-md hover:bg-orange-600 transition">Entrar</button>
+                    <button type="submit" id="btn-login-admin" class="w-full bg-gray-800 text-white p-3 rounded font-bold shadow-md hover:bg-gray-700 transition">Entrar no Painel</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- TELA PRINCIPAL -->
-    <div id="screen-app" class="hidden h-screen flex-col">
-        <header class="bg-purple-900 text-white p-4 shadow-md flex justify-between items-center relative">
-            <div class="flex items-center gap-3">
-                <img src="logo.png" alt="Logo" class="h-8 object-contain" onerror="this.style.display='none'">
-                <div>
-                    <h1 class="font-bold text-lg leading-tight">Área do Preceptor</h1>
-                    <p class="text-xs text-purple-200" id="user-name">Bem-vindo</p>
-                </div>
+    <!-- PAINEL ADMIN PRINCIPAL -->
+    <div id="screen-app" class="hidden flex h-screen overflow-hidden main-wrapper">
+        <aside class="w-64 bg-purple-900 text-white flex flex-col no-print shadow-lg z-10 shrink-0">
+            <div class="bg-purple-900 w-full py-6 flex flex-col items-center justify-center border-b border-purple-800">
+                <img src="logo.png" alt="Logo Proz" class="h-12 object-contain mb-2" onerror="this.style.display='none'">
+                <p class="text-xs text-purple-300 uppercase font-bold tracking-wider"><i class="fas fa-shield-alt text-green-400 mr-1"></i> Sistema Seguro</p>
             </div>
-            <div class="flex items-center gap-4">
-                <!-- Dropdown de Ajuda -->
-                <div class="relative group">
-                    <button class="text-purple-200 hover:text-white transition flex items-center gap-1">
-                        <i class="fas fa-question-circle text-xl"></i> <span class="hidden md:inline">Ajuda</span>
-                    </button>
-                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block z-50 border border-gray-200">
-                        <a href="manual_utilizacao_preceptor.pdf" target="_blank" class="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700">
-                            <i class="fas fa-book mr-2"></i> Manual de Utilização
-                        </a>
-                    </div>
-                </div>
+            
+            <nav class="flex-1 py-4 space-y-1 overflow-y-auto custom-scroll">
+                <button onclick="switchTab('dashboard', this)" class="tab-btn active w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium"><i class="fas fa-chart-line w-5"></i> Dashboard</button>
+                <button onclick="switchTab('preceptores', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium"><i class="fas fa-user-md w-5"></i> Preceptores</button>
+                <button onclick="switchTab('turmas', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium"><i class="fas fa-chalkboard w-5"></i> Turmas Ativas</button>
+                <button onclick="switchTab('historico', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium text-gray-300"><i class="fas fa-archive w-5"></i> Histórico</button>
+                <button onclick="switchTab('calendario', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium"><i class="fas fa-calendar-alt w-5"></i> Calendário</button>
+                <button onclick="switchTab('master', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium text-orange-300"><i class="fas fa-user-edit w-5"></i> Edição Master</button>
+                <button onclick="switchTab('alunos', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium"><i class="fas fa-user-graduate w-5"></i> Alunos</button>
+                <button onclick="switchTab('galeria', this)" class="tab-btn w-full flex items-center gap-3 px-6 py-3 hover:bg-purple-800 font-medium"><i class="fas fa-camera-retro w-5"></i> Galeria</button>
                 
-                <button onclick="logout()" class="text-purple-200 hover:text-white transition flex items-center gap-1 border-l border-purple-700 pl-4">
-                    <i class="fas fa-sign-out-alt text-xl"></i> <span class="hidden md:inline">Sair</span>
-                </button>
+                <div class="mt-6 mb-2 px-6">
+                    <p class="text-[10px] font-bold text-purple-400 uppercase tracking-wider">Ajuda & Manuais</p>
+                </div>
+                <a href="manual_utilizacao_gestor.pdf" target="_blank" class="w-full flex items-center gap-3 px-6 py-2 hover:bg-purple-800 font-medium text-sm text-gray-200 transition">
+                    <i class="fas fa-book w-5"></i> Manual do Gestor
+                </a>
+                <a href="documentacao_sistema_estagio.pdf" target="_blank" class="w-full flex items-center gap-3 px-6 py-2 hover:bg-purple-800 font-medium text-sm text-gray-200 transition">
+                    <i class="fas fa-file-code w-5"></i> Documentação Técnica
+                </a>
+            </nav>
+            <div class="p-4 border-t border-purple-800">
+                <button onclick="logoutAdmin()" class="w-full bg-red-600 text-white p-2 rounded text-sm font-bold shadow hover:bg-red-700 transition">Sair</button>
             </div>
-        </header>
+        </aside>
 
-        <div class="bg-white border-b flex text-center">
-            <button onclick="switchAppTab('gestao')" id="tab-btn-gestao" class="flex-1 py-3 text-purple-700 border-b-2 border-purple-700 font-bold transition">
-                <i class="fas fa-clipboard-list mr-1"></i> Gestão
-            </button>
-            <button onclick="switchAppTab('galeria')" id="tab-btn-galeria" class="flex-1 py-3 text-gray-500 font-semibold transition">
-                <i class="fas fa-camera mr-1"></i> Galeria (Storage)
-            </button>
-        </div>
-
-        <main class="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full">
-            <div id="app-tab-gestao" class="block space-y-4">
-                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <label class="block text-sm font-bold text-purple-900 mb-1"><i class="fas fa-chalkboard mr-1"></i> Selecione a Turma</label>
-                    <select id="select-turma" onchange="popularDatas(); carregarDadosTurma();" class="w-full p-3 border rounded outline-none bg-gray-50 font-medium"></select>
-                </div>
-
-                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                    <label class="block text-sm font-bold text-purple-900 mb-1"><i class="fas fa-calendar-day mr-1"></i> Data da Aula</label>
-                    <select id="data-aula" onchange="carregarDadosTurma()" class="w-full p-3 border rounded outline-none bg-gray-50 font-medium">
-                        <option value="">Selecione a turma primeiro...</option>
-                    </select>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hidden" id="area-alunos">
-                    <div class="p-4 border-b flex justify-between items-center bg-purple-50">
-                        <h3 class="font-bold text-purple-900"><i class="fas fa-users mr-1"></i> Lista de Alunos</h3>
-                        <button onclick="abrirModalAtividade()" class="bg-purple-700 text-white px-3 py-1.5 text-sm rounded font-bold hover:bg-purple-800 shadow transition flex items-center gap-1">
-                            <i class="fas fa-plus"></i> Atividade
-                        </button>
+        <main class="flex-1 overflow-y-auto p-8 custom-scroll bg-gray-50 no-print">
+            
+            <!-- DASHBOARD -->
+            <div id="tab-dashboard" class="tab-content block">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Visão Geral do Sistema Relacional</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-900">
+                        <p class="text-gray-500 text-sm font-semibold"><i class="fas fa-user-md mr-1"></i> Preceptores</p>
+                        <h3 class="text-3xl font-black text-purple-900 mt-1" id="dash-preceptores">0</h3>
                     </div>
-                    
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-orange-500">
+                        <p class="text-gray-500 text-sm font-semibold"><i class="fas fa-chalkboard mr-1"></i> Turmas Ativas</p>
+                        <h3 class="text-3xl font-black text-orange-600 mt-1" id="dash-turmas">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                        <p class="text-gray-500 text-sm font-semibold"><i class="fas fa-user-graduate mr-1"></i> Alunos Ativos</p>
+                        <h3 class="text-3xl font-black text-green-600 mt-1" id="dash-alunos">0</h3>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border lg:col-span-2">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Frequência Média (%) - Turmas Ativas</h3>
+                        <div class="relative h-64 w-full"><canvas id="graficoFrequencia"></canvas></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-red-200">
+                        <h3 class="text-md font-bold text-red-600 mb-1"><i class="fas fa-exclamation-triangle"></i> Alerta de Faltas</h3>
+                        <p class="text-xs text-gray-500 mb-3 border-b pb-2">Limite Máximo: <strong>5 dias (30h)</strong></p>
+                        <ul id="lista-risco" class="space-y-2 h-48 overflow-y-auto custom-scroll text-sm divide-y"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRECEPTORES -->
+            <div id="tab-preceptores" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Gestão de Preceptores</h2>
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+                    <p class="text-sm text-green-700 font-bold"><i class="fas fa-magic mr-1"></i> Criação Rápida de Acesso</p>
+                    <p class="text-xs text-green-600 mt-1">Este formulário cria o perfil e o login do preceptor ao mesmo tempo. Ele poderá iniciar sessão na aplicação imediatamente após ser adicionado aqui.</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm border mb-6">
+                    <form id="form-preceptor" class="flex gap-4" onsubmit="event.preventDefault(); salvarPreceptor();">
+                        <input type="text" id="prec-nome" required placeholder="Nome Completo" class="flex-1 p-3 border rounded outline-none focus:border-purple-500">
+                        <input type="email" id="prec-login" required placeholder="E-mail de Acesso" class="flex-1 p-3 border rounded outline-none focus:border-purple-500">
+                        <input type="password" id="prec-senha" required minlength="6" placeholder="Palavra-passe (Mínimo 6 car.)" class="flex-1 p-3 border rounded outline-none focus:border-purple-500">
+                        <button type="submit" id="btn-salvar-prec" class="bg-orange-500 text-white px-6 py-2 rounded font-bold shadow hover:bg-orange-600">Adicionar Perfil & Login</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b"><tr><th class="p-4">Nome</th><th class="p-4">E-mail</th><th class="p-4 text-right">Ações</th></tr></thead>
+                        <tbody id="list-preceptores" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TURMAS ATIVAS -->
+            <div id="tab-turmas" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-chalkboard mr-2"></i>Turmas Ativas</h2>
+                    <button onclick="exportarBackupXLSX()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold shadow hover:bg-green-700 transition"><i class="fas fa-file-excel mr-1"></i> Exportar Dados (XLSX)</button>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm border mb-6">
+                    <form id="form-turma" class="grid grid-cols-1 md:grid-cols-4 gap-4" onsubmit="event.preventDefault(); salvarTurma();">
+                        <div class="md:col-span-2"><label class="text-xs font-bold text-gray-600"><i class="fas fa-chalkboard mr-1"></i> Nome da Turma</label><input type="text" id="turma-nome" required class="w-full p-2 border rounded outline-none focus:border-purple-500"></div>
+                        <div><label class="text-xs font-bold text-gray-600"><i class="fas fa-user-md mr-1"></i> Preceptor</label><select id="turma-preceptor" required class="w-full p-2 border rounded outline-none focus:border-purple-500"></select></div>
+                        <div><label class="text-xs font-bold text-gray-600"><i class="fas fa-clock mr-1"></i> Turno</label><select id="turma-turno" class="w-full p-2 border rounded outline-none focus:border-purple-500"><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Integral</option></select></div>
+                        <div><label class="text-xs font-bold text-gray-600"><i class="fas fa-calendar-alt mr-1"></i> Início</label><input type="date" id="turma-inicio" required class="w-full p-2 border rounded outline-none focus:border-purple-500"></div>
+                        <div><label class="text-xs font-bold text-gray-600"><i class="fas fa-calendar-check mr-1"></i> Fim</label><input type="date" id="turma-fim" required class="w-full p-2 border rounded outline-none focus:border-purple-500"></div>
+                        <div class="md:col-span-2 flex items-end"><button type="submit" class="bg-orange-500 text-white w-full py-2 rounded font-bold shadow hover:bg-orange-600">Criar Turma</button></div>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b"><tr><th class="p-4">Turma (Turno)</th><th class="p-4">Período</th><th class="p-4">Preceptor</th><th class="p-4 text-right">Ações</th></tr></thead>
+                        <tbody id="list-turmas" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- HISTÓRICO DE TURMAS -->
+            <div id="tab-historico" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6"><i class="fas fa-archive mr-2"></i>Turmas Finalizadas</h2>
+                <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b">
+                            <tr>
+                                <th class="p-4">Turma (Turno)</th>
+                                <th class="p-4">Período</th>
+                                <th class="p-4">Preceptor</th>
+                                <th class="p-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="list-turmas-finalizadas" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ALUNOS -->
+            <div id="tab-alunos" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Gestão de Alunos</h2>
+                <div class="bg-white p-6 rounded-lg shadow-sm border mb-6">
+                    <h3 class="font-bold text-purple-900 mb-2">Adicionar Individualmente</h3>
+                    <form id="form-aluno" class="flex gap-4 mb-4 border-b pb-4" onsubmit="event.preventDefault(); salvarAluno();">
+                        <input type="text" id="aluno-nome" required placeholder="Nome do Aluno" class="flex-1 p-2 border rounded outline-none focus:border-purple-500">
+                        <select id="aluno-turma" required class="flex-1 p-2 border rounded outline-none focus:border-purple-500"></select>
+                        <button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded font-bold shadow hover:bg-orange-600">Cadastrar</button>
+                    </form>
+                    <h3 class="font-bold text-purple-900 mb-2 mt-4 text-sm">Importação em Lote (CSV)</h3>
+                    <div class="flex gap-4 items-center">
+                        <select id="import-turma" class="p-2 border rounded w-1/3 outline-none focus:border-purple-500"></select>
+                        <input type="file" id="file-csv" accept=".csv" class="flex-1 p-1 border rounded text-sm">
+                        <button onclick="importarCSV()" class="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold shadow hover:bg-purple-700">Importar Lista</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 border-b"><tr><th class="p-4">Nome</th><th class="p-4">Turma Atual</th><th class="p-4 text-right">Ações</th></tr></thead>
+                        <tbody id="list-alunos" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CALENDÁRIO -->
+            <div id="tab-calendario" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Planejamento de Calendário</h2>
+                <div class="bg-white p-6 rounded-lg shadow-sm border mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1"><i class="fas fa-chalkboard mr-1"></i> Selecione a Turma Ativa</label>
+                        <select id="cal-select-turma" onchange="carregarCalendarioTurma()" class="w-full p-2 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-purple-500"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1"><i class="fas fa-user-md mr-1"></i> Preceptor Responsável</label>
+                        <input type="text" id="cal-preceptor-nome" readonly class="w-full p-2 border rounded bg-gray-100 text-gray-600 font-medium outline-none">
+                    </div>
+                    <div class="bg-purple-50 border border-purple-200 p-3 rounded text-center">
+                        <span class="text-xs text-purple-700 font-bold block">TOTAL DE AULAS (PERÍODO)</span>
+                        <span class="text-2xl font-black text-purple-900" id="cal-total-dias">0</span>
+                    </div>
+                </div>
+
+                <div id="area-painel-calendario" class="hidden space-y-6">
+                    <div id="painel-controle-calendario" class="bg-white p-6 rounded-lg shadow-sm border flex flex-col md:flex-row justify-between items-center gap-4"></div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border">
+                        <div class="flex flex-col xl:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
+                            <div id="controles-mes" class="flex items-center gap-4">
+                                <button onclick="mudarMes(-1)" class="bg-gray-100 px-4 py-2 rounded hover:bg-gray-200 font-bold"><i class="fas fa-chevron-left"></i></button>
+                                <h3 class="text-lg font-bold text-purple-900 uppercase w-48 text-center" id="cal-mes-ano-titulo">Mês / Ano</h3>
+                                <button onclick="mudarMes(1)" class="bg-gray-100 px-4 py-2 rounded hover:bg-gray-200 font-bold"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                            <div class="flex bg-gray-100 rounded p-1">
+                                <button onclick="setVisCalendario('mes')" id="btn-vis-mes" class="px-3 py-1.5 text-sm font-bold rounded shadow-sm bg-white text-purple-700 transition">Mês a Mês</button>
+                                <button onclick="setVisCalendario('empilhado')" id="btn-vis-empilhado" class="px-3 py-1.5 text-sm font-bold rounded text-gray-500 hover:text-purple-700 transition">Todos os Meses</button>
+                                <button onclick="setVisCalendario('lista')" id="btn-vis-lista" class="px-3 py-1.5 text-sm font-bold rounded text-gray-500 hover:text-purple-700 transition">Lista</button>
+                            </div>
+                        </div>
+
+                        <div id="view-grid" class="block">
+                            <div class="grid grid-cols-7 gap-2 text-center font-bold text-gray-500 text-sm mb-2">
+                                <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                            </div>
+                            <div id="grid-dias-calendario" class="grid grid-cols-7 gap-2"></div>
+                        </div>
+                        <div id="view-empilhado" class="hidden"><div id="empilhado-dias-calendario" class="max-h-[600px] overflow-y-auto custom-scroll pr-2 space-y-6"></div></div>
+                        <div id="view-lista" class="hidden"><div id="lista-dias-calendario" class="space-y-2 max-h-[600px] overflow-y-auto custom-scroll pr-2"></div></div>
+                        <div id="legenda-calendario" class="flex flex-wrap gap-4 mt-6 pt-4 border-t text-xs text-gray-600 justify-center"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EDIÇÃO MASTER -->
+            <div id="tab-master" class="tab-content hidden">
+                <div class="mb-6 border-b pb-4">
+                    <h2 class="text-2xl font-bold text-orange-600"><i class="fas fa-user-edit mr-2"></i>Edição Master</h2>
+                    <p class="text-gray-500 text-sm mt-1">Modo Coordenação: Sobreponha faltas e notas em tempo real para Turmas Ativas.</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-orange-200 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-chalkboard mr-1"></i> Turma</label>
+                        <select id="master-turma" onchange="popularDatasMaster()" class="w-full p-3 border rounded outline-none bg-gray-50 focus:border-orange-500"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-calendar-day mr-1"></i> Data da Aula</label>
+                        <select id="master-data" onchange="carregarDadosMaster()" class="w-full p-3 border rounded outline-none bg-gray-50 focus:border-orange-500">
+                            <option value="">Selecione a turma primeiro...</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="master-area-alunos" class="hidden bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left">
-                            <thead class="bg-gray-50 text-gray-700 border-b" id="thead-alunos"></thead>
-                            <tbody id="tbody-alunos" class="divide-y"></tbody>
+                            <thead class="bg-gray-50 text-gray-700 border-b" id="thead-master"></thead>
+                            <tbody id="tbody-master" class="divide-y"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <div id="app-tab-galeria" class="hidden space-y-4">
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="font-bold text-purple-900 mb-4 text-lg border-b pb-2">Adicionar Foto (Supabase Storage)</h3>
-                    <form onsubmit="event.preventDefault(); salvarFotoStorage();" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-chalkboard mr-1"></i> Turma</label>
-                            <select id="foto-turma" class="w-full p-3 border rounded outline-none bg-gray-50"></select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-align-left mr-1"></i> Descrição / Evento</label>
-                            <input type="text" id="foto-desc" required placeholder="Ex: Aula prática" class="w-full p-3 border rounded outline-none bg-gray-50">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-image mr-1"></i> Foto</label>
-                            <input type="file" id="foto-file" accept="image/*" capture="environment" required class="w-full p-2 border rounded text-sm bg-gray-50">
-                        </div>
-                        <button type="submit" id="btn-envia-foto" class="w-full bg-orange-500 text-white p-3 rounded font-bold shadow-md hover:bg-orange-600 transition mt-4">
-                            Enviar para o Storage
-                        </button>
-                    </form>
-                </div>
+            <!-- GALERIA -->
+            <div id="tab-galeria" class="tab-content hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Galeria de Estágio (Storage)</h2>
+                <div id="grid-galeria" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
             </div>
         </main>
     </div>
 
-    <!-- MODAL ATIVIDADE -->
-    <div id="modal-atividade" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
-        <div class="bg-white rounded-lg p-6 w-full max-w-sm shadow-2xl">
-            <h3 class="font-bold text-lg mb-4 text-purple-900 border-b pb-2">Nova Coluna de Nota</h3>
-            <input type="text" id="nome-atividade" placeholder="Ex: Prova Prática" class="w-full p-3 border rounded mb-4 outline-none bg-gray-50">
-            <div class="flex justify-end gap-2">
-                <button onclick="fecharModalAtividade()" class="px-4 py-2 text-gray-600 bg-gray-200 rounded font-bold">Cancelar</button>
-                <button onclick="adicionarColunaAtividade()" class="px-4 py-2 text-white bg-purple-700 rounded font-bold">Criar</button>
+    <!-- MODAIS -->
+    <div id="modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60">
+        <div id="area-impressao" class="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center p-6 border-b no-print bg-purple-50">
+                <h3 class="text-xl font-bold text-purple-900" id="modal-titulo">Relatório</h3>
+                <div class="flex gap-4">
+                    <button onclick="window.print()" class="bg-purple-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-purple-700"><i class="fas fa-print"></i> Imprimir/PDF</button>
+                    <button onclick="document.getElementById('modal-container').classList.replace('flex','hidden')" class="text-gray-500 hover:text-red-500 text-3xl font-bold">&times;</button>
+                </div>
             </div>
+            <div class="p-6 overflow-y-auto flex-1 text-gray-800" id="modal-conteudo"></div>
+        </div>
+    </div>
+
+    <div id="modal-editar" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-60 no-print">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div class="p-4 border-b bg-purple-50 flex justify-between"><h3 class="font-bold text-purple-900">Editar</h3><button onclick="document.getElementById('modal-editar').classList.add('hidden')" class="text-gray-500 hover:text-red-500">&times;</button></div>
+            <form id="form-editar-geral" onsubmit="event.preventDefault(); salvarEdicao();" class="p-6 space-y-4">
+                <div id="campos-editar"></div>
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" onclick="document.getElementById('modal-editar').classList.add('hidden')" class="px-4 py-2 text-gray-600 bg-gray-200 rounded font-bold hover:bg-gray-300 transition">Cancelar</button>
+                    <button type="submit" id="btn-salvar-edicao" class="bg-orange-500 text-white px-4 py-2 rounded font-bold hover:bg-orange-600 transition">Salvar</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- CARREGAMENTO DOS MÓDULOS -->
     <script src="config.js"></script>
     <script src="utils.js"></script>
-    <script src="app.js"></script>
+    <script src="admin.js"></script>
 </body>
 </html>
