@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App do Preceptor - Relacional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <div id="loading-inicial" class="fixed inset-0 z-[9999] bg-purple-900 flex flex-col items-center justify-center">
+        <i class="fas fa-circle-notch fa-spin text-orange-500 text-6xl mb-4"></i>
+        <h2 class="text-white text-2xl font-bold mb-2">A ligar ao Supabase...</h2>
+    </div>
+
+    <!-- Container de Notificação Partilhado -->
+    <div id="notification" class="fixed top-4 right-4 z-50 transform transition-transform duration-300 translate-x-full no-print"></div>
+
+    <!-- ECRÃ DE LOGIN -->
+    <div id="screen-login" class="hidden h-screen items-center justify-center px-4 bg-purple-900">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-purple-900 w-full flex justify-center py-6 border-b border-purple-800">
+                <img src="logo.png" alt="Logo" class="h-16 object-contain" onerror="this.src='https://via.placeholder.com/200x60/581c87/ffffff?text=LOGO.PNG'">
+            </div>
+            <div class="p-8">
+                <div class="text-center mb-8">
+                    <h1 class="text-2xl font-bold text-gray-800">Portal do Preceptor</h1>
+                    <p class="text-sm text-gray-500">Inicie sessão para continuar</p>
+                </div>
+                <form onsubmit="event.preventDefault(); fazerLogin();" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">E-mail</label>
+                        <input type="email" id="login-user" required class="w-full p-3 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Palavra-passe</label>
+                        <input type="password" id="login-pass" required class="w-full p-3 border rounded outline-none bg-gray-50 focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <button type="submit" id="btn-login" class="w-full bg-orange-500 text-white p-3 rounded font-bold shadow-md hover:bg-orange-600 transition">Entrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA PRINCIPAL -->
+    <div id="screen-app" class="hidden h-screen flex-col">
+        <header class="bg-purple-900 text-white p-4 shadow-md flex justify-between items-center relative">
+            <div class="flex items-center gap-3">
+                <img src="logo.png" alt="Logo" class="h-8 object-contain" onerror="this.style.display='none'">
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Área do Preceptor</h1>
+                    <p class="text-xs text-purple-200" id="user-name">Bem-vindo</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- Dropdown de Ajuda -->
+                <div class="relative group">
+                    <button class="text-purple-200 hover:text-white transition flex items-center gap-1">
+                        <i class="fas fa-question-circle text-xl"></i> <span class="hidden md:inline">Ajuda</span>
+                    </button>
+                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block z-50 border border-gray-200">
+                        <a href="manual_utilizacao_preceptor.pdf" target="_blank" class="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 border-b">
+                            <i class="fas fa-book mr-2"></i> Manual de Utilização
+                        </a>
+                        <a href="documentacao_sistema_estagio.pdf" target="_blank" class="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700">
+                            <i class="fas fa-file-code mr-2"></i> Documentação Técnica
+                        </a>
+                    </div>
+                </div>
+                
+                <button onclick="logout()" class="text-purple-200 hover:text-white transition flex items-center gap-1 border-l border-purple-700 pl-4">
+                    <i class="fas fa-sign-out-alt text-xl"></i> <span class="hidden md:inline">Sair</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="bg-white border-b flex text-center">
+            <button onclick="switchAppTab('gestao')" id="tab-btn-gestao" class="flex-1 py-3 text-purple-700 border-b-2 border-purple-700 font-bold transition">
+                <i class="fas fa-clipboard-list mr-1"></i> Gestão
+            </button>
+            <button onclick="switchAppTab('galeria')" id="tab-btn-galeria" class="flex-1 py-3 text-gray-500 font-semibold transition">
+                <i class="fas fa-camera mr-1"></i> Galeria (Storage)
+            </button>
+        </div>
+
+        <main class="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full">
+            <div id="app-tab-gestao" class="block space-y-4">
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <label class="block text-sm font-bold text-purple-900 mb-1"><i class="fas fa-chalkboard mr-1"></i> Selecione a Turma</label>
+                    <select id="select-turma" onchange="popularDatas(); carregarDadosTurma();" class="w-full p-3 border rounded outline-none bg-gray-50 font-medium"></select>
+                </div>
+
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <label class="block text-sm font-bold text-purple-900 mb-1"><i class="fas fa-calendar-day mr-1"></i> Data da Aula</label>
+                    <select id="data-aula" onchange="carregarDadosTurma()" class="w-full p-3 border rounded outline-none bg-gray-50 font-medium">
+                        <option value="">Selecione a turma primeiro...</option>
+                    </select>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hidden" id="area-alunos">
+                    <div class="p-4 border-b flex justify-between items-center bg-purple-50">
+                        <h3 class="font-bold text-purple-900"><i class="fas fa-users mr-1"></i> Lista de Alunos</h3>
+                        <button onclick="abrirModalAtividade()" class="bg-purple-700 text-white px-3 py-1.5 text-sm rounded font-bold hover:bg-purple-800 shadow transition flex items-center gap-1">
+                            <i class="fas fa-plus"></i> Atividade
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 text-gray-700 border-b" id="thead-alunos"></thead>
+                            <tbody id="tbody-alunos" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="app-tab-galeria" class="hidden space-y-4">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="font-bold text-purple-900 mb-4 text-lg border-b pb-2">Adicionar Foto (Supabase Storage)</h3>
+                    <form onsubmit="event.preventDefault(); salvarFotoStorage();" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-chalkboard mr-1"></i> Turma</label>
+                            <select id="foto-turma" class="w-full p-3 border rounded outline-none bg-gray-50"></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-align-left mr-1"></i> Descrição / Evento</label>
+                            <input type="text" id="foto-desc" required placeholder="Ex: Aula prática" class="w-full p-3 border rounded outline-none bg-gray-50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fas fa-image mr-1"></i> Foto</label>
+                            <input type="file" id="foto-file" accept="image/*" capture="environment" required class="w-full p-2 border rounded text-sm bg-gray-50">
+                        </div>
+                        <button type="submit" id="btn-envia-foto" class="w-full bg-orange-500 text-white p-3 rounded font-bold shadow-md hover:bg-orange-600 transition mt-4">
+                            Enviar para o Storage
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL ATIVIDADE -->
+    <div id="modal-atividade" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-sm shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-purple-900 border-b pb-2">Nova Coluna de Nota</h3>
+            <input type="text" id="nome-atividade" placeholder="Ex: Prova Prática" class="w-full p-3 border rounded mb-4 outline-none bg-gray-50">
+            <div class="flex justify-end gap-2">
+                <button onclick="fecharModalAtividade()" class="px-4 py-2 text-gray-600 bg-gray-200 rounded font-bold">Cancelar</button>
+                <button onclick="adicionarColunaAtividade()" class="px-4 py-2 text-white bg-purple-700 rounded font-bold">Criar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARREGAMENTO DOS MÓDULOS -->
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
