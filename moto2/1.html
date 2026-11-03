@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Master - MotoPro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="p-6 max-w-6xl mx-auto">
+
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 border-b border-white/10 pb-4">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-yellow-500 rounded-lg shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+                <i data-lucide="crown" class="text-black fill-black" size="24"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black tracking-tighter text-white">PAINEL MASTER</h1>
+                <p class="text-xs text-slate-400">Controle de Oficinas, Licenças e Equipes</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="relative flex-1 md:w-64">
+                <input type="text" id="input-busca" oninput="filtrarOficinas()" placeholder="Buscar oficina..." class="w-full bg-black/50 text-white border border-white/20 rounded-xl px-4 py-2 text-xs outline-none pl-9">
+                <i data-lucide="search" class="absolute left-3 top-2.5 text-slate-400" size="14"></i>
+            </div>
+            <button onclick="abrirModalNovaOficina()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl font-bold text-xs uppercase text-white flex items-center gap-2 transition-colors shrink-0 shadow-lg">
+                <i data-lucide="plus-circle" size="16"></i> Nova Oficina
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div id="grid-oficinas" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="glass p-8 rounded-2xl text-center text-slate-500 col-span-2">
+                <i data-lucide="loader-2" class="animate-spin mx-auto mb-2"></i> Carregando sistema...
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="modal-master" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="glass w-full max-w-md rounded-2xl p-6 relative shadow-2xl">
+            <button onclick="fecharModalMaster()" class="absolute right-4 top-4 text-slate-400 hover:text-white"><i data-lucide="x"></i></button>
+            <h3 class="text-lg font-black text-white mb-2" id="modal-titulo">Cadastrar</h3>
+            <p class="text-xs text-slate-400 mb-4" id="modal-subtitulo"></p>
+            
+            <input type="hidden" id="modal-tipo">
+            <input type="hidden" id="modal-oficina-id-pai">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nome</label>
+                    <input type="text" id="master-nome" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">E-mail (Login)</label>
+                    <input type="email" id="master-email" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Senha Inicial</label>
+                    <input type="text" id="master-senha" class="w-full bg-black/50 text-white border border-white/20 rounded-xl p-3 text-sm outline-none">
+                </div>
+                <button onclick="salvarCadastroMaster()" id="btn-salvar-master" class="w-full bg-blue-600 hover:bg-blue-500 p-3 rounded-xl font-black text-sm uppercase text-white mt-2 transition-colors shadow-lg flex justify-center items-center gap-2">
+                    Salvar Usuário
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // ⚠️ USE A SUA SERVICE_ROLE KEY AQUI (CHAVE SECRETA DO SUPABASE)
+        const SUPABASE_URL = 'https://ywtqcselaiygqhvmqqhh.supabase.co';
+        const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3dHFjc2VsYWl5Z3Fodm1xcWhoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTIwNTAzOCwiZXhwIjoyMTA0NzgxMDM4fQ.pPgJ1JCSjZdujq-qsXECLoUwJmA-6WmGxIq9g1E_I98'; 
+        
+        const supabaseAdmin = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        let listaPerfisGlobal = [];
+
+        window.onload = () => { carregarDadosMaster(); };
+
+        async function carregarDadosMaster() {
+            const { data: perfis, error } = await supabaseAdmin.from('perfis').select('*').order('nome');
+            if (error) return alert("Erro: " + error.message);
+            listaPerfisGlobal = perfis || [];
+            renderizarCardsOficinas(listaPerfisGlobal);
+        }
+
+        function renderizarCardsOficinas(perfis) {
+            const grid = document.getElementById('grid-oficinas');
+            if (perfis.length === 0) {
+                grid.innerHTML = `<div class="glass p-8 rounded-2xl text-center text-slate-500 col-span-2">Nenhum registro.</div>`;
+                return;
+            }
+
+            const donos = perfis.filter(p => p.id === p.oficina_id || p.oficina_id === null);
+            const colaboradores = perfis.filter(p => p.id !== p.oficina_id && p.oficina_id !== null);
+
+            grid.innerHTML = donos.map(dono => {
+                const idRealDaOficina = dono.oficina_id || dono.id;
+                const equipeDaOficina = colaboradores.filter(c => c.oficina_id === idRealDaOficina);
+
+                return `
+                <div class="glass p-5 rounded-2xl flex flex-col justify-between space-y-4 border border-white/10 relative overflow-hidden">
+                    ${!dono.ativo ? '<div class="absolute inset-0 bg-red-900/10 pointer-events-none"></div>' : ''}
+                    <div class="relative z-10">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-black text-white text-base">${dono.nome || 'Sem Nome'}</h3>
+                                <p class="text-xs text-slate-400 font-mono">${dono.email}</p>
+                            </div>
+                            <div>
+                                ${dono.ativo 
+                                    ? `<span class="bg-green-500/20 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded border border-green-500/30">Ativo</span>`
+                                    : `<span class="bg-red-500/20 text-red-400 text-[10px] font-bold px-2 py-0.5 rounded border border-red-500/30">Bloqueado</span>`
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-white/5 space-y-2">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Equipe (${equipeDaOficina.length})</p>
+                            <div class="space-y-1 max-h-32 overflow-y-auto pr-1">
+                                ${equipeDaOficina.map(tec => `
+                                    <div class="flex justify-between items-center bg-black/40 p-2 rounded-xl text-xs border border-white/5">
+                                        <div>
+                                            <span class="font-bold text-white">${tec.nome}</span>
+                                            <span class="text-[10px] text-slate-400 block">${tec.email}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <button onclick="mudarSenha('${tec.id}', '${tec.nome}')" class="text-slate-400 hover:text-white p-1"><i data-lucide="key" size="14"></i></button>
+                                            <button onclick="deletarUsuario('${tec.id}', '${tec.nome}')" class="text-red-400 hover:text-red-300 p-1"><i data-lucide="user-x" size="14"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10 relative z-10">
+                        <button onclick="abrirModalColaborador('${idRealDaOficina}', '${dono.nome}')" class="flex-1 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white py-2 px-3 rounded-xl font-bold text-xs uppercase flex items-center justify-center gap-1 transition-colors">
+                            <i data-lucide="user-plus" size="14"></i> Add Técnico
+                        </button>
+                        <button onclick="mudarSenha('${dono.id}', '${dono.nome}')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl text-xs font-bold transition-colors">
+                            <i data-lucide="key" size="16"></i>
+                        </button>
+                        <button onclick="toggleLicenca('${dono.id}', ${!dono.ativo})" class="bg-${dono.ativo?'red':'green'}-500/20 hover:bg-${dono.ativo?'red':'green'}-600 text-${dono.ativo?'red':'green'}-400 hover:text-white p-2 rounded-xl text-xs font-bold transition-colors">
+                            <i data-lucide="${dono.ativo?'lock':'unlock'}" size="16"></i>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function filtrarOficinas() {
+            const termo = document.getElementById('input-busca').value.toLowerCase();
+            const filtrados = listaPerfisGlobal.filter(p => 
+                (p.nome && p.nome.toLowerCase().includes(termo)) || (p.email && p.email.toLowerCase().includes(termo))
+            );
+            renderizarCardsOficinas(filtrados);
+        }
+
+        function abrirModalNovaOficina() {
+            document.getElementById('modal-tipo').value = 'admin';
+            document.getElementById('modal-titulo').innerText = 'Nova Oficina Principal';
+            document.getElementById('modal-master').classList.remove('hidden');
+        }
+
+        function abrirModalColaborador(oficinaId, nomeOficina) {
+            document.getElementById('modal-tipo').value = 'tecnico';
+            document.getElementById('modal-oficina-id-pai').value = oficinaId;
+            document.getElementById('modal-titulo').innerText = `Adicionar Técnico em ${nomeOficina}`;
+            document.getElementById('modal-master').classList.remove('hidden');
+        }
+
+        function fecharModalMaster() { document.getElementById('modal-master').classList.add('hidden'); }
+
+        async function salvarCadastroMaster() {
+            const btn = document.getElementById('btn-salvar-master');
+            const tipo = document.getElementById('modal-tipo').value;
+            const oficinaPai = document.getElementById('modal-oficina-id-pai').value;
+            const nome = document.getElementById('master-nome').value.trim();
+            const email = document.getElementById('master-email').value.trim();
+            const senha = document.getElementById('master-senha').value.trim();
+
+            if (!nome || !email || !senha) return alert("Preencha todos os campos!");
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin"></i> Salvando...`;
+            btn.disabled = true;
+
+            const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+                email: email, password: senha, email_confirm: true
+            });
+
+            if (authErr) {
+                btn.innerHTML = `Salvar Usuário`; btn.disabled = false;
+                return alert("Erro no Auth: " + authErr.message);
+            }
+
+            const userId = authData.user.id;
+            const oficinaIdFinal = (tipo === 'admin') ? userId : oficinaPai;
+
+            // Insere em uma única etapa segura, graças ao comando DEFERRABLE que você rodou no banco
+            const { error: dbErr } = await supabaseAdmin.from('perfis').insert([{
+                id: userId, nome: nome, oficina_id: oficinaIdFinal, email: email, ativo: true
+            }]);
+
+            if (dbErr) {
+                await supabaseAdmin.auth.admin.deleteUser(userId);
+                btn.innerHTML = `Salvar Usuário`; btn.disabled = false;
+                return alert("O banco bloqueou o perfil pela regra de segurança: " + dbErr.message);
+            }
+
+            alert("✅ Cadastro realizado com sucesso!");
+            fecharModalMaster();
+            carregarDadosMaster();
+            btn.innerHTML = `Salvar Usuário`; btn.disabled = false;
+        }
+
+        async function mudarSenha(userId, nome) {
+            const novaSenha = prompt(`Digite a nova senha para "${nome}":`);
+            if(!novaSenha) return;
+            const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: novaSenha });
+            if(error) alert("Erro: " + error.message); else alert("✅ Senha alterada com sucesso!");
+        }
+
+        async function toggleLicenca(userId, statusAtivo) {
+            if(!confirm(`Confirma a ${statusAtivo ? 'reativação' : 'suspensão'} desta licença?`)) return;
+            const { error } = await supabaseAdmin.from('perfis').update({ ativo: statusAtivo }).eq('id', userId);
+            if(error) alert("Erro: " + error.message); else carregarDadosMaster();
+        }
+
+        async function deletarUsuario(userId, nome) {
+            if(!confirm(`Deseja excluir permanentemente o usuário "${nome}"?`)) return;
+            const { error: errAuth } = await supabaseAdmin.auth.admin.deleteUser(userId);
+            const { error: errDb } = await supabaseAdmin.from('perfis').delete().eq('id', userId);
+            if(errAuth || errDb) alert("Erro ao excluir usuário."); else carregarDadosMaster();
+        }
+    </script>
+</body>
+</html>
