@@ -32,7 +32,7 @@
                 <div class="p-1.5 bg-red-500 rounded-lg shadow-lg shadow-red-500/20"><i data-lucide="zap" class="text-white fill-white" size="18"></i></div>
                 <h1 class="text-lg font-black tracking-tighter italic text-white">MOTOPRO<span class="text-red-500 text-[9px] ml-1">SaaS</span></h1>
             </div>
-            <img id="app-logo" src="logo.png" alt="Logo" class="w-full max-w-[120px] mx-auto rounded-xl object-contain bg-white/5 p-1.5 border border-white/10" crossorigin="anonymous" onerror="this.style.display='none'">
+            <img id="app-logo" src="logo.png" alt="Logo" class="w-full max-w-[120px] mx-auto rounded-xl object-contain bg-white/5 p-1.5 border border-white/10" onerror="this.style.display='none'">
         </div>
         
         <nav class="flex flex-col gap-0.5 shrink-0">
@@ -237,7 +237,7 @@
         let esconderCaixa = localStorage.getItem('motopro_ocultar_caixa') === 'true';
         let pagamentosMultiplos = [];
         let userEditouVenda = false;
-        let realtimeTimeout = null; // Controle para evitar reloads excessivos (debounce)
+        let realtimeTimeout = null; 
         
         let db = { clientes: [], estoque: [], servicos: [], atendimentos: [], caixa: 0, tempOrc: { itens: [], desconto: 0 }, fornecedores: [], compras: [], agendamentos: [], tempCompra: {itens:[]} };
 
@@ -259,15 +259,21 @@
 
                 oficinaAtiva = perfil.oficina_id;
                 document.getElementById('user-nome').innerText = perfil.nome;
+
+                if (oficinaAtiva) {
+                    const { data: checkOficina } = await supabaseClient.from('oficinas').select('id').eq('id', oficinaAtiva).maybeSingle();
+                    if (!checkOficina) {
+                        await supabaseClient.from('oficinas').insert([{ id: oficinaAtiva, nome_fantasia: 'Oficina Padrão' }]);
+                    }
+                }
                 
                 await window.carregarTudoDoSupabase(false);
-                window.configurarRealtime(); // <-- ATIVA A SINCRONIZAÇÃO AUTOMÁTICA
+                window.configurarRealtime(); 
             } catch (err) {
                 alert("Erro ao conectar no banco: " + err.message);
             }
         };
 
-        // --- SISTEMA DE SINCRONIZAÇÃO EM TEMPO REAL ---
         window.configurarRealtime = function() {
             supabaseClient
                 .channel('mudancas-banco')
@@ -276,10 +282,9 @@
                     { event: '*', schema: 'public' },
                     (payload) => {
                         console.log('Dados atualizados na nuvem:', payload);
-                        // Aguarda 1 segundo antes de recarregar para agrupar várias mudanças rápidas
                         if(realtimeTimeout) clearTimeout(realtimeTimeout);
                         realtimeTimeout = setTimeout(() => {
-                            window.carregarTudoDoSupabase(true); // true = Atualização silenciosa (sem tela preta de loading)
+                            window.carregarTudoDoSupabase(true); 
                         }, 1000);
                     }
                 )
@@ -315,7 +320,6 @@
             }
         };
 
-        // Função ajustada para aceitar recarregamento "silencioso" acionado pelo Realtime
         window.carregarTudoDoSupabase = async function(silencioso = false) {
             if(!silencioso) toggleLoading(true);
             try {
@@ -358,14 +362,53 @@
         // --- AGENDA ---
         window.abrirModalAgendamento = function() { document.getElementById('agd-data').value = new Date().toISOString().split('T')[0]; document.getElementById('agd-hora').value = "08:00"; document.getElementById('agd-cliente').innerHTML = `<option value="">Selecione o Cliente</option>` + db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join(''); document.getElementById('agd-moto').innerHTML = `<option value="">Moto / Placa</option>`; document.getElementById('agd-servico').value = ""; window.abrirModal('modal-agendamento'); }
         window.carregarMotosAgenda = function() { const cliId = document.getElementById('agd-cliente').value; const sel = document.getElementById('agd-moto'); if(!cliId) { sel.innerHTML = `<option value="">Selecione o Cliente</option>`; return; } const cli = db.clientes.find(c => c.id == cliId); sel.innerHTML = cli.motos.length ? cli.motos.map(m => `<option value="${m.placa}">${m.modelo} - ${m.placa}</option>`).join('') : `<option value="">Sem moto</option>`; }
-        window.salvarAgendamento = async function() { const cliId = document.getElementById('agd-cliente').value; if(!cliId) return alert("Selecione um cliente."); const cli = db.clientes.find(c => c.id == cliId); const placa = document.getElementById('agd-moto').value; await supabaseClient.from('agendamentos').insert([{ oficina_id: oficinaAtiva, data: document.getElementById('agd-data').value, hora: document.getElementById('agd-hora').value, cliente_id: cliId, cliente_nome: cli.nome, placa: placa || 'N/A', servico: document.getElementById('agd-servico').value, status: 'Agendado' }]); window.fecharModal('modal-agendamento'); await window.carregarTudoDoSupabase(); }
+        window.salvarAgendamento = async function() { 
+            const cliId = document.getElementById('agd-cliente').value; 
+            if(!cliId) return alert("Selecione um cliente."); 
+            const cli = db.clientes.find(c => c.id == cliId); 
+            const placa = document.getElementById('agd-moto').value.trim() || null; 
+            const servico = document.getElementById('agd-servico').value.trim() || null;
+            
+            const { error } = await supabaseClient.from('agendamentos').insert([{ 
+                oficina_id: oficinaAtiva, 
+                data: document.getElementById('agd-data').value, 
+                hora: document.getElementById('agd-hora').value, 
+                cliente_id: cliId, 
+                cliente_nome: cli.nome, 
+                placa: placa, 
+                servico: servico, 
+                status: 'Agendado' 
+            }]); 
+            if (error) return alert("Erro ao salvar agendamento: " + error.message);
+            
+            window.fecharModal('modal-agendamento'); 
+            await window.carregarTudoDoSupabase(); 
+        }
         window.atualizarStatusAgenda = async function(id, selectEl) { await supabaseClient.from('agendamentos').update({ status: selectEl.value }).eq('id', id); await window.carregarTudoDoSupabase(); }
         window.gerarOSdaAgenda = async function(id) { const ag = db.agendamentos.find(a => a.id == id); if(!ag) return; window.switchTab('atendimentos'); window.abrirModalAtendimento(); setTimeout(() => { const selectCliente = document.getElementById('orc-cliente'); selectCliente.value = ag.cliId; window.carregarMotosOS(); setTimeout(() => { document.getElementById('orc-moto').value = ag.placa !== 'N/A' ? ag.placa : ''; document.getElementById('orc-avaria').value = ag.servico ? "Referente ao Agendamento: " + ag.servico : ""; }, 100); }, 100); if(ag.status === 'Agendado') { await supabaseClient.from('agendamentos').update({ status: 'Concluído' }).eq('id', id); await window.carregarTudoDoSupabase(); } }
         window.excluirAgenda = async function(id) { await supabaseClient.from('agendamentos').delete().eq('id', id); await window.carregarTudoDoSupabase(); }
 
         // --- B2B FORNECEDORES E COMPRAS ---
         window.abrirModalFornecedor = function() { document.getElementById('forn-nome').value = ''; document.getElementById('forn-cnpj').value = ''; document.getElementById('forn-tel').value = ''; document.getElementById('forn-email').value = ''; window.abrirModal('modal-fornecedor'); }
-        window.salvarFornecedor = async function() { const nome = document.getElementById('forn-nome').value.trim(); if(!nome) return alert("Informe o nome do fornecedor."); await supabaseClient.from('fornecedores').insert([{ oficina_id: oficinaAtiva, nome, cnpj: document.getElementById('forn-cnpj').value, telefone: document.getElementById('forn-tel').value, email: document.getElementById('forn-email').value }]); window.fecharModal('modal-fornecedor'); await window.carregarTudoDoSupabase(); }
+        window.salvarFornecedor = async function() { 
+            const nome = document.getElementById('forn-nome').value.trim(); 
+            if(!nome) return alert("Informe o nome do fornecedor."); 
+            const cnpj = document.getElementById('forn-cnpj').value.trim() || null;
+            const telefone = document.getElementById('forn-tel').value.trim() || null;
+            const email = document.getElementById('forn-email').value.trim() || null;
+            
+            const { error } = await supabaseClient.from('fornecedores').insert([{ 
+                oficina_id: oficinaAtiva, 
+                nome, 
+                cnpj, 
+                telefone, 
+                email 
+            }]); 
+            if (error) return alert("Erro ao salvar fornecedor: " + error.message);
+            
+            window.fecharModal('modal-fornecedor'); 
+            await window.carregarTudoDoSupabase(); 
+        }
         window.excluirFornecedor = async function(id) { await supabaseClient.from('fornecedores').delete().eq('id', id); await window.carregarTudoDoSupabase(); }
         
         window.abrirModalCompra = function() { document.getElementById('compra-forn').innerHTML = `<option value="">Selecionar Fornecedor</option>` + db.fornecedores.map(f => `<option value="${f.id}">${f.nome}</option>`).join(''); document.getElementById('compra-data').value = new Date().toISOString().split('T')[0]; document.getElementById('compra-peca').innerHTML = `<option value="">Escolha a Peça</option>` + db.estoque.map(p => `<option value="${p.id}">${p.desc} (Est: ${p.qtd})</option>`).join(''); db.tempCompra = { itens: [] }; window.renderItensCompra(); window.abrirModal('modal-compra'); document.getElementById('compra-peca').onchange = (e) => { const p = db.estoque.find(x => x.id == e.target.value); if(p) document.getElementById('compra-custo').value = p.custo || 0; }; }
@@ -452,11 +495,61 @@
         document.getElementById('p-custo').oninput = () => { userEditouVenda = false; window.calcVenda(); }; document.getElementById('p-margem').oninput = () => { userEditouVenda = false; window.calcVenda(); };
         window.calcVenda = function() { if (userEditouVenda) return; const c = parseFloat(document.getElementById('p-custo').value) || 0; const m = parseFloat(document.getElementById('p-margem').value) || 0; const total = c + (c * (m/100)); document.getElementById('p-venda').value = total > 0 ? total.toFixed(2) : ""; }
         window.recalcularMargemInversa = function() { userEditouVenda = true; const c = parseFloat(document.getElementById('p-custo').value) || 0; const v = parseFloat(document.getElementById('p-venda').value) || 0; if (c > 0 && v > 0) { document.getElementById('p-margem').value = (((v - c) / c) * 100).toFixed(2); } else { document.getElementById('p-margem').value = ""; } }
-        window.salvarPeca = async function() { const id = document.getElementById('edit-peca-id').value; const desc = document.getElementById('p-desc').value.trim(); const cod = document.getElementById('p-cod').value.trim(); if(!desc) return alert("Informe a descrição."); const payload = { oficina_id: oficinaAtiva, descricao: desc, codigo_qr: cod, qtd: parseInt(document.getElementById('p-qtd').value) || 0, local_armazenamento: document.getElementById('p-local').value.trim(), fornecedor: document.getElementById('p-fornecedor').value, data_compra: document.getElementById('p-data-compra').value || null, custo: parseFloat(document.getElementById('p-custo').value) || 0, margem: parseFloat(document.getElementById('p-margem').value) || 0, preco_venda: parseFloat(document.getElementById('p-venda').value) || 0, preco_atacado: parseFloat(document.getElementById('p-atacado').value) || 0 }; if(id) { await supabaseClient.from('estoque').update(payload).eq('id', id); } else { await supabaseClient.from('estoque').insert([payload]); } window.fecharModal('modal-peca'); await window.carregarTudoDoSupabase(); }
+        window.salvarPeca = async function() { 
+            const id = document.getElementById('edit-peca-id').value; 
+            const desc = document.getElementById('p-desc').value.trim(); 
+            const cod = document.getElementById('p-cod').value.trim(); 
+            if(!desc) return alert("Informe a descrição."); 
+            
+            const payload = { 
+                oficina_id: oficinaAtiva, 
+                descricao: desc, 
+                codigo_qr: cod, 
+                qtd: parseInt(document.getElementById('p-qtd').value) || 0, 
+                local_armazenamento: document.getElementById('p-local').value.trim(), 
+                fornecedor: document.getElementById('p-fornecedor').value, 
+                data_compra: document.getElementById('p-data-compra').value || null, 
+                custo: parseFloat(document.getElementById('p-custo').value) || 0, 
+                margem: parseFloat(document.getElementById('p-margem').value) || 0, 
+                preco_venda: parseFloat(document.getElementById('p-venda').value) || 0, 
+                preco_atacado: parseFloat(document.getElementById('p-atacado').value) || 0 
+            }; 
+            
+            let dbError = null;
+            if(id) { 
+                const { error } = await supabaseClient.from('estoque').update(payload).eq('id', id); 
+                dbError = error;
+            } else { 
+                const { error } = await supabaseClient.from('estoque').insert([payload]); 
+                dbError = error;
+            } 
+            if(dbError) return alert("Erro ao salvar peça: " + dbError.message);
+            
+            window.fecharModal('modal-peca'); 
+            await window.carregarTudoDoSupabase(); 
+        }
         window.excluirPeca = async function(id) { await supabaseClient.from('estoque').delete().eq('id', id); await window.carregarTudoDoSupabase(); }
         
         window.abrirModalServico = function(id = null) { if(id) { const s = db.servicos.find(x => x.id == id); document.getElementById('edit-serv-id').value = s.id; document.getElementById('s-desc').value = s.desc; document.getElementById('s-valor').value = s.valor; document.getElementById('titulo-modal-servico').innerText = "Editar Serviço"; } else { document.getElementById('edit-serv-id').value = ""; document.getElementById('s-desc').value = ""; document.getElementById('s-valor').value = ""; document.getElementById('titulo-modal-servico').innerText = "Novo Serviço"; } window.abrirModal('modal-servico'); }
-        window.salvarServico = async function() { const id = document.getElementById('edit-serv-id').value; const desc = document.getElementById('s-desc').value; const valor = parseFloat(document.getElementById('s-valor').value) || 0; if(!desc) return; if(id) { await supabaseClient.from('servicos').update({descricao: desc, valor: valor}).eq('id', id); } else { await supabaseClient.from('servicos').insert([{ oficina_id: oficinaAtiva, descricao: desc, valor: valor }]); } window.fecharModal('modal-servico'); await window.carregarTudoDoSupabase(); }
+        window.salvarServico = async function() { 
+            const id = document.getElementById('edit-serv-id').value; 
+            const desc = document.getElementById('s-desc').value; 
+            const valor = parseFloat(document.getElementById('s-valor').value) || 0; 
+            if(!desc) return; 
+            
+            let dbError = null;
+            if(id) { 
+                const { error } = await supabaseClient.from('servicos').update({descricao: desc, valor: valor}).eq('id', id); 
+                dbError = error;
+            } else { 
+                const { error } = await supabaseClient.from('servicos').insert([{ oficina_id: oficinaAtiva, descricao: desc, valor: valor }]); 
+                dbError = error;
+            } 
+            if(dbError) return alert("Erro ao salvar serviço: " + dbError.message);
+            
+            window.fecharModal('modal-servico'); 
+            await window.carregarTudoDoSupabase(); 
+        }
         window.excluirServico = async function(id) { await supabaseClient.from('servicos').delete().eq('id', id); await window.carregarTudoDoSupabase(); }
 
         // --- OS ---
@@ -472,7 +565,7 @@
         window.abrirFinalizacao = function() { if(!document.getElementById('orc-cliente').value) return alert("Selecione um cliente!"); if(db.tempOrc.itens.length === 0) return alert("Adicione pelo menos um item."); document.getElementById('pag-valor-total').innerText = `R$ ${db.tempOrc.total.toFixed(2)}`; window.resetarPagamentos(); window.abrirModal('modal-pagamento'); }
         
         window.abrirModalAtendimento = function(id = null) { let htmlCli = db.clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join(''); document.getElementById('orc-cliente').innerHTML = `<option value="">Selecionar Cliente...</option>` + htmlCli; document.getElementById('orc-busca').value = ''; window.filtrarSelectOrc(); document.getElementById('chk-arranhoes').checked = false; document.getElementById('chk-amassado').checked = false; document.getElementById('chk-pintura').checked = false; document.getElementById('chk-retrovisor').checked = false; document.getElementById('chk-combustivel').value = "2"; document.getElementById('orc-avaria').value = ""; document.getElementById('orc-is-atacado').checked = false; const btnChecklist = document.getElementById('btn-abrir-checklist'); if(id) { const os = db.atendimentos.find(o => o.id == id); document.getElementById('titulo-modal-atendimento').innerText = "Editar Orçamento / OS"; document.getElementById('edit-os-id').value = os.id; document.getElementById('orc-data').value = os.data; document.getElementById('orc-cliente').value = os.cliId; window.carregarMotosOS(); setTimeout(() => document.getElementById('orc-moto').value = os.placa, 50); document.getElementById('orc-avaria').value = os.avaria || ''; document.getElementById('orc-desconto').value = os.desconto || 0; if(os.checklist) { document.getElementById('chk-arranhoes').checked = os.checklist.arranhoes || false; document.getElementById('chk-amassado').checked = os.checklist.amassado || false; document.getElementById('chk-pintura').checked = os.checklist.pintura || false; document.getElementById('chk-retrovisor').checked = os.checklist.retrovisor || false; document.getElementById('chk-combustivel').value = os.checklist.combustivel || "2"; } db.tempOrc = { itens: JSON.parse(JSON.stringify(os.itens)), total: os.total, desconto: os.desconto || 0 }; if(os.checklist || os.avaria) { btnChecklist.className = "w-full mt-1 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-xl p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors"; btnChecklist.innerHTML = `<i data-lucide="check-circle" size="16"></i> Vistoria Preenchida`; } else { btnChecklist.className = "w-full mt-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 rounded-xl p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors"; btnChecklist.innerHTML = `<i data-lucide="clipboard-check" size="16"></i> Realizar Vistoria Rápida`; } } else { document.getElementById('titulo-modal-atendimento').innerText = "Novo Atendimento / OS"; document.getElementById('edit-os-id').value = ""; document.getElementById('orc-data').value = new Date().toISOString().split('T')[0]; document.getElementById('orc-desconto').value = "0"; window.carregarMotosOS(); db.tempOrc = { itens: [], total: 0, desconto: 0 }; btnChecklist.className = "w-full mt-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 rounded-xl p-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors"; btnChecklist.innerHTML = `<i data-lucide="clipboard-check" size="16"></i> Realizar Vistoria Rápida`; } window.renderItensOrc(); window.abrirModal('modal-atendimento'); setTimeout(() => document.getElementById('orc-busca').focus(), 100); }
-        window.carregarMotosOS = function() { const cliId = document.getElementById('orc-cliente').value; const selectMoto = document.getElementById('orc-moto'); if(!cliId) { selectMoto.innerHTML = `<option value="">Selecione um cliente</option>`; return; } const cli = db.clientes.find(c => c.id == cliId); if(cli.motos.length === 0) { selectMoto.innerHTML = `<option value="">Sem moto</option>`; return; } selectMoto.innerHTML = cli.motos.map(m => `<option value="${m.placa}">${m.modelo} - ${m.placa}</option>`).join(''); }
+        window.carregarMotosOS = function() { const cliId = document.getElementById('orc-cliente').value; const selectMoto = document.getElementById('orc-moto'); if(!cliId) { selectMoto.innerHTML = `<option value="">Selecione um cliente</option>`; return; } const cli = db.clientes.find(c => c.id == cliId); if(cli.motos.length === 0) { selectMoto.innerHTML = `<option value="">Sem moto</option>`; return; } selectMoto.innerHTML = cli.motos.length ? cli.motos.map(m => `<option value="${m.placa}">${m.modelo} - ${m.placa}</option>`).join('') : `<option value="">Sem moto</option>`; }
         window.handleBuscaOrc = function(event) { if(event.key === 'Enter') { event.preventDefault(); const termo = document.getElementById('orc-busca').value.trim().toLowerCase(); if(!termo) return; const pecaBipada = db.estoque.find(p => p.cod && p.cod.toLowerCase() === termo); if(pecaBipada) { document.getElementById('orc-item-select').value = 'p_' + pecaBipada.id; window.adicionarItemAoOrc(); document.getElementById('orc-busca').value = ''; window.filtrarSelectOrc(); document.getElementById('orc-busca').focus(); return; } const selectEl = document.getElementById('orc-item-select'); if(selectEl.options.length > 0 && selectEl.value) { window.adicionarItemAoOrc(); document.getElementById('orc-busca').value = ''; window.filtrarSelectOrc(); document.getElementById('orc-busca').focus(); } } }
         window.filtrarSelectOrc = function() { const termo = document.getElementById('orc-busca').value.trim().toLowerCase(); let htmlItems = ''; const pecasFiltradas = db.estoque.filter(p => p.desc.toLowerCase().includes(termo) || (p.cod && p.cod.toLowerCase().includes(termo))); if(pecasFiltradas.length > 0) { htmlItems += `<optgroup label="Peças">`; htmlItems += pecasFiltradas.map(p => `<option value="p_${p.id}">[${p.cod||'-'}] ${p.desc} (Est: ${p.qtd}) - R$ ${(p.venda||0).toFixed(2)}</option>`).join(''); htmlItems += `</optgroup>`; } const servicosFiltrados = db.servicos.filter(s => s.desc.toLowerCase().includes(termo)); if(servicosFiltrados.length > 0) { htmlItems += `<optgroup label="Serviços">`; htmlItems += servicosFiltrados.map(s => `<option value="s_${s.id}">${s.desc} - R$ ${s.valor.toFixed(2)}</option>`).join(''); htmlItems += `</optgroup>`; } const selectEl = document.getElementById('orc-item-select'); selectEl.innerHTML = htmlItems || '<option value="">Nenhum item encontrado</option>'; if(selectEl.options.length > 0) selectEl.selectedIndex = 0; }
         window.adicionarItemAoOrc = function() { const val = document.getElementById('orc-item-select').value; if(!val) return; const qtdInput = document.getElementById('orc-item-qtd'); const qtdAdicionada = parseInt(qtdInput.value) || 1; const isAtacado = document.getElementById('orc-is-atacado').checked; const type = val.split('_')[0]; const id = val.split('_')[1]; let obj = type === 'p' ? db.estoque.find(x => x.id == id) : db.servicos.find(x => x.id == id); if(!obj) return; let precoCobrado = type === 'p' ? obj.venda : obj.valor; if(type === 'p' && isAtacado && obj.atacado > 0) { precoCobrado = obj.atacado; } const indexExistente = db.tempOrc.itens.findIndex(it => it.id == obj.id && it.type === type && it.isAtacado === isAtacado); if (indexExistente !== -1) { db.tempOrc.itens[indexExistente].qtd += qtdAdicionada; } else { db.tempOrc.itens.push({ id: obj.id, type: type, desc: obj.desc, preco: precoCobrado, custo: type === 'p' ? obj.custo : 0, qtd: qtdAdicionada, isAtacado: (type === 'p' && isAtacado) }); } qtdInput.value = 1; window.renderItensOrc(); }
