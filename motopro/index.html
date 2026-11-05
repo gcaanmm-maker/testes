@@ -406,7 +406,31 @@
 
         // --- CLIENTES ---
         window.abrirModalCliente = function(id = null) { if(id) { const cli = db.clientes.find(c => c.id == id); document.getElementById('edit-cli-id').value = cli.id; document.getElementById('cli-nome').value = cli.nome; document.getElementById('cli-tel').value = cli.tel; document.getElementById('titulo-modal-cli').innerText = "Editar Cliente"; } else { document.getElementById('edit-cli-id').value = ""; document.getElementById('cli-nome').value = ""; document.getElementById('cli-tel').value = ""; document.getElementById('titulo-modal-cli').innerText = "Cadastro de Cliente"; } window.abrirModal('modal-cliente'); }
-        window.salvarCliente = async function() { const id = document.getElementById('edit-cli-id').value; const nome = document.getElementById('cli-nome').value; if(!nome) return alert("Preencha o nome do cliente."); if(id) { await supabaseClient.from('clientes').update({ nome, telefone: document.getElementById('cli-tel').value }).eq('id', id); } else { await supabaseClient.from('clientes').insert([{ oficina_id: oficinaAtiva, nome, telefone: document.getElementById('cli-tel').value, divida: 0 }]); } window.fecharModal('modal-cliente'); await window.carregarTudoDoSupabase(); }
+        
+        window.salvarCliente = async function() { 
+            const id = document.getElementById('edit-cli-id').value; 
+            const nome = document.getElementById('cli-nome').value.trim(); 
+            const telefone = document.getElementById('cli-tel').value.trim() || null;
+            if(!nome) return alert("Preencha o nome do cliente."); 
+            
+            let dbError = null;
+            if(id) { 
+                const { error } = await supabaseClient.from('clientes').update({ nome, telefone }).eq('id', id); 
+                dbError = error;
+            } else { 
+                const { error } = await supabaseClient.from('clientes').insert([{ oficina_id: oficinaAtiva, nome, telefone, divida: 0 }]); 
+                dbError = error;
+            } 
+            
+            if (dbError) {
+                alert("Erro ao salvar cliente: " + dbError.message + " (Pode ser um telefone já cadastrado)");
+                return;
+            }
+            
+            window.fecharModal('modal-cliente'); 
+            await window.carregarTudoDoSupabase(); 
+        }
+
         window.vincularMoto = async function() { const cliId = document.getElementById('moto-cli-id').value; const modelo = document.getElementById('moto-modelo').value; const placa = document.getElementById('moto-placa').value.toUpperCase(); if(!modelo || !placa) return alert("Preencha Modelo e Placa."); await supabaseClient.from('motos').insert([{ oficina_id: oficinaAtiva, cliente_id: cliId, modelo, placa }]); document.getElementById('moto-modelo').value = ''; document.getElementById('moto-placa').value = ''; window.fecharModal('modal-moto'); await window.carregarTudoDoSupabase(); }
         window.abrirModalReceberDivida = function(id) { const cli = db.clientes.find(c => c.id == id); if(!cli) return; document.getElementById('divida-cli-id').value = cli.id; document.getElementById('divida-cli-nome').innerText = cli.nome; document.getElementById('divida-cli-total').innerText = `R$ ${cli.divida.toFixed(2)}`; document.getElementById('divida-valor-pago').value = cli.divida.toFixed(2); window.abrirModal('modal-divida'); }
         
